@@ -37,10 +37,17 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isLoginPage = request.nextUrl.pathname.startsWith("/login");
+  const path = request.nextUrl.pathname;
+  const isLoginPage = path.startsWith("/login");
+  // صفحات عامة لا تتطلب تسجيل دخول (الدخول والاستعادة)
+  const isPublic =
+    isLoginPage ||
+    path.startsWith("/forgot-password") ||
+    path.startsWith("/reset-password") ||
+    path.startsWith("/auth");
 
   // غير مسجل دخول + يحاول دخول صفحة محمية → إعادة توجيه لصفحة الدخول
-  if (!user && !isLoginPage) {
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/logo";
@@ -12,6 +13,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -78,7 +80,7 @@ export default function LoginPage() {
               <span className="material-symbols-outlined text-gray-400">lock</span>
               <input
                 id="password"
-                type="password"
+                type={showPw ? "text" : "password"}
                 required
                 dir="ltr"
                 value={password}
@@ -86,6 +88,24 @@ export default function LoginPage() {
                 className="w-full bg-transparent py-3 text-left focus:outline-none"
                 placeholder="••••••••"
               />
+              {/* زر إظهار/إخفاء كلمة المرور */}
+              <button
+                type="button"
+                onClick={() => setShowPw((v) => !v)}
+                className="material-symbols-outlined text-gray-400 transition hover:text-brand-600"
+                title={showPw ? "إخفاء" : "إظهار"}
+              >
+                {showPw ? "visibility_off" : "visibility"}
+              </button>
+            </div>
+            {/* رابط نسيان كلمة المرور */}
+            <div className="mt-1.5 text-left">
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-brand-700 hover:underline"
+              >
+                نسيت كلمة المرور؟
+              </Link>
             </div>
           </div>
 

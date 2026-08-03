@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getMyEmployee } from "@/lib/hr";
-import { Payroll, Commission, Deduction, formatPrice } from "@/lib/types";
+import {
+  Payroll,
+  PayrollPayment,
+  Commission,
+  Deduction,
+  formatPrice,
+  payrollPayStatus,
+} from "@/lib/types";
 
 // رواتبي وعمولاتي واستقطاعاتي (للموظف)
 export default async function MySalaryPage() {
@@ -39,12 +46,48 @@ export default async function MySalaryPage() {
   const commissions = (comms ?? []) as Commission[];
   const deductions = (deds ?? []) as Deduction[];
 
+  // ما استلمه فعلياً من كل كشف
+  const { data: payData } = await supabase
+    .from("payroll_payments")
+    .select("*")
+    .in("payroll_id", payrolls.length ? payrolls.map((p) => p.id) : ["-"]);
+  const payments = (payData ?? []) as PayrollPayment[];
+  const paidOf = (payrollId: string) =>
+    payments
+      .filter((x) => x.payroll_id === payrollId)
+      .reduce((s, x) => s + Number(x.amount), 0);
+
+  const totalDue = payrolls.reduce(
+    (s, p) => s + Math.max(Number(p.net) - paidOf(p.id), 0),
+    0
+  );
+
   const card = "rounded-2xl border bg-white p-6 shadow-sm";
 
   return (
     <main className="min-h-screen bg-gray-50">
       {header}
       <section className="space-y-6 p-6">
+        {/* المستحق لي */}
+        <div
+          className={`rounded-2xl border p-6 shadow-sm ${
+            totalDue > 0 ? "bg-amber-50" : "bg-green-50"
+          }`}
+        >
+          <span className="text-sm text-gray-600">المستحق لي (غير مستلم)</span>
+          <p
+            className={`mt-1 text-3xl font-bold ${
+              totalDue > 0 ? "text-amber-700" : "text-green-700"
+            }`}
+            dir="ltr"
+          >
+            {formatPrice(totalDue)}
+          </p>
+          {totalDue <= 0 && (
+            <p className="mt-1 text-sm text-green-700">✓ كل رواتبك مستلمة بالكامل.</p>
+          )}
+        </div>
+
         {/* كشوف الرواتب */}
         <div className={card}>
           <h3 className="mb-3 text-lg font-semibold text-gray-800">كشوف الرواتب</h3>
@@ -52,7 +95,7 @@ export default async function MySalaryPage() {
             <p className="text-sm text-gray-400">لا توجد كشوف رواتب بعد.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[600px] text-right text-sm">
+              <table className="w-full min-w-[820px] text-right text-sm">
                 <thead className="border-b text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">الشهر</th>
@@ -61,19 +104,31 @@ export default async function MySalaryPage() {
                     <th className="pb-2 font-medium">العمولات</th>
                     <th className="pb-2 font-medium">الاستقطاعات</th>
                     <th className="pb-2 font-medium">الصافي</th>
+                    <th className="pb-2 font-medium">استلمت</th>
+                    <th className="pb-2 font-medium">الحالة</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {payrolls.map((p) => (
-                    <tr key={p.id} className="border-b last:border-0">
-                      <td className="py-2.5 text-gray-600" dir="ltr">{p.period}</td>
-                      <td className="py-2.5" dir="ltr">{formatPrice(p.basic)}</td>
-                      <td className="py-2.5" dir="ltr">{formatPrice(p.allowances)}</td>
-                      <td className="py-2.5 text-green-700" dir="ltr">{formatPrice(p.commissions_total)}</td>
-                      <td className="py-2.5 text-red-700" dir="ltr">{formatPrice(p.deductions_total)}</td>
-                      <td className="py-2.5 font-bold" dir="ltr">{formatPrice(p.net)}</td>
-                    </tr>
-                  ))}
+                  {payrolls.map((p) => {
+                    const paid = paidOf(p.id);
+                    const st = payrollPayStatus(Number(p.net), paid);
+                    return (
+                      <tr key={p.id} className="border-b last:border-0">
+                        <td className="py-2.5 text-gray-600" dir="ltr">{p.period}</td>
+                        <td className="py-2.5" dir="ltr">{formatPrice(p.basic)}</td>
+                        <td className="py-2.5" dir="ltr">{formatPrice(p.allowances)}</td>
+                        <td className="py-2.5 text-green-700" dir="ltr">{formatPrice(p.commissions_total)}</td>
+                        <td className="py-2.5 text-red-700" dir="ltr">{formatPrice(p.deductions_total)}</td>
+                        <td className="py-2.5 font-bold" dir="ltr">{formatPrice(p.net)}</td>
+                        <td className="py-2.5 text-green-700" dir="ltr">{formatPrice(paid)}</td>
+                        <td className="py-2.5">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${st.color}`}>
+                            {st.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

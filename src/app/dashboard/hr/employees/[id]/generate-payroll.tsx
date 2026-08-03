@@ -30,15 +30,38 @@ export default function GeneratePayroll({
 
   async function generate() {
     setSaving(true);
-    const { error } = await supabase.from("payrolls").insert({
-      employee_id: employeeId,
-      period,
-      basic: baseSalary,
-      allowances: Number(allowances) || 0,
-      commissions_total: commissionsTotal,
-      deductions_total: deductionsTotal,
-      net,
-    });
+    // 1) إنشاء الكشف
+    const { data, error } = await supabase
+      .from("payrolls")
+      .insert({
+        employee_id: employeeId,
+        period,
+        basic: baseSalary,
+        allowances: Number(allowances) || 0,
+        commissions_total: commissionsTotal,
+        deductions_total: deductionsTotal,
+        net,
+      })
+      .select("id")
+      .single();
+
+    // 2) وسم العمولات والاستقطاعات غير المحتسبة بأنها ضُمّت لهذا الكشف
+    //    حتى لا تتكرّر في كشف الشهر القادم
+    if (!error && data?.id) {
+      await Promise.all([
+        supabase
+          .from("commissions")
+          .update({ payroll_id: data.id })
+          .eq("employee_id", employeeId)
+          .is("payroll_id", null),
+        supabase
+          .from("deductions")
+          .update({ payroll_id: data.id })
+          .eq("employee_id", employeeId)
+          .is("payroll_id", null),
+      ]);
+    }
+
     setSaving(false);
     if (error) {
       alert("تعذّر التوليد: " + error.message);
@@ -91,6 +114,9 @@ export default function GeneratePayroll({
       <p className="mt-2 text-xs text-gray-400">
         الأساسي {formatPrice(baseSalary)} + العمولات {formatPrice(commissionsTotal)} −
         الاستقطاعات {formatPrice(deductionsTotal)} + البدلات = الصافي
+      </p>
+      <p className="mt-1 text-xs text-gray-400">
+        التوليد يسجّل الراتب كمستحق للموظف فقط — الصندوق ينقص عند الضغط على «دفع».
       </p>
     </div>
   );

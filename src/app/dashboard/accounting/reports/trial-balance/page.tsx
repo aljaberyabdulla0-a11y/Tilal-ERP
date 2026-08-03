@@ -23,10 +23,10 @@ export default async function TrialBalancePage() {
     <main className="min-h-screen bg-gray-50">
       <header className="flex items-center gap-3 border-b bg-white px-6 py-4 shadow-sm">
         <Link
-          href="/dashboard/accounting"
+          href="/dashboard/accounting/advanced"
           className="text-sm text-gray-500 hover:text-brand-700"
         >
-          ← المحاسبة
+          ← المحاسبة المتقدمة
         </Link>
         <h1 className="text-xl font-bold text-brand-700">ميزان المراجعة</h1>
       </header>

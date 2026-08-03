@@ -9,10 +9,13 @@ import {
   Leave,
   Attendance,
   Payroll,
+  PayrollPayment,
   LEAVE_STATUS_COLORS,
   formatPrice,
   formatTime,
+  payrollPayStatus,
 } from "@/lib/types";
+import PayPayroll from "../../payroll/pay-payroll";
 import DeleteEmployeeButton from "../delete-employee-button";
 import AddCommission from "./add-commission";
 import AddDeduction from "./add-deduction";
@@ -59,8 +62,22 @@ export default async function EmployeeDetailsPage({
   const attendance = (att ?? []) as Attendance[];
   const payrolls = (pays ?? []) as Payroll[];
 
-  const commissionsTotal = commissions.reduce((s, c) => s + c.amount, 0);
-  const deductionsTotal = deductions.reduce((s, d) => s + d.amount, 0);
+  // دفعات الرواتب لهذا الموظف — لمعرفة المدفوع والمتبقّي لكل كشف
+  const { data: payData } = await supabase
+    .from("payroll_payments")
+    .select("*")
+    .in("payroll_id", payrolls.length ? payrolls.map((p) => p.id) : ["-"]);
+  const payrollPayments = (payData ?? []) as PayrollPayment[];
+  const paidOf = (payrollId: string) =>
+    payrollPayments
+      .filter((x) => x.payroll_id === payrollId)
+      .reduce((s, x) => s + Number(x.amount), 0);
+
+  // العمولات/الاستقطاعات التي لم تُضمَّن في أي كشف بعد — هي وحدها تدخل الكشف القادم
+  const pendingCommissions = commissions.filter((c) => !c.payroll_id);
+  const pendingDeductions = deductions.filter((d) => !d.payroll_id);
+  const commissionsTotal = pendingCommissions.reduce((s, c) => s + c.amount, 0);
+  const deductionsTotal = pendingDeductions.reduce((s, d) => s + d.amount, 0);
 
   const card = "rounded-2xl border bg-white p-6 shadow-sm";
   const h3 = "mb-3 text-lg font-semibold text-gray-800";
@@ -103,11 +120,13 @@ export default async function EmployeeDetailsPage({
         <div className={card}>
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-800">العمولات</h3>
-            <span className="text-sm text-gray-500">الإجمالي: <b dir="ltr">{formatPrice(commissionsTotal)}</b></span>
+            <span className="text-sm text-gray-500">
+              غير محتسبة بكشف: <b dir="ltr">{formatPrice(commissionsTotal)}</b>
+            </span>
           </div>
           <div className="mb-2"><AddCommission employeeId={emp.id} /></div>
           <p className="mb-4 text-xs text-gray-400">
-            🔗 كل عمولة تُرحّل تلقائياً كمصروف &quot;عمولات مدفوعة&quot; في المحاسبة.
+            🔗 كل عمولة تصبح مستحقة للموظف في المحاسبة فور إضافتها، وتُدفع مع راتبه.
           </p>
           {commissions.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد عمولات.</p>
@@ -119,12 +138,16 @@ export default async function EmployeeDetailsPage({
                     <td className="py-2 text-gray-600" dir="ltr">{c.comm_date}</td>
                     <td className="py-2 text-gray-800">{c.description || "—"}</td>
                     <td className="py-2">
-                      {c.journal_entry_id ? (
+                      {c.payroll_id ? (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          مضمّنة بكشف راتب
+                        </span>
+                      ) : c.journal_entry_id ? (
                         <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                          مُرحّل للمحاسبة ✓
+                          مستحقة للموظف ✓
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400">غير مُرحّل</span>
+                        <span className="text-xs text-gray-400">غير مُرحّلة</span>
                       )}
                     </td>
                     <td className="py-2 text-left font-medium" dir="ltr">{formatPrice(c.amount)}</td>
@@ -139,7 +162,9 @@ export default async function EmployeeDetailsPage({
         <div className={card}>
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-800">الاستقطاعات</h3>
-            <span className="text-sm text-gray-500">الإجمالي: <b dir="ltr">{formatPrice(deductionsTotal)}</b></span>
+            <span className="text-sm text-gray-500">
+              غير محتسبة بكشف: <b dir="ltr">{formatPrice(deductionsTotal)}</b>
+            </span>
           </div>
           <div className="mb-4"><AddDeduction employeeId={emp.id} /></div>
           {deductions.length === 0 ? (
@@ -151,6 +176,13 @@ export default async function EmployeeDetailsPage({
                   <tr key={d.id} className="border-b last:border-0">
                     <td className="py-2 text-gray-600" dir="ltr">{d.ded_date}</td>
                     <td className="py-2 text-gray-800">{d.reason || "—"}</td>
+                    <td className="py-2">
+                      {d.payroll_id && (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          مضمّن بكشف راتب
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2 text-left font-medium" dir="ltr">{formatPrice(d.amount)}</td>
                   </tr>
                 ))}
@@ -163,7 +195,8 @@ export default async function EmployeeDetailsPage({
         <div className={card}>
           <h3 className={h3}>كشوف الرواتب</h3>
           <p className="mb-3 text-xs text-gray-400">
-            🔗 كل كشف راتب يُرحّل تلقائياً كمصروف رواتب في المحاسبة (بدون العمولات لتجنّب الازدواج).
+            🔗 توليد الكشف يسجّله كدَين مستحق على الشركة (لا يمسّ الصندوق)، وزر «دفع» ينقص
+            الصندوق أو البنك بالمبلغ المدفوع — كاملاً أو على دفعات.
           </p>
           <div className="mb-4">
             <GeneratePayroll
@@ -176,33 +209,53 @@ export default async function EmployeeDetailsPage({
           {payrolls.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد كشوف رواتب.</p>
           ) : (
-            <table className="w-full text-right text-sm">
-              <thead className="text-gray-500">
-                <tr>
-                  <th className="pb-2 font-medium">الشهر</th>
-                  <th className="pb-2 font-medium">الأساسي</th>
-                  <th className="pb-2 font-medium">العمولات</th>
-                  <th className="pb-2 font-medium">الاستقطاعات</th>
-                  <th className="pb-2 font-medium">الصافي</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payrolls.map((p) => (
-                  <tr key={p.id} className="border-b last:border-0">
-                    <td className="py-2 text-gray-600" dir="ltr">
-                      {p.period}
-                      {p.journal_entry_id && (
-                        <span className="mr-2 text-xs text-green-600">✓</span>
-                      )}
-                    </td>
-                    <td className="py-2" dir="ltr">{formatPrice(p.basic)}</td>
-                    <td className="py-2 text-green-700" dir="ltr">{formatPrice(p.commissions_total)}</td>
-                    <td className="py-2 text-red-700" dir="ltr">{formatPrice(p.deductions_total)}</td>
-                    <td className="py-2 font-bold" dir="ltr">{formatPrice(p.net)}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px] text-right text-sm">
+                <thead className="text-gray-500">
+                  <tr>
+                    <th className="pb-2 font-medium">الشهر</th>
+                    <th className="pb-2 font-medium">الأساسي</th>
+                    <th className="pb-2 font-medium">العمولات</th>
+                    <th className="pb-2 font-medium">الاستقطاعات</th>
+                    <th className="pb-2 font-medium">الصافي</th>
+                    <th className="pb-2 font-medium">المدفوع</th>
+                    <th className="pb-2 font-medium">الحالة</th>
+                    <th className="pb-2 font-medium"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {payrolls.map((p) => {
+                    const paid = paidOf(p.id);
+                    const st = payrollPayStatus(Number(p.net), paid);
+                    return (
+                      <tr key={p.id} className="border-b last:border-0">
+                        <td className="py-2 text-gray-600" dir="ltr">
+                          {p.period}
+                        </td>
+                        <td className="py-2" dir="ltr">{formatPrice(p.basic)}</td>
+                        <td className="py-2 text-green-700" dir="ltr">{formatPrice(p.commissions_total)}</td>
+                        <td className="py-2 text-red-700" dir="ltr">{formatPrice(p.deductions_total)}</td>
+                        <td className="py-2 font-bold" dir="ltr">{formatPrice(p.net)}</td>
+                        <td className="py-2 text-green-700" dir="ltr">{formatPrice(paid)}</td>
+                        <td className="py-2">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${st.color}`}>
+                            {st.label}
+                          </span>
+                        </td>
+                        <td className="py-2 text-left">
+                          <PayPayroll
+                            payrollId={p.id}
+                            employeeName={emp.full_name}
+                            period={p.period}
+                            remaining={st.remaining}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 

@@ -4,22 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-// زر حذف صف من جدول تسويات الشركاء
-export default function DeleteRowButton({
-  table,
-  id,
-}: {
-  table: "partner_settlements";
-  id: string;
-}) {
+// حذف حركة مالية — يحذف معها قيدها المحاسبي تلقائياً (عبر محفّز في القاعدة)
+export default function DeleteMoveButton({ id }: { id: string }) {
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState(false);
 
   async function del() {
-    if (!window.confirm("حذف هذا السجل؟")) return;
+    if (!window.confirm("حذف هذه الحركة؟ سيُحذف معها قيدها المحاسبي.")) return;
     setBusy(true);
-    const { error } = await supabase.from(table).delete().eq("id", id);
+    const { error } = await supabase.from("cash_moves").delete().eq("id", id);
     setBusy(false);
     if (error) {
       alert("تعذّر الحذف: " + error.message);

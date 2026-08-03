@@ -281,6 +281,7 @@ export type Commission = {
   comm_date: string;
   description: string | null;
   journal_entry_id: string | null; // القيد المحاسبي المرتبط (تكامل تلقائي)
+  payroll_id: string | null; // الكشف الذي ضمّها (يمنع احتسابها مرتين)
 };
 
 export type Deduction = {
@@ -289,6 +290,7 @@ export type Deduction = {
   amount: number;
   ded_date: string;
   reason: string | null;
+  payroll_id: string | null; // الكشف الذي ضمّه
 };
 
 export type Payroll = {
@@ -300,10 +302,33 @@ export type Payroll = {
   commissions_total: number;
   deductions_total: number;
   net: number;
-  status: string; // مدفوع | غير مدفوع
+  status: string; // غير مدفوع | مدفوع جزئياً | مدفوع (تتحدّث تلقائياً من الدفعات)
   created_at: string;
-  journal_entry_id: string | null; // القيد المحاسبي المرتبط (تكامل تلقائي)
+  journal_entry_id: string | null; // قيد الاستحقاق المرتبط (تكامل تلقائي)
 };
+
+// دفعة راتب — تسمح بالدفع كاملاً أو على أجزاء
+export type PayrollPayment = {
+  id: string;
+  created_at: string;
+  payroll_id: string;
+  pay_date: string;
+  amount: number;
+  method: "نقد" | "بنك";
+  notes: string | null;
+  journal_entry_id: string | null;
+};
+
+// حالة صرف الراتب تُشتق من مجموع الدفعات مقابل الصافي
+export function payrollPayStatus(net: number, paid: number) {
+  const remaining = Math.max(net - paid, 0);
+  if (net <= 0) return { label: "—", color: "bg-gray-100 text-gray-500", remaining: 0 };
+  if (paid >= net - 0.01)
+    return { label: "مدفوع", color: "bg-green-100 text-green-700", remaining: 0 };
+  if (paid > 0)
+    return { label: "مدفوع جزئياً", color: "bg-amber-100 text-amber-700", remaining };
+  return { label: "غير مدفوع", color: "bg-red-100 text-red-700", remaining };
+}
 
 export const LEAVE_TYPES = ["سنوية", "مرضية", "طارئة", "بدون راتب"] as const;
 export const LEAVE_STATUSES = ["معلقة", "موافق عليها", "مرفوضة"] as const;
@@ -380,17 +405,6 @@ export type Partner = {
   created_at: string;
 };
 
-export type PartnerExpense = {
-  id: string;
-  created_at: string;
-  expense_date: string;
-  description: string;
-  amount: number;
-  paid_by: string;
-  category: string | null;
-  notes: string | null;
-};
-
 export type PartnerSettlement = {
   id: string;
   created_at: string;
@@ -399,6 +413,84 @@ export type PartnerSettlement = {
   to_partner: string;
   amount: number;
   notes: string | null;
+};
+
+// ===== المحاسبة المبسّطة (الحركات المالية) =====
+// المبدأ: المستخدم يُدخل معلومة بسيطة، والنظام يحوّلها لقيد مزدوج تلقائياً.
+
+export type MoneyDirection = "صرف" | "قبض";
+
+// أذرع النشاط — لمعرفة أين تُصرف الأموال بالضبط
+export const ARMS = ["العقارات", "التسويق", "إداري عام"] as const;
+export type Arm = (typeof ARMS)[number];
+
+export const ARM_COLORS: Record<string, string> = {
+  "العقارات": "bg-brand-50 text-brand-700",
+  "التسويق": "bg-purple-100 text-purple-700",
+  "إداري عام": "bg-gray-100 text-gray-600",
+};
+
+// تصنيف مبسّط = اسم عربي مفهوم + الحساب المحاسبي الذي يقابله خلف الكواليس
+export type MoneyCategory = {
+  label: string;
+  account: string; // كود الحساب في شجرة الحسابات
+  icon: string; // Material Symbols
+  hint?: string; // شرح بسيط يظهر للمستخدم
+  partnerOnly?: boolean; // تصنيف خاص بحركة بين الشركة والشريك
+};
+
+// ما نصرفه
+export const EXPENSE_CATEGORIES: MoneyCategory[] = [
+  { label: "رواتب وأجور", account: "5100", icon: "payments", hint: "رواتب الموظفين والأجور اليومية" },
+  { label: "إيجار", account: "5200", icon: "home_work", hint: "إيجار المكتب أو المعرض" },
+  { label: "تسويق وإعلان", account: "5700", icon: "campaign", hint: "إعلانات، سوشيال ميديا، لوحات، مصمّمين" },
+  { label: "عمولات مدفوعة", account: "5500", icon: "handshake", hint: "عمولة مندوب أو دلّال" },
+  { label: "فواتير خدمات", account: "5400", icon: "bolt", hint: "كهرباء، ماء، إنترنت، مولّدة" },
+  { label: "صيانة وتصليحات", account: "5600", icon: "build", hint: "صيانة المكتب أو السيارات" },
+  { label: "مصاريف مكتب ولوازم", account: "5300", icon: "inventory_2", hint: "قرطاسية، أثاث بسيط، مستلزمات" },
+  { label: "وقود ومواصلات", account: "5310", icon: "local_gas_station", hint: "بنزين، تاكسي، سفر" },
+  { label: "ضيافة وطعام", account: "5320", icon: "restaurant", hint: "ضيافة الزبائن، غداء الفريق" },
+  { label: "اشتراكات وبرامج", account: "5330", icon: "cloud", hint: "اشتراكات شهرية، برامج، استضافة" },
+  { label: "رسوم حكومية ومعاملات", account: "5340", icon: "gavel", hint: "طابو، إجازات، رسوم رسمية" },
+  { label: "سداد لشريك", account: "2500", icon: "account_balance_wallet", hint: "الشركة تُرجع مبلغاً لشريك دفعه من جيبه" },
+  { label: "أخرى", account: "5800", icon: "more_horiz" },
+];
+
+// ما نقبضه
+export const INCOME_CATEGORIES: MoneyCategory[] = [
+  { label: "بيع عقار أو وحدة", account: "4100", icon: "sell", hint: "مبلغ مستلم من بيع وحدة" },
+  { label: "عمولة عقارية", account: "4200", icon: "real_estate_agent", hint: "عمولتنا على صفقة" },
+  { label: "خدمات تسويق", account: "4400", icon: "ads_click", hint: "إيراد ذراع التسويق من زبائنه" },
+  { label: "إيداع من شريك", account: "2500", icon: "savings", hint: "شريك يضخّ أموالاً في صندوق الشركة", partnerOnly: true },
+  { label: "إيراد آخر", account: "4300", icon: "more_horiz" },
+];
+
+export function categoriesFor(direction: MoneyDirection): MoneyCategory[] {
+  return direction === "صرف" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+}
+
+export function findCategory(
+  direction: MoneyDirection,
+  label: string
+): MoneyCategory | undefined {
+  return categoriesFor(direction).find((c) => c.label === label);
+}
+
+export type CashMove = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  move_date: string;
+  direction: MoneyDirection;
+  amount: number;
+  category: string;
+  account_code: string;
+  arm: string;
+  method: "نقد" | "بنك";
+  partner_id: string | null;
+  description: string;
+  notes: string | null;
+  journal_entry_id: string | null;
 };
 
 // ===== أدوات رقم الهاتف العراقي =====

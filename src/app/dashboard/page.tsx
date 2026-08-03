@@ -220,6 +220,13 @@ export default async function DashboardPage() {
                 ? [{ href: "/dashboard/invoices/new", label: "إنشاء فاتورة جديدة", icon: "receipt_long" }]
                 : []),
               { href: "/dashboard/reservations/new", label: "تسجيل حجز جديد", icon: "key" },
+              // تسجيل المصاريف بضغطة واحدة — للمدير فقط
+              ...(admin
+                ? [
+                    { href: "/dashboard/accounting/moves/new?dir=صرف", label: "تسجيل مصروف", icon: "payments" },
+                    { href: "/dashboard/accounting/partners", label: "تصفية حسابات الشركاء", icon: "handshake" },
+                  ]
+                : []),
               { href: "/dashboard/hr", label: "الموارد البشرية", icon: "badge" },
             ].map((l) => (
               <Link

@@ -305,9 +305,13 @@ export type Leave = {
   id: string;
   employee_id: string;
   leave_type: string;
+  duration_type: string; // يوم كامل | ساعات
   start_date: string;
   end_date: string;
+  start_time: string | null; // للإجازة الزمنية فقط (HH:MM:SS)
+  end_time: string | null;
   days: number | null;
+  hours: number | null; // عدد الساعات للإجازة الزمنية
   reason: string | null;
   status: string; // معلقة | موافق عليها | مرفوضة
   created_at: string;
@@ -373,6 +377,10 @@ export function payrollPayStatus(net: number, paid: number) {
 export const LEAVE_TYPES = ["سنوية", "مرضية", "طارئة", "بدون راتب"] as const;
 export const LEAVE_STATUSES = ["معلقة", "موافق عليها", "مرفوضة"] as const;
 
+// مدّة الإجازة: يوم كامل (أو أكثر) — أو إجازة زمنية بالساعات داخل يوم واحد
+export const LEAVE_DURATION_TYPES = ["يوم كامل", "ساعات"] as const;
+export type LeaveDurationType = (typeof LEAVE_DURATION_TYPES)[number];
+
 export const LEAVE_STATUS_COLORS: Record<string, string> = {
   "معلقة": "bg-amber-100 text-amber-700",
   "موافق عليها": "bg-green-100 text-green-700",
@@ -385,6 +393,79 @@ export function daysBetween(start: string, end: string): number {
   const e = new Date(end);
   const diff = Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
   return diff > 0 ? diff : 0;
+}
+
+// عدد الساعات بين وقتين في نفس اليوم ("HH:MM")
+export function hoursBetween(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  if ([sh, sm, eh, em].some(Number.isNaN)) return 0;
+  const minutes = eh * 60 + em - (sh * 60 + sm);
+  return minutes > 0 ? Math.round((minutes / 60) * 100) / 100 : 0;
+}
+
+// "09:00:00" → "09:00"
+export function shortTime(t: string | null): string {
+  return t ? t.slice(0, 5) : "—";
+}
+
+// عرض الساعات بلغة مفهومة: 2.5 → "ساعتان و30 دقيقة"
+export function formatHours(h: number | null): string {
+  if (h === null || h === undefined || h <= 0) return "—";
+  const whole = Math.floor(h);
+  const mins = Math.round((h - whole) * 60);
+  const hourPart =
+    whole === 0 ? "" : whole === 1 ? "ساعة" : whole === 2 ? "ساعتان" : `${whole} ساعات`;
+  const minPart = mins === 0 ? "" : `${mins} دقيقة`;
+  if (hourPart && minPart) return `${hourPart} و${minPart}`;
+  return hourPart || minPart;
+}
+
+// مدّة الإجازة كنص مختصر (للجداول)
+export function formatLeaveDuration(l: Leave): string {
+  if (l.duration_type === "ساعات") return formatHours(l.hours);
+  const d = l.days ?? 0;
+  return d === 1 ? "يوم واحد" : d === 2 ? "يومان" : `${d} أيام`;
+}
+
+// فترة الإجازة كنص مختصر (للجداول)
+export function formatLeavePeriod(l: Leave): string {
+  if (l.duration_type === "ساعات")
+    return `${l.start_date} · ${shortTime(l.start_time)} ← ${shortTime(l.end_time)}`;
+  return `${l.start_date} ← ${l.end_date}`;
+}
+
+// ===== الإشعارات =====
+// اسم النوع AppNotification حتى لا يتعارض مع Notification المدمج في المتصفح
+export type AppNotification = {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  kind: string; // إجازة | عام
+  entity_id: string | null;
+  is_read: boolean;
+  created_at: string;
+};
+
+// أيقونة Material Symbols حسب نوع الإشعار
+export const NOTIFICATION_ICONS: Record<string, string> = {
+  "إجازة": "beach_access",
+  "عام": "notifications",
+};
+
+// "قبل 5 دقائق" — عرض زمن الإشعار بلغة بسيطة
+export function timeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "الآن";
+  if (mins < 60) return `قبل ${mins} دقيقة`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `قبل ${hrs} ساعة`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `قبل ${days} يوم`;
+  return new Date(ts).toLocaleDateString("ar");
 }
 
 // تنسيق وقت (ساعة:دقيقة) من طابع زمني

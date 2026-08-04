@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "./logout-button";
 import Logo from "@/components/logo";
+import NotificationBell from "@/components/notification-bell";
 
 export type NavItem = {
   href: string;
@@ -36,9 +37,10 @@ export default function AppShell({
 
   const sidebar = (
     <aside className="flex h-full w-64 flex-col border-l border-gray-200/70 bg-white/80 backdrop-blur-xl">
-      {/* الشعار */}
-      <div className="flex items-center justify-center border-b border-gray-200/60 px-4 py-5">
-        <Logo width={170} />
+      {/* الشعار + جرس الإشعارات */}
+      <div className="flex items-center justify-between gap-2 border-b border-gray-200/60 px-4 py-4">
+        <NotificationBell />
+        <Logo width={150} />
       </div>
 
       {/* روابط التنقل */}
@@ -108,6 +110,9 @@ export default function AppShell({
             menu
           </button>
           <span className="font-bold text-brand-700">تلال ERP</span>
+          <div className="mr-auto">
+            <NotificationBell pin="left" />
+          </div>
         </div>
 
         <div className="min-w-0 flex-1">{children}</div>

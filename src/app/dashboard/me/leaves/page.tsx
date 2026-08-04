@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getMyEmployee } from "@/lib/hr";
-import { Leave, LEAVE_STATUS_COLORS } from "@/lib/types";
+import {
+  Leave,
+  LEAVE_STATUS_COLORS,
+  formatLeaveDuration,
+  formatLeavePeriod,
+} from "@/lib/types";
 import RequestLeave from "./request-leave";
 
 // إجازاتي (للموظف)
@@ -54,9 +59,9 @@ export default async function MyLeavesPage() {
                 <thead className="border-b text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">النوع</th>
-                    <th className="pb-2 font-medium">من</th>
-                    <th className="pb-2 font-medium">إلى</th>
-                    <th className="pb-2 font-medium">الأيام</th>
+                    <th className="pb-2 font-medium">المدّة</th>
+                    <th className="pb-2 font-medium">الفترة</th>
+                    <th className="pb-2 font-medium">المقدار</th>
                     <th className="pb-2 font-medium">الحالة</th>
                   </tr>
                 </thead>
@@ -64,9 +69,21 @@ export default async function MyLeavesPage() {
                   {leaves.map((l) => (
                     <tr key={l.id} className="border-b last:border-0">
                       <td className="py-2.5 text-gray-800">{l.leave_type}</td>
-                      <td className="py-2.5 text-gray-600" dir="ltr">{l.start_date}</td>
-                      <td className="py-2.5 text-gray-600" dir="ltr">{l.end_date}</td>
-                      <td className="py-2.5 text-gray-600">{l.days ?? "—"}</td>
+                      <td className="py-2.5">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            l.duration_type === "ساعات"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {l.duration_type === "ساعات" ? "زمنية" : "يوم كامل"}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-gray-600" dir="ltr">
+                        {formatLeavePeriod(l)}
+                      </td>
+                      <td className="py-2.5 text-gray-600">{formatLeaveDuration(l)}</td>
                       <td className="py-2.5">
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${LEAVE_STATUS_COLORS[l.status] ?? "bg-gray-100 text-gray-600"}`}>
                           {l.status}

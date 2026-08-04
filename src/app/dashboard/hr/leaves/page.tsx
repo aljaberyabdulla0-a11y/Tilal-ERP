@@ -2,7 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
-import { Leave, LEAVE_STATUS_COLORS } from "@/lib/types";
+import {
+  Leave,
+  LEAVE_STATUS_COLORS,
+  formatLeaveDuration,
+  formatLeavePeriod,
+} from "@/lib/types";
 import LeaveDecision from "../leave-decision";
 
 // كل طلبات الإجازات (للمدير)
@@ -33,14 +38,14 @@ export default async function HrLeavesPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[760px] text-right text-sm">
+            <table className="w-full min-w-[900px] text-right text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الموظف</th>
                   <th className="px-4 py-3 font-medium">النوع</th>
-                  <th className="px-4 py-3 font-medium">من</th>
-                  <th className="px-4 py-3 font-medium">إلى</th>
-                  <th className="px-4 py-3 font-medium">الأيام</th>
+                  <th className="px-4 py-3 font-medium">المدّة</th>
+                  <th className="px-4 py-3 font-medium">الفترة</th>
+                  <th className="px-4 py-3 font-medium">المقدار</th>
                   <th className="px-4 py-3 font-medium">السبب</th>
                   <th className="px-4 py-3 font-medium">الحالة</th>
                   <th className="px-4 py-3 font-medium">إجراء</th>
@@ -53,9 +58,21 @@ export default async function HrLeavesPage() {
                       {l.employees?.full_name ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{l.leave_type}</td>
-                    <td className="px-4 py-3 text-gray-600" dir="ltr">{l.start_date}</td>
-                    <td className="px-4 py-3 text-gray-600" dir="ltr">{l.end_date}</td>
-                    <td className="px-4 py-3 text-gray-600">{l.days ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          l.duration_type === "ساعات"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {l.duration_type === "ساعات" ? "زمنية" : "يوم كامل"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600" dir="ltr">
+                      {formatLeavePeriod(l)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{formatLeaveDuration(l)}</td>
                     <td className="px-4 py-3 text-gray-600">{l.reason || "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${LEAVE_STATUS_COLORS[l.status] ?? "bg-gray-100 text-gray-600"}`}>

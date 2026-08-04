@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getMyEmployee } from "@/lib/hr";
-import { Attendance, formatPrice } from "@/lib/types";
+import { Attendance, CompanySettings, formatPrice } from "@/lib/types";
 import CheckInOut from "./me/check-in-out";
 
 // لوحة تحكم الموظف — بياناته الشخصية فقط (لا أرقام عامة للشركة)
@@ -12,7 +12,20 @@ export default async function EmployeeDashboard() {
   } = await supabase.auth.getUser();
   const emp = await getMyEmployee();
   const uid = user?.id ?? "";
-  const today = new Date().toISOString().slice(0, 10);
+  // التاريخ المحلي (وليس UTC) حتى يطابق يوم البصمة الفعلي
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(now.getDate()).padStart(2, "0")}`;
+
+  // إعدادات نطاق البصمة
+  const { data: cfg } = await supabase
+    .from("company_settings")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle();
+  const settings = (cfg as CompanySettings) ?? null;
 
   // عملائي وحجوزاتي (ما أضفته أنا)
   const [clientsRes, resRes] = await Promise.all([
@@ -72,7 +85,7 @@ export default async function EmployeeDashboard() {
       {/* البصمة */}
       {emp ? (
         <section className="mb-6">
-          <CheckInOut employeeId={emp.id} todayRecord={todayAtt} />
+          <CheckInOut employeeId={emp.id} todayRecord={todayAtt} settings={settings} />
         </section>
       ) : (
         <section className="mb-6">

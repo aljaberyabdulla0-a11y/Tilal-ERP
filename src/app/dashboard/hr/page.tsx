@@ -19,6 +19,7 @@ export default async function HrHome() {
 
   const sections = [
     { href: "/dashboard/hr/employees", title: "الموظفون", desc: "بيانات الموظفين والرواتب", icon: "🧑‍💼" },
+    { href: "/dashboard/hr/attendance", title: "سجل الحضور", desc: "بصمات اليوم ومواقعها وتسجيل يدوي", icon: "👆" },
     { href: "/dashboard/hr/leaves", title: "الإجازات", desc: "طلبات الإجازات والموافقات", icon: "🏖️" },
     { href: "/dashboard/hr/payroll", title: "كشوف الرواتب", desc: "توليد ومتابعة الرواتب", icon: "💵" },
   ];

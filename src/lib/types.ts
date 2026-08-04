@@ -259,7 +259,47 @@ export type Attendance = {
   check_in: string | null;
   check_out: string | null;
   note: string | null;
+  // الموقع الجغرافي وقت البصمة (تحقّق النطاق)
+  check_in_lat: number | null;
+  check_in_lng: number | null;
+  check_in_distance_m: number | null;
+  check_out_lat: number | null;
+  check_out_lng: number | null;
+  check_out_distance_m: number | null;
+  source: string | null; // بصمة ذاتية | تسجيل يدوي بواسطة المدير
 };
+
+// إعدادات الشركة — موقع مركز المبيعات ونطاق البصمة المسموح
+export type CompanySettings = {
+  id: number;
+  office_name: string;
+  office_lat: number | null;
+  office_lng: number | null;
+  geofence_radius_m: number;
+  geofence_enabled: boolean;
+  updated_at: string;
+};
+
+// المسافة بالمتر بين نقطتين (نفس معادلة Haversine المستخدمة في قاعدة البيانات)
+export function distanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const a =
+    Math.sin(toRad(lat2 - lat1) / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(toRad(lng2 - lng1) / 2) ** 2;
+  return 6371000 * 2 * Math.asin(Math.sqrt(a));
+}
+
+// عرض المسافة بصيغة مقروءة
+export function formatDistance(m: number): string {
+  return m < 1000 ? `${Math.round(m)} متر` : `${(m / 1000).toFixed(2)} كم`;
+}
 
 export type Leave = {
   id: string;

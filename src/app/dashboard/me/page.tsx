@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { getMyEmployee } from "@/lib/hr";
-import { Attendance, Payroll, formatPrice } from "@/lib/types";
+import { Attendance, CompanySettings, Payroll, formatPrice } from "@/lib/types";
 import CheckInOut from "./check-in-out";
 import HrTabs from "../hr/hr-tabs";
 import AttendanceSummary from "@/components/attendance-summary";
@@ -23,8 +23,41 @@ export default async function MyPortalHome() {
         </header>
         <HrTabs active="portal" isAdmin={admin} />
         <section className="p-6">
-          <div className="rounded-lg bg-amber-50 p-6 text-amber-800">
-            لم يتم ربط حسابك بملف موظف بعد. يرجى مراجعة المدير لإنشاء ملفك وربطه بحسابك.
+          <div className="rounded-2xl bg-amber-50 p-6 text-amber-900">
+            <h3 className="font-bold">حسابك غير مربوط بملف موظف</h3>
+            <p className="mt-1 text-sm">
+              تسجيل البصمة يعمل فقط لحساب مرتبط بملف موظف — لذلك لا يظهر لك زر البصمة.
+            </p>
+            {admin ? (
+              <div className="mt-4 space-y-2 text-sm">
+                <p className="font-semibold">بما أنك مدير، تقدر تحلّها بطريقتين:</p>
+                <p>
+                  <b>١)</b> لتبصم أنت بنفسك: افتح{" "}
+                  <Link
+                    href="/dashboard/hr/employees"
+                    className="font-semibold underline hover:text-amber-700"
+                  >
+                    الموظفين
+                  </Link>{" "}
+                  ← أنشئ ملف موظف باسمك (أو عدّل ملفاً موجوداً) واربطه بحسابك من حقل
+                  &laquo;الربط بحساب دخول&raquo;.
+                </p>
+                <p>
+                  <b>٢)</b> لتسجّل الحضور نيابة عن الموظفين: افتح{" "}
+                  <Link
+                    href="/dashboard/hr/attendance"
+                    className="font-semibold underline hover:text-amber-700"
+                  >
+                    سجل الحضور
+                  </Link>{" "}
+                  وسجّل لهم يدوياً بدون قيد الموقع.
+                </p>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm">
+                راجع المدير لإنشاء ملفك وربطه بحسابك.
+              </p>
+            )}
           </div>
         </section>
       </main>
@@ -32,9 +65,14 @@ export default async function MyPortalHome() {
   }
 
   const supabase = await createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  // التاريخ المحلي (وليس UTC) حتى يطابق يوم البصمة الفعلي
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const [{ data: todayAtt }, { data: comms }, { data: deds }, { data: pays }] =
+  const [{ data: todayAtt }, { data: comms }, { data: deds }, { data: pays }, { data: cfg }] =
     await Promise.all([
       supabase
         .from("attendance")
@@ -50,6 +88,7 @@ export default async function MyPortalHome() {
         .eq("employee_id", emp.id)
         .order("period", { ascending: false })
         .limit(1),
+      supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
     ]);
 
   const commissionsTotal = (comms ?? []).reduce(
@@ -84,7 +123,11 @@ export default async function MyPortalHome() {
 
       <section className="space-y-6 p-6">
         {/* تسجيل البصمة */}
-        <CheckInOut employeeId={emp.id} todayRecord={(todayAtt as Attendance) ?? null} />
+        <CheckInOut
+          employeeId={emp.id}
+          todayRecord={(todayAtt as Attendance) ?? null}
+          settings={(cfg as CompanySettings) ?? null}
+        />
 
         {/* ملخص الحضور */}
         <AttendanceSummary

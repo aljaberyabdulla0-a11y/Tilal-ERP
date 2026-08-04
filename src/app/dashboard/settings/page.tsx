@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
+import { CompanySettings } from "@/lib/types";
 import RoleSelect from "./role-select";
+import OfficeLocation from "./office-location";
 
 type Profile = {
   id: string;
@@ -23,12 +25,16 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("id, email, role, created_at")
-    .order("created_at", { ascending: true });
+  const [{ data }, { data: cfg }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, email, role, created_at")
+      .order("created_at", { ascending: true }),
+    supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
+  ]);
 
   const profiles = (data ?? []) as Profile[];
+  const settings = (cfg as CompanySettings) ?? null;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -39,11 +45,15 @@ export default async function SettingsPage() {
         >
           ← لوحة التحكم
         </Link>
-        <h1 className="text-xl font-bold text-brand-700">الإعدادات — المستخدمون والصلاحيات</h1>
+        <h1 className="text-xl font-bold text-brand-700">الإعدادات</h1>
       </header>
 
-      <section className="p-6">
-        <p className="mb-4 text-sm text-gray-500">
+      <section className="space-y-8 p-6">
+        {/* موقع البصمة */}
+        <OfficeLocation settings={settings} />
+
+        <h2 className="text-lg font-bold text-gray-800">المستخدمون والصلاحيات</h2>
+        <p className="-mt-4 mb-4 text-sm text-gray-500">
           هنا تتحكّم بأدوار المستخدمين. <b>المدير</b> يقدر يضيف ويعدّل ويحذف،
           و<b>الموظف</b> يقدر يضيف ويشاهد فقط.
         </p>

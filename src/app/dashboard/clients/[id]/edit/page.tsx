@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
+import { getSalesEmployeeNames } from "@/lib/hr";
 import { Client } from "@/lib/types";
 import ClientForm from "../../client-form";
 
@@ -17,11 +18,10 @@ export default async function EditClientPage({
   }
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("clients")
-    .select("*")
-    .eq("id", params.id)
-    .single();
+  const [{ data }, employeeNames] = await Promise.all([
+    supabase.from("clients").select("*").eq("id", params.id).single(),
+    getSalesEmployeeNames(),
+  ]);
 
   if (!data) notFound();
   const client = data as Client;
@@ -39,7 +39,11 @@ export default async function EditClientPage({
       </header>
 
       <section className="p-6">
-        <ClientForm initial={client} clientId={client.id} />
+        <ClientForm
+          initial={client}
+          clientId={client.id}
+          employeeNames={employeeNames}
+        />
       </section>
     </main>
   );

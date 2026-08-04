@@ -26,9 +26,13 @@ function today(): string {
 export default function ClientForm({
   initial,
   clientId,
+  employeeNames = [],
 }: {
   initial?: Partial<Client>;
   clientId?: string;
+  // أسماء الموظفين المتاحة — الاسم هنا يحدّد من يشوف هذا العميل،
+  // فلازم يطابق ملف الموظفين حرفياً (لذلك قائمة وليس كتابة حرة)
+  employeeNames?: string[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -52,6 +56,12 @@ export default function ClientForm({
   function update(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
+
+  // القائمة المعروضة — نضيف لها القيمة المحفوظة سابقاً إن كانت
+  // لموظف قديم لم يعد في القائمة، حتى لا تضيع عند التعديل
+  const options = Array.from(
+    new Set([...employeeNames, form.sales_employee].filter(Boolean))
+  );
 
   // هل الرقم الحالي بالصيغة الدولية؟
   const isIntl = form.phone.startsWith("+964");
@@ -241,17 +251,36 @@ export default function ClientForm({
           </select>
         </div>
 
-        {/* موظف المبيعات */}
+        {/* موظف المبيعات — قائمة من ملف الموظفين */}
         <div>
           <label className={labelClass}>موظف المبيعات {req}</label>
-          <input
-            type="text"
-            required
-            value={form.sales_employee}
-            onChange={(e) => update("sales_employee", e.target.value)}
-            className={inputClass}
-            placeholder="اسم الموظف المسؤول"
-          />
+          {options.length > 0 ? (
+            <select
+              required
+              value={form.sales_employee}
+              onChange={(e) => update("sales_employee", e.target.value)}
+              className={inputClass}
+            >
+              <option value="">— اختر الموظف —</option>
+              {options.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              required
+              value={form.sales_employee}
+              onChange={(e) => update("sales_employee", e.target.value)}
+              className={inputClass}
+              placeholder="اسم الموظف المسؤول"
+            />
+          )}
+          <p className="mt-1 text-xs text-gray-400">
+            الموظف المختار هو من يشوف هذا العميل في حسابه.
+          </p>
         </div>
 
         {/* التاريخ */}

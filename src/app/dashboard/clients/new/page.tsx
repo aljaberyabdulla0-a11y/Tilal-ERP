@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { getSalesEmployeeNames } from "@/lib/hr";
 import ClientForm from "../client-form";
 
 // صفحة إضافة عميل جديد — تستخدم النموذج المشترك
-export default function NewClientPage() {
+export default async function NewClientPage() {
+  const employeeNames = await getSalesEmployeeNames();
+
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="flex items-center gap-3 border-b bg-white px-6 py-4 shadow-sm">
@@ -16,7 +19,7 @@ export default function NewClientPage() {
       </header>
 
       <section className="p-6">
-        <ClientForm />
+        <ClientForm employeeNames={employeeNames} />
       </section>
     </main>
   );

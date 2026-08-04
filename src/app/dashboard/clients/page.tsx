@@ -36,7 +36,7 @@ export default async function ClientsPage({
   return (
     <main className="min-h-screen bg-gray-50">
       {/* الشريط العلوي */}
-      <header className="flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
@@ -46,7 +46,7 @@ export default async function ClientsPage({
           </Link>
           <h1 className="text-xl font-bold text-brand-700">CRM</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* تبديل العرض: قائمة / لوحة */}
           <div className="flex rounded-lg border p-0.5 text-sm">
             <span className="rounded-md bg-brand-600 px-3 py-1.5 font-semibold text-white">
@@ -59,6 +59,25 @@ export default async function ClientsPage({
               لوحة المبيعات
             </Link>
           </div>
+          {/* الاستيراد والتصدير للإدارة فقط */}
+          {admin && (
+            <>
+              <Link
+                href="/dashboard/clients/import"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+              >
+                <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                استيراد اكسل
+              </Link>
+              <a
+                href="/api/clients/export"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+              >
+                <span className="material-symbols-outlined text-[18px]">download</span>
+                تصدير اكسل
+              </a>
+            </>
+          )}
           <Link
             href="/dashboard/clients/new"
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
@@ -71,6 +90,17 @@ export default async function ClientsPage({
       <CrmTabs active="clients" />
 
       <section className="p-6">
+        {/* توضيح للموظف: القائمة تعرض عملاءه فقط */}
+        {!admin && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
+            <span className="material-symbols-outlined text-[18px]">lock</span>
+            <span>
+              تشوف هنا العملاء الذين أضفتهم أو المُسندين لك فقط. لعرض عميل غير ظاهر
+              لك، راجع الإدارة.
+            </span>
+          </div>
+        )}
+
         {/* صندوق البحث */}
         <form className="mb-4 flex gap-2">
           <input

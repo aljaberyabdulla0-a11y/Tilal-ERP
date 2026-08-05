@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getMyEmployee } from "@/lib/hr";
-import { Attendance, CompanySettings, formatPrice } from "@/lib/types";
+import {
+  Attendance,
+  CompanySettings,
+  WorkLocation,
+  formatPrice,
+} from "@/lib/types";
+import { baghdadDate } from "@/lib/time";
 import CheckInOut from "./me/check-in-out";
 
 // لوحة تحكم الموظف — بياناته الشخصية فقط (لا أرقام عامة للشركة)
@@ -12,20 +18,16 @@ export default async function EmployeeDashboard() {
   } = await supabase.auth.getUser();
   const emp = await getMyEmployee();
   const uid = user?.id ?? "";
-  // التاريخ المحلي (وليس UTC) حتى يطابق يوم البصمة الفعلي
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(now.getDate()).padStart(2, "0")}`;
+  // يوم البصمة بتوقيت بغداد (خادم Vercel يعمل بـ UTC فلا نعتمد عليه)
+  const today = baghdadDate();
 
-  // إعدادات نطاق البصمة
-  const { data: cfg } = await supabase
-    .from("company_settings")
-    .select("*")
-    .eq("id", 1)
-    .maybeSingle();
+  // إعدادات ومواقع البصمة
+  const [{ data: cfg }, { data: locs }] = await Promise.all([
+    supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
+    supabase.from("work_locations").select("*").eq("is_active", true),
+  ]);
   const settings = (cfg as CompanySettings) ?? null;
+  const locations = (locs ?? []) as WorkLocation[];
 
   // عملائي وحجوزاتي (ما أضفته أنا)
   const [clientsRes, resRes] = await Promise.all([
@@ -82,10 +84,21 @@ export default async function EmployeeDashboard() {
         <p className="mt-1 text-gray-500">هذه لوحتك الشخصية — متابعة عملك وحضورك.</p>
       </section>
 
-      {/* البصمة */}
-      {emp ? (
+      {/* البصمة — المعفيّون (الإدارة) لا يظهر لهم */}
+      {emp && emp.exempt_from_attendance ? (
         <section className="mb-6">
-          <CheckInOut employeeId={emp.id} todayRecord={todayAtt} settings={settings} />
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-slate-700">
+            حسابك <b>معفى من البصمة</b> — لا يُحتسب عليك غياب ولا تأخير.
+          </div>
+        </section>
+      ) : emp ? (
+        <section className="mb-6">
+          <CheckInOut
+            employeeId={emp.id}
+            todayRecord={todayAtt}
+            settings={settings}
+            locations={locations}
+          />
         </section>
       ) : (
         <section className="mb-6">

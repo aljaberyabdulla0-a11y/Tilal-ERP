@@ -4,24 +4,27 @@
 // والتقرير الشهري وسجل الموظف.
 // ============================================================
 
-import type { Attendance, CompanySettings, Leave } from "@/lib/types";
+import type { Attendance, CompanySettings, Employee, Leave } from "@/lib/types";
+import {
+  baghdadDate,
+  baghdadMinutesOfDay,
+  baghdadMonth,
+  baghdadWeekday,
+} from "@/lib/time";
 
-// ===== أدوات التاريخ (محلية وليست UTC — يوم البصمة يتبع توقيت الجهاز) =====
+// ===== أدوات التاريخ — كلها بتوقيت بغداد وليس توقيت الخادم =====
 
 export function toLocalISO(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
-  ).padStart(2, "0")}`;
+  return baghdadDate(d);
 }
 
 export function todayISO(): string {
-  return toLocalISO(new Date());
+  return baghdadDate();
 }
 
 // الشهر الحالي بصيغة YYYY-MM
 export function currentMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return baghdadMonth();
 }
 
 // كل أيام الشهر بصيغة YYYY-MM-DD
@@ -52,15 +55,45 @@ const WEEKDAY_NAMES = [
 ];
 
 export function weekdayName(dateISO: string): string {
-  return WEEKDAY_NAMES[new Date(dateISO + "T12:00:00").getDay()] ?? "";
+  return WEEKDAY_NAMES[baghdadWeekday(dateISO)] ?? "";
 }
 
 export const WEEKDAYS = WEEKDAY_NAMES.map((label, value) => ({ value, label }));
 
-// هل هذا اليوم يوم دوام حسب إعدادات الشركة؟
-export function isWorkDay(dateISO: string, settings: CompanySettings | null): boolean {
-  const days = settings?.work_days ?? [0, 1, 2, 3, 4];
-  return days.includes(new Date(dateISO + "T12:00:00").getDay());
+// ===== دوام الموظف الفعلي =====
+// القاعدة: لو للموظف دوام خاص نستخدمه، وإلا نرجع لدوام الشركة العام.
+export type Schedule = {
+  start: string;      // "09:00"
+  end: string;        // "17:00"
+  grace: number;      // دقائق السماح
+  days: number[];     // 0=الأحد ... 6=السبت
+  custom: boolean;    // هل هو دوام خاص بهذا الموظف؟
+};
+
+export function effectiveSchedule(
+  employee: Pick<Employee, "work_start_time" | "work_end_time" | "work_days"> | null,
+  settings: CompanySettings | null
+): Schedule {
+  const hasCustomHours = !!(employee?.work_start_time && employee?.work_end_time);
+  const hasCustomDays = !!(employee?.work_days && employee.work_days.length > 0);
+
+  return {
+    start: (hasCustomHours ? employee!.work_start_time! : settings?.work_start_time ?? "09:00:00").slice(0, 5),
+    end: (hasCustomHours ? employee!.work_end_time! : settings?.work_end_time ?? "17:00:00").slice(0, 5),
+    grace: settings?.late_grace_minutes ?? 15,
+    days: hasCustomDays ? employee!.work_days! : settings?.work_days ?? [0, 1, 2, 3, 4],
+    custom: hasCustomHours || hasCustomDays,
+  };
+}
+
+// دوام الشركة العام (لمن لا نعرف موظفه)
+export function companySchedule(settings: CompanySettings | null): Schedule {
+  return effectiveSchedule(null, settings);
+}
+
+// هل هذا اليوم يوم دوام حسب الجدول؟
+export function isWorkDay(dateISO: string, schedule: Schedule): boolean {
+  return schedule.days.includes(baghdadWeekday(dateISO));
 }
 
 // ===== أدوات الوقت =====
@@ -73,11 +106,10 @@ export function timeToMinutes(t: string | null | undefined): number | null {
   return h * 60 + m;
 }
 
-// طابع زمني → دقائق من منتصف الليل بالتوقيت المحلي
+// طابع زمني → دقائق من منتصف الليل **بتوقيت بغداد**
 export function stampToMinutes(ts: string | null): number | null {
   if (!ts) return null;
-  const d = new Date(ts);
-  return d.getHours() * 60 + d.getMinutes();
+  return baghdadMinutesOfDay(ts);
 }
 
 // 545 → "9 ساعات و5 دقائق"
@@ -107,6 +139,7 @@ export type DayStatusKey =
   | "missing_out"   // بصم حضور ونسي الانصراف (يوم سابق)
   | "leave"         // إجازة معتمدة
   | "absent"        // يوم دوام بلا بصمة
+  | "exempt"        // معفى من البصمة (الإدارة)
   | "off";          // عطلة أسبوعية
 
 export type DayResult = {
@@ -127,6 +160,7 @@ const STATUS_META: Record<DayStatusKey, { label: string; color: string }> = {
   missing_out: { label: "بلا انصراف", color: "bg-amber-100 text-amber-700" },
   leave: { label: "إجازة", color: "bg-purple-100 text-purple-700" },
   absent: { label: "غياب", color: "bg-red-100 text-red-700" },
+  exempt: { label: "معفى من البصمة", color: "bg-slate-100 text-slate-600" },
   off: { label: "عطلة", color: "bg-gray-100 text-gray-500" },
 };
 
@@ -145,12 +179,13 @@ export function evaluateDay(
   date: string,
   record: Attendance | null,
   leaves: Leave[],
-  settings: CompanySettings | null,
-  today = todayISO()
+  schedule: Schedule,
+  today = todayISO(),
+  exempt = false
 ): DayResult {
-  const startM = timeToMinutes(settings?.work_start_time) ?? 9 * 60;
-  const endM = timeToMinutes(settings?.work_end_time) ?? 17 * 60;
-  const grace = settings?.late_grace_minutes ?? 15;
+  const startM = timeToMinutes(schedule.start) ?? 9 * 60;
+  const endM = timeToMinutes(schedule.end) ?? 17 * 60;
+  const grace = schedule.grace;
 
   const inM = stampToMinutes(record?.check_in ?? null);
   const outM = stampToMinutes(record?.check_out ?? null);
@@ -167,13 +202,15 @@ export function evaluateDay(
     outM !== null && outM < endM ? endM - outM : 0;
 
   const leave = leaveCovering(date, leaves);
-  const workDay = isWorkDay(date, settings);
+  const workDay = isWorkDay(date, schedule);
 
   let status: DayStatusKey;
   if (record?.check_in && record?.check_out) status = "complete";
   else if (record?.check_in) status = date === today ? "working" : "missing_out";
   else if (leave) status = "leave";
   else if (!workDay) status = "off";
+  // المعفيّون من البصمة (الإدارة) لا يُحتسب عليهم غياب
+  else if (exempt) status = "exempt";
   else status = "absent";
 
   return {
@@ -221,7 +258,7 @@ export function summarizePeriod(days: DayResult[]): PeriodSummary {
   };
 
   for (const d of days) {
-    if (d.status !== "off") s.workDays++;
+    if (d.status !== "off" && d.status !== "exempt") s.workDays++;
     if (d.record?.check_in) s.presentDays++;
     if (d.status === "complete") s.completeDays++;
     if (d.status === "absent") s.absentDays++;
@@ -246,14 +283,17 @@ export function buildMonth(
   month: string,
   records: Attendance[],
   leaves: Leave[],
-  settings: CompanySettings | null,
-  today = todayISO()
+  schedule: Schedule,
+  today = todayISO(),
+  exempt = false
 ): { days: DayResult[]; summary: PeriodSummary } {
   const byDate = new Map(records.map((r) => [r.work_date, r]));
   // لا نحاسب على أيام لم تأتِ بعد
   const days = daysOfMonth(month)
     .filter((d) => d <= today)
-    .map((d) => evaluateDay(d, byDate.get(d) ?? null, leaves, settings, today));
+    .map((d) =>
+      evaluateDay(d, byDate.get(d) ?? null, leaves, schedule, today, exempt)
+    );
 
   return { days, summary: summarizePeriod(days) };
 }

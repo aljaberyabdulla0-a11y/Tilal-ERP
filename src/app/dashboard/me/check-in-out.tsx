@@ -6,30 +6,37 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Attendance,
   CompanySettings,
+  WorkLocation,
   distanceMeters,
   formatDistance,
   formatTime,
 } from "@/lib/types";
+import { baghdadDate, baghdadDateLabel } from "@/lib/time";
+
+type Nearest = { location: WorkLocation; distance: number } | null;
 
 type GeoState =
   | { status: "idle" }
   | { status: "locating" }
-  | { status: "ok"; lat: number; lng: number; distance: number | null }
+  | { status: "ok"; lat: number; lng: number; nearest: Nearest }
   | { status: "error"; message: string };
 
 // ============================================================
 // تسجيل البصمة مع التحقّق من الموقع.
-// المتصفح يعطينا الإحداثيات، ونعرض للموظف بعده عن مركز المبيعات،
-// وقاعدة البيانات ترفض أي بصمة خارج النطاق (لا يمكن التحايل).
+// البصمة تُقبل من **أي** موقع عمل نشط — نعرض للموظف أقرب موقع له
+// وبُعده عنه، وقاعدة البيانات ترفض أي بصمة خارج كل النطاقات.
+// كل التواريخ بتوقيت بغداد حتى لا يختلف اليوم عن سجلّ الإدارة.
 // ============================================================
 export default function CheckInOut({
   employeeId,
   todayRecord,
   settings,
+  locations,
 }: {
   employeeId: string;
   todayRecord: Attendance | null;
   settings: CompanySettings | null;
+  locations: WorkLocation[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -37,18 +44,25 @@ export default function CheckInOut({
   const [geo, setGeo] = useState<GeoState>({ status: "idle" });
   const [error, setError] = useState<string | null>(null);
 
-  // التاريخ المحلي (وليس UTC) حتى لا يختلف اليوم بعد منتصف الليل
-  const today = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-      d.getDate()
-    ).padStart(2, "0")}`;
-  })();
+  // يوم البصمة بتوقيت بغداد (وليس توقيت جهاز الموظف)
+  const today = baghdadDate();
 
-  const geofenceOn =
-    !!settings?.geofence_enabled &&
-    settings.office_lat != null &&
-    settings.office_lng != null;
+  const activeLocations = locations.filter((l) => l.is_active);
+  const geofenceOn = !!settings?.geofence_enabled && activeLocations.length > 0;
+
+  // أقرب موقع عمل للإحداثيات المعطاة
+  const findNearest = useCallback(
+    (lat: number, lng: number): Nearest => {
+      if (activeLocations.length === 0) return null;
+      let best: Nearest = null;
+      for (const location of activeLocations) {
+        const distance = distanceMeters(lat, lng, location.lat, location.lng);
+        if (!best || distance < best.distance) best = { location, distance };
+      }
+      return best;
+    },
+    [activeLocations]
+  );
 
   // جلب الموقع الحالي من المتصفح
   const locate = useCallback(() => {
@@ -60,11 +74,7 @@ export default function CheckInOut({
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        const distance =
-          geofenceOn && settings
-            ? distanceMeters(lat, lng, settings.office_lat!, settings.office_lng!)
-            : null;
-        setGeo({ status: "ok", lat, lng, distance });
+        setGeo({ status: "ok", lat, lng, nearest: findNearest(lat, lng) });
       },
       (err) => {
         const messages: Record<number, string> = {
@@ -79,18 +89,16 @@ export default function CheckInOut({
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
-  }, [geofenceOn, settings]);
+  }, [findNearest]);
 
   // نحدّد الموقع تلقائياً عند فتح الصفحة
   useEffect(() => {
     locate();
   }, [locate]);
 
+  const nearest = geo.status === "ok" ? geo.nearest : null;
   const outOfRange =
-    geofenceOn &&
-    geo.status === "ok" &&
-    geo.distance != null &&
-    geo.distance > (settings?.geofence_radius_m ?? 1000);
+    geofenceOn && geo.status === "ok" && (!nearest || nearest.distance > nearest.location.radius_m);
 
   const canStamp = !geofenceOn || (geo.status === "ok" && !outOfRange);
 
@@ -160,12 +168,12 @@ export default function CheckInOut({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-lg font-semibold text-gray-800">👆 تسجيل البصمة</h3>
-          <p className="text-sm text-gray-500">{new Date().toLocaleDateString("ar")}</p>
+          <p className="text-sm text-gray-500">{baghdadDateLabel()}</p>
         </div>
         {geofenceOn && (
           <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
-            📍 مسموح ضمن {formatDistance(settings!.geofence_radius_m)} من{" "}
-            {settings!.office_name}
+            📍 مسموح من {activeLocations.length === 1 ? "موقع" : `${activeLocations.length} مواقع`}:{" "}
+            {activeLocations.map((l) => l.name).join(" · ")}
           </span>
         )}
       </div>
@@ -191,7 +199,7 @@ export default function CheckInOut({
             </div>
           )}
 
-          {geo.status === "ok" && geo.distance != null && (
+          {geo.status === "ok" && nearest && (
             <div
               className={`flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm ${
                 outOfRange ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
@@ -199,12 +207,13 @@ export default function CheckInOut({
             >
               <span>
                 {outOfRange ? "✗ أنت خارج النطاق — " : "✓ أنت داخل النطاق — "}
-                تبعد <b>{formatDistance(geo.distance)}</b> عن {settings!.office_name}
+                أقرب موقع <b>{nearest.location.name}</b> على بعد{" "}
+                <b>{formatDistance(nearest.distance)}</b>
+                {outOfRange && (
+                  <> (المسموح {formatDistance(nearest.location.radius_m)})</>
+                )}
               </span>
-              <button
-                onClick={locate}
-                className="text-xs underline hover:opacity-80"
-              >
+              <button onClick={locate} className="text-xs underline hover:opacity-80">
                 تحديث الموقع
               </button>
             </div>
@@ -217,7 +226,7 @@ export default function CheckInOut({
           <button
             onClick={checkIn}
             disabled={busy || !canStamp}
-            title={outOfRange ? "لا يمكن التسجيل خارج نطاق مركز المبيعات" : ""}
+            title={outOfRange ? "لا يمكن التسجيل خارج نطاق مواقع العمل" : ""}
             className="rounded-lg bg-green-600 px-6 py-3 font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "..." : "تسجيل حضور"}
@@ -228,7 +237,7 @@ export default function CheckInOut({
           <button
             onClick={checkOut}
             disabled={busy || !canStamp}
-            title={outOfRange ? "لا يمكن التسجيل خارج نطاق مركز المبيعات" : ""}
+            title={outOfRange ? "لا يمكن التسجيل خارج نطاق مواقع العمل" : ""}
             className="rounded-lg bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "..." : "تسجيل انصراف"}
@@ -241,9 +250,9 @@ export default function CheckInOut({
             <b className="text-gray-800" dir="ltr">
               {formatTime(todayRecord?.check_in ?? null)}
             </b>
-            {todayRecord?.check_in_distance_m != null && (
+            {todayRecord?.check_in_location && (
               <span className="mr-1 text-xs text-gray-400">
-                (على بعد {formatDistance(todayRecord.check_in_distance_m)})
+                ({todayRecord.check_in_location})
               </span>
             )}
           </div>
@@ -252,9 +261,9 @@ export default function CheckInOut({
             <b className="text-gray-800" dir="ltr">
               {formatTime(todayRecord?.check_out ?? null)}
             </b>
-            {todayRecord?.check_out_distance_m != null && (
+            {todayRecord?.check_out_location && (
               <span className="mr-1 text-xs text-gray-400">
-                (على بعد {formatDistance(todayRecord.check_out_distance_m)})
+                ({todayRecord.check_out_location})
               </span>
             )}
           </div>
@@ -273,8 +282,7 @@ export default function CheckInOut({
 
       {!geofenceOn && (
         <p className="mt-3 text-xs text-gray-400">
-          تقييد البصمة بالموقع غير مفعّل. يمكن للمدير ضبط موقع مركز المبيعات من صفحة
-          الإعدادات.
+          تقييد البصمة بالموقع غير مفعّل. يمكن للمدير إضافة مواقع العمل من صفحة الإعدادات.
         </p>
       )}
     </div>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
-import { Employee } from "@/lib/types";
+import { CompanySettings, Employee } from "@/lib/types";
 import EmployeeForm from "../../employee-form";
 
 export default async function EditEmployeePage({
@@ -13,11 +13,12 @@ export default async function EditEmployeePage({
   if (!(await isAdmin())) redirect("/dashboard");
 
   const supabase = await createClient();
-  const [{ data: employee }, { data: profiles }, { data: employees }] =
+  const [{ data: employee }, { data: profiles }, { data: employees }, { data: cfg }] =
     await Promise.all([
       supabase.from("employees").select("*").eq("id", params.id).single(),
       supabase.from("profiles").select("id, email"),
       supabase.from("employees").select("user_id"),
+      supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
     ]);
 
   if (!employee) notFound();
@@ -46,7 +47,12 @@ export default async function EditEmployeePage({
       </header>
 
       <section className="p-6">
-        <EmployeeForm accounts={accounts} initial={emp} employeeId={emp.id} />
+        <EmployeeForm
+          accounts={accounts}
+          initial={emp}
+          employeeId={emp.id}
+          settings={(cfg as CompanySettings) ?? null}
+        />
       </section>
     </main>
   );

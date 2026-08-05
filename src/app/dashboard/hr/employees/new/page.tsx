@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
+import { CompanySettings } from "@/lib/types";
 import EmployeeForm from "../employee-form";
 
 // حسابات غير مرتبطة بموظف بعد (لخيار الربط)
@@ -19,7 +20,11 @@ async function getAvailableAccounts() {
 
 export default async function NewEmployeePage() {
   if (!(await isAdmin())) redirect("/dashboard");
-  const accounts = await getAvailableAccounts();
+  const supabase = await createClient();
+  const [accounts, { data: cfg }] = await Promise.all([
+    getAvailableAccounts(),
+    supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
+  ]);
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -34,7 +39,10 @@ export default async function NewEmployeePage() {
       </header>
 
       <section className="p-6">
-        <EmployeeForm accounts={accounts} />
+        <EmployeeForm
+          accounts={accounts}
+          settings={(cfg as CompanySettings) ?? null}
+        />
       </section>
     </main>
   );

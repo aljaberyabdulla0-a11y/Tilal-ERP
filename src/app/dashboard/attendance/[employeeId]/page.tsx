@@ -13,6 +13,7 @@ import {
 import {
   buildMonth,
   currentMonth,
+  effectiveSchedule,
   formatDuration,
   formatDurationShort,
   monthRange,
@@ -64,11 +65,14 @@ export default async function EmployeeAttendancePage({
   const employee = eData as Employee;
   const settings = (cfg as CompanySettings) ?? null;
 
+  const schedule = effectiveSchedule(employee, settings);
   const { days, summary } = buildMonth(
     month,
     (aData ?? []) as Attendance[],
     (lData ?? []) as Leave[],
-    settings
+    schedule,
+    today,
+    employee.exempt_from_attendance
   );
 
   const kpi = "rounded-2xl border bg-white p-5 shadow-sm";
@@ -86,6 +90,22 @@ export default async function EmployeeAttendancePage({
           <h1 className="text-xl font-bold text-brand-700">
             سجل دوام: {employee.full_name}
           </h1>
+          {employee.exempt_from_attendance ? (
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              معفى من البصمة
+            </span>
+          ) : (
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                schedule.custom
+                  ? "bg-brand-50 text-brand-700"
+                  : "bg-gray-100 text-gray-600"
+              }`}
+              dir="ltr"
+            >
+              {schedule.start}–{schedule.end}
+            </span>
+          )}
           <span className="text-sm text-gray-400">{employee.job_title || "—"}</span>
         </div>
         <div className="flex items-center gap-3">

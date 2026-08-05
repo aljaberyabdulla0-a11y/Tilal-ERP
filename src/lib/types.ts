@@ -1,5 +1,7 @@
 // أنواع البيانات المشتركة في النظام
 
+import { baghdadTime } from "@/lib/time";
+
 // العميل (CRM) — يطابق أعمدة جدول clients في قاعدة البيانات
 export type Client = {
   id: string;
@@ -250,6 +252,23 @@ export type Employee = {
   status: string; // active | inactive
   notes: string | null;
   created_at: string;
+  // الإدارة معفاة من البصمة — لا يُحتسب عليها غياب
+  exempt_from_attendance: boolean;
+  // دوام خاص بهذا الموظف (فارغ = يتبع دوام الشركة العام)
+  work_start_time: string | null;
+  work_end_time: string | null;
+  work_days: number[] | null;
+};
+
+// موقع عمل تُقبل البصمة منه — يمكن أن تكون هناك عدة مواقع
+export type WorkLocation = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius_m: number;
+  is_active: boolean;
+  created_at: string;
 };
 
 export type Attendance = {
@@ -266,6 +285,9 @@ export type Attendance = {
   check_out_lat: number | null;
   check_out_lng: number | null;
   check_out_distance_m: number | null;
+  // اسم موقع العمل الذي تمّت البصمة عنده (عند تعدّد المواقع)
+  check_in_location: string | null;
+  check_out_location: string | null;
   source: string | null; // بصمة ذاتية | تسجيل يدوي بواسطة المدير
 };
 
@@ -473,11 +495,12 @@ export function timeAgo(ts: string): string {
   return new Date(ts).toLocaleDateString("ar");
 }
 
-// تنسيق وقت (ساعة:دقيقة) من طابع زمني
+// تنسيق وقت (ساعة:دقيقة) من طابع زمني — **بتوقيت بغداد دائماً**
+// (الطوابع محفوظة UTC وخادم Vercel يعمل بـ UTC، فبدون تحديد المنطقة
+//  تظهر البصمة ناقصة ٣ ساعات)
 export function formatTime(ts: string | null): string {
   if (!ts) return "—";
-  const d = new Date(ts);
-  return d.toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
+  return baghdadTime(ts);
 }
 
 // ===== الفواتير والمدفوعات =====

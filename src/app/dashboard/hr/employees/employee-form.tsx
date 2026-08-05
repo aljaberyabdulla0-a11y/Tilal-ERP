@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Employee } from "@/lib/types";
+import { CompanySettings, Employee } from "@/lib/types";
+import { WEEKDAYS } from "@/lib/attendance";
 
 type AccountOption = { id: string; email: string | null };
 
@@ -13,10 +14,12 @@ export default function EmployeeForm({
   accounts,
   initial,
   employeeId,
+  settings,
 }: {
   accounts: AccountOption[];
   initial?: Partial<Employee>;
   employeeId?: string;
+  settings?: CompanySettings | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -33,6 +36,25 @@ export default function EmployeeForm({
     user_id: initial?.user_id ?? "",
     notes: initial?.notes ?? "",
   });
+
+  // الدوام: إمّا يتبع دوام الشركة، أو دوام خاص بهذا الموظف
+  const [exempt, setExempt] = useState(initial?.exempt_from_attendance ?? false);
+  const [customHours, setCustomHours] = useState(
+    Boolean(initial?.work_start_time && initial?.work_end_time)
+  );
+  const [startTime, setStartTime] = useState(
+    (initial?.work_start_time ?? settings?.work_start_time ?? "09:00:00").slice(0, 5)
+  );
+  const [endTime, setEndTime] = useState(
+    (initial?.work_end_time ?? settings?.work_end_time ?? "17:00:00").slice(0, 5)
+  );
+  const [customDays, setCustomDays] = useState(
+    Boolean(initial?.work_days && initial.work_days.length > 0)
+  );
+  const [days, setDays] = useState<number[]>(
+    initial?.work_days ?? settings?.work_days ?? [0, 1, 2, 3, 4]
+  );
+
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -40,9 +62,24 @@ export default function EmployeeForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  function toggleDay(value: number) {
+    setDays((prev) =>
+      prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value].sort()
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (customHours && endTime <= startTime) {
+      setError("وقت نهاية الدوام يجب أن يكون بعد وقت البداية.");
+      return;
+    }
+    if (customDays && days.length === 0) {
+      setError("اختر يوم دوام واحد على الأقل، أو ارجع لأيام دوام الشركة.");
+      return;
+    }
 
     const payload = {
       full_name: form.full_name.trim(),
@@ -54,6 +91,11 @@ export default function EmployeeForm({
       status: form.status,
       user_id: form.user_id || null,
       notes: form.notes.trim() || null,
+      exempt_from_attendance: exempt,
+      // فارغ = يتبع دوام الشركة العام
+      work_start_time: customHours ? startTime : null,
+      work_end_time: customHours ? endTime : null,
+      work_days: customDays ? days : null,
     };
 
     setSaving(true);
@@ -206,6 +248,119 @@ export default function EmployeeForm({
             placeholder="أي تفاصيل إضافية..."
           />
         </div>
+      </div>
+
+      {/* ===== الدوام والبصمة ===== */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+        <h3 className="font-semibold text-gray-800">الدوام والبصمة</h3>
+
+        {/* إعفاء من البصمة */}
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg bg-white p-4">
+          <input
+            type="checkbox"
+            checked={exempt}
+            onChange={(e) => setExempt(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-brand-600"
+          />
+          <span>
+            <span className="block text-sm font-medium text-gray-800">
+              معفى من البصمة
+            </span>
+            <span className="block text-xs text-gray-500">
+              للإدارة ومن لا يلتزم بدوام ثابت — لا يُحتسب عليه غياب ولا تأخير، ولا يظهر
+              له زر البصمة في بوابة الموظف.
+            </span>
+          </span>
+        </label>
+
+        {!exempt && (
+          <>
+            {/* أوقات دوام خاصة */}
+            <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg bg-white p-4">
+              <input
+                type="checkbox"
+                checked={customHours}
+                onChange={(e) => setCustomHours(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-brand-600"
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-800">
+                  أوقات دوام خاصة بهذا الموظف
+                </span>
+                <span className="block text-xs text-gray-500">
+                  بدون تفعيلها يتبع دوام الشركة العام (
+                  <span dir="ltr">
+                    {(settings?.work_start_time ?? "09:00:00").slice(0, 5)} –{" "}
+                    {(settings?.work_end_time ?? "17:00:00").slice(0, 5)}
+                  </span>
+                  ).
+                </span>
+              </span>
+            </label>
+
+            {customHours && (
+              <div className="mt-3 grid grid-cols-1 gap-4 rounded-lg bg-white p-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>بداية الدوام</label>
+                  <input
+                    type="time"
+                    dir="ltr"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className={inputClass + " text-left"}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>نهاية الدوام</label>
+                  <input
+                    type="time"
+                    dir="ltr"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className={inputClass + " text-left"}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* أيام دوام خاصة */}
+            <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg bg-white p-4">
+              <input
+                type="checkbox"
+                checked={customDays}
+                onChange={(e) => setCustomDays(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-brand-600"
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-800">
+                  أيام دوام خاصة بهذا الموظف
+                </span>
+                <span className="block text-xs text-gray-500">
+                  بدون تفعيلها يتبع أيام دوام الشركة.
+                </span>
+              </span>
+            </label>
+
+            {customDays && (
+              <div className="mt-3 flex flex-wrap gap-2 rounded-lg bg-white p-4">
+                {WEEKDAYS.map((d) => (
+                  <button
+                    key={d.value}
+                    type="button"
+                    onClick={() => toggleDay(d.value)}
+                    className={
+                      days.includes(d.value)
+                        ? "rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white"
+                        : "rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-500 transition hover:bg-gray-50"
+                    }
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {error && (

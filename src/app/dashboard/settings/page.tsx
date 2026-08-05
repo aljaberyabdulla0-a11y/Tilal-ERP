@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
-import { CompanySettings } from "@/lib/types";
+import { CompanySettings, WorkLocation } from "@/lib/types";
 import RoleSelect from "./role-select";
-import OfficeLocation from "./office-location";
+import WorkLocations from "./work-locations";
 import WorkHours from "./work-hours";
 
 type Profile = {
@@ -26,16 +26,18 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data }, { data: cfg }] = await Promise.all([
+  const [{ data }, { data: cfg }, { data: locs }] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, email, role, created_at")
       .order("created_at", { ascending: true }),
     supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
+    supabase.from("work_locations").select("*").order("created_at"),
   ]);
 
   const profiles = (data ?? []) as Profile[];
   const settings = (cfg as CompanySettings) ?? null;
+  const locations = (locs ?? []) as WorkLocation[];
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -53,8 +55,8 @@ export default async function SettingsPage() {
         {/* أوقات الدوام */}
         <WorkHours settings={settings} />
 
-        {/* موقع البصمة */}
-        <OfficeLocation settings={settings} />
+        {/* مواقع العمل والبصمة */}
+        <WorkLocations locations={locations} settings={settings} />
 
         <h2 className="text-lg font-bold text-gray-800">المستخدمون والصلاحيات</h2>
         <p className="-mt-4 mb-4 text-sm text-gray-500">

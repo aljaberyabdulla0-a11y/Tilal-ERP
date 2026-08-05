@@ -2,7 +2,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { getMyEmployee } from "@/lib/hr";
-import { Attendance, CompanySettings, Payroll, formatPrice } from "@/lib/types";
+import {
+  Attendance,
+  CompanySettings,
+  Payroll,
+  WorkLocation,
+  formatPrice,
+} from "@/lib/types";
+import { baghdadDate } from "@/lib/time";
 import CheckInOut from "./check-in-out";
 import HrTabs from "../hr/hr-tabs";
 import AttendanceSummary from "@/components/attendance-summary";
@@ -65,15 +72,17 @@ export default async function MyPortalHome() {
   }
 
   const supabase = await createClient();
-  // التاريخ المحلي (وليس UTC) حتى يطابق يوم البصمة الفعلي
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(now.getDate()).padStart(2, "0")}`;
+  // يوم البصمة بتوقيت بغداد (خادم Vercel يعمل بـ UTC فلا نعتمد عليه)
+  const today = baghdadDate();
 
-  const [{ data: todayAtt }, { data: comms }, { data: deds }, { data: pays }, { data: cfg }] =
-    await Promise.all([
+  const [
+    { data: todayAtt },
+    { data: comms },
+    { data: deds },
+    { data: pays },
+    { data: cfg },
+    { data: locs },
+  ] = await Promise.all([
       supabase
         .from("attendance")
         .select("*")
@@ -89,6 +98,7 @@ export default async function MyPortalHome() {
         .order("period", { ascending: false })
         .limit(1),
       supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
+      supabase.from("work_locations").select("*").eq("is_active", true),
     ]);
 
   const commissionsTotal = (comms ?? []).reduce(
@@ -122,12 +132,22 @@ export default async function MyPortalHome() {
       <HrTabs active="portal" isAdmin={admin} />
 
       <section className="space-y-6 p-6">
-        {/* تسجيل البصمة */}
-        <CheckInOut
-          employeeId={emp.id}
-          todayRecord={(todayAtt as Attendance) ?? null}
-          settings={(cfg as CompanySettings) ?? null}
-        />
+        {/* تسجيل البصمة — المعفيّون (الإدارة) لا يظهر لهم */}
+        {emp.exempt_from_attendance ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+            <h3 className="font-semibold text-slate-800">معفى من البصمة</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              حسابك معفى من تسجيل الحضور، فلا يُحتسب عليك غياب ولا تأخير.
+            </p>
+          </div>
+        ) : (
+          <CheckInOut
+            employeeId={emp.id}
+            todayRecord={(todayAtt as Attendance) ?? null}
+            settings={(cfg as CompanySettings) ?? null}
+            locations={(locs ?? []) as WorkLocation[]}
+          />
+        )}
 
         {/* ملخص الحضور */}
         <AttendanceSummary

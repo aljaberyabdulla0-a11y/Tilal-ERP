@@ -7,10 +7,13 @@ import {
   CompanySettings,
   Employee,
   Leave,
+  WorkLocation,
   formatDistance,
   formatTime,
 } from "@/lib/types";
 import {
+  companySchedule,
+  effectiveSchedule,
   evaluateDay,
   formatDurationShort,
   formatDuration,
@@ -36,7 +39,7 @@ export default async function AttendanceTodayPage({
   const today = todayISO();
   const date = searchParams.date || today;
 
-  const [{ data: eData }, { data: aData }, { data: cfg }, { data: lData }] =
+  const [{ data: eData }, { data: aData }, { data: cfg }, { data: lData }, { data: locs }] =
     await Promise.all([
       supabase.from("employees").select("*").eq("status", "active").order("full_name"),
       supabase.from("attendance").select("*").eq("work_date", date),
@@ -47,18 +50,32 @@ export default async function AttendanceTodayPage({
         .eq("status", "موافق عليها")
         .lte("start_date", date)
         .gte("end_date", date),
+      supabase.from("work_locations").select("*").eq("is_active", true),
     ]);
 
   const employees = (eData ?? []) as Employee[];
   const records = (aData ?? []) as Attendance[];
   const settings = (cfg as CompanySettings) ?? null;
   const leaves = (lData ?? []) as Leave[];
+  const activeLocations = (locs ?? []) as WorkLocation[];
 
-  // نقيّم كل موظف في هذا اليوم
+  // نقيّم كل موظف في هذا اليوم — كلٌّ حسب دوامه الخاص إن وُجد
   const rows = employees.map((e) => {
     const record = records.find((r) => r.employee_id === e.id) ?? null;
     const empLeaves = leaves.filter((l) => l.employee_id === e.id);
-    return { employee: e, day: evaluateDay(date, record, empLeaves, settings, today) };
+    const schedule = effectiveSchedule(e, settings);
+    return {
+      employee: e,
+      schedule,
+      day: evaluateDay(
+        date,
+        record,
+        empLeaves,
+        schedule,
+        today,
+        e.exempt_from_attendance
+      ),
+    };
   });
 
   const present = rows.filter((r) => r.day.record?.check_in).length;
@@ -68,10 +85,11 @@ export default async function AttendanceTodayPage({
   const absent = rows.filter((r) => r.day.status === "absent").length;
   const totalMinutes = rows.reduce((s, r) => s + (r.day.workedMinutes ?? 0), 0);
 
-  const geofenceOn = !!settings?.geofence_enabled && settings.office_lat != null;
-  const workDay = isWorkDay(date, settings);
-  const startLabel = (settings?.work_start_time ?? "09:00:00").slice(0, 5);
-  const endLabel = (settings?.work_end_time ?? "17:00:00").slice(0, 5);
+  const company = companySchedule(settings);
+  const geofenceOn = !!settings?.geofence_enabled && activeLocations.length > 0;
+  const workDay = isWorkDay(date, company);
+  const startLabel = company.start;
+  const endLabel = company.end;
 
   const kpi = "rounded-2xl border bg-white p-5 shadow-sm";
 
@@ -163,14 +181,21 @@ export default async function AttendanceTodayPage({
 
         {geofenceOn ? (
           <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-gray-700">
-            <b className="text-blue-800">تقييد البصمة بالموقع مفعّل.</b> الموظف ما يقدر يبصم
-            إلا داخل نطاق {formatDistance(settings!.geofence_radius_m)} من{" "}
-            {settings!.office_name}. أنت كمدير تقدر تسجّل يدوياً من هنا بدون قيد الموقع.
+            <b className="text-blue-800">تقييد البصمة بالموقع مفعّل.</b> البصمة تُقبل من أي
+            موقع من مواقع العمل النشطة:{" "}
+            {activeLocations.map((l, i) => (
+              <span key={l.id}>
+                {i > 0 && " · "}
+                <b>{l.name}</b>{" "}
+                <span className="text-gray-500">({formatDistance(l.radius_m)})</span>
+              </span>
+            ))}
+            . أنت كمدير تقدر تسجّل يدوياً من هنا بدون قيد الموقع.
           </div>
         ) : (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-gray-700">
-            <b className="text-amber-800">تقييد البصمة بالموقع غير مفعّل.</b> لتفعيله اضبط
-            موقع مركز المبيعات من{" "}
+            <b className="text-amber-800">تقييد البصمة بالموقع غير مفعّل.</b> لتفعيله أضف
+            مواقع العمل من{" "}
             <Link href="/dashboard/settings" className="font-semibold underline">
               صفحة الإعدادات
             </Link>
@@ -196,13 +221,13 @@ export default async function AttendanceTodayPage({
                   <th className="px-4 py-3 font-medium">الانصراف</th>
                   <th className="px-4 py-3 font-medium">ساعات العمل</th>
                   <th className="px-4 py-3 font-medium">التأخير</th>
-                  <th className="px-4 py-3 font-medium">المسافة</th>
+                  <th className="px-4 py-3 font-medium">الموقع</th>
                   <th className="px-4 py-3 font-medium">المصدر</th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ employee: e, day }) => {
+                {rows.map(({ employee: e, day, schedule }) => {
                   const r = day.record;
                   return (
                     <tr key={e.id} className="border-b last:border-0 hover:bg-gray-50">
@@ -215,6 +240,11 @@ export default async function AttendanceTodayPage({
                         </Link>
                         <span className="block text-xs text-gray-400">
                           {e.job_title || "—"}
+                          {schedule.custom && !e.exempt_from_attendance && (
+                            <span className="mr-1 text-brand-600" dir="ltr">
+                              ({schedule.start}–{schedule.end})
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -267,9 +297,20 @@ export default async function AttendanceTodayPage({
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500">
-                        {r?.check_in_distance_m != null
-                          ? formatDistance(r.check_in_distance_m)
-                          : "—"}
+                        {r?.check_in_location ? (
+                          <>
+                            <span className="text-gray-700">{r.check_in_location}</span>
+                            {r.check_in_distance_m != null && (
+                              <span className="block text-gray-400">
+                                على بعد {formatDistance(r.check_in_distance_m)}
+                              </span>
+                            )}
+                          </>
+                        ) : r?.check_in_distance_m != null ? (
+                          formatDistance(r.check_in_distance_m)
+                        ) : (
+                          "—"
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {r?.source ? (

@@ -6,6 +6,7 @@ import { Attendance, CompanySettings, Employee, Leave } from "@/lib/types";
 import {
   buildMonth,
   currentMonth,
+  effectiveSchedule,
   formatDuration,
   formatDurationShort,
   monthRange,
@@ -51,14 +52,18 @@ export default async function MonthlyAttendancePage({
   const settings = (cfg as CompanySettings) ?? null;
   const leaves = (lData ?? []) as Leave[];
 
+  // كل موظف يُحسب بدوامه الخاص إن وُجد، وإلا بدوام الشركة
   const rows = employees.map((e) => {
+    const schedule = effectiveSchedule(e, settings);
     const { summary } = buildMonth(
       month,
       records.filter((r) => r.employee_id === e.id),
       leaves.filter((l) => l.employee_id === e.id),
-      settings
+      schedule,
+      undefined,
+      e.exempt_from_attendance
     );
-    return { employee: e, summary };
+    return { employee: e, summary, schedule };
   });
 
   // إجماليات الفريق
@@ -161,7 +166,7 @@ export default async function MonthlyAttendancePage({
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ employee: e, summary: s }) => (
+                {rows.map(({ employee: e, summary: s, schedule }) => (
                   <tr key={e.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <Link
@@ -173,6 +178,20 @@ export default async function MonthlyAttendancePage({
                       <span className="block text-xs text-gray-400">
                         {e.job_title || "—"}
                       </span>
+                      {e.exempt_from_attendance ? (
+                        <span className="mt-0.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                          معفى من البصمة
+                        </span>
+                      ) : (
+                        schedule.custom && (
+                          <span
+                            className="mt-0.5 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[11px] text-brand-700"
+                            dir="ltr"
+                          >
+                            {schedule.start}–{schedule.end}
+                          </span>
+                        )
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{s.workDays}</td>
                     <td className="px-4 py-3 font-medium text-green-700">

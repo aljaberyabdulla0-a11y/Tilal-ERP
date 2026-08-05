@@ -31,6 +31,9 @@ export default async function DashboardLayout({
       : []),
     { href: "/dashboard/hr", label: "HR", icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me"] },
     ...(admin
+      ? [{ href: "/dashboard/attendance", label: "الدوام", icon: "schedule", prefixes: ["/dashboard/attendance"] }]
+      : []),
+    ...(admin
       ? [{ href: "/dashboard/settings", label: "الإعدادات", icon: "settings", prefixes: ["/dashboard/settings"] }]
       : []),
   ];

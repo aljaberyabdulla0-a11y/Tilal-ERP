@@ -5,6 +5,7 @@ import { isAdmin } from "@/lib/auth";
 import { CompanySettings } from "@/lib/types";
 import RoleSelect from "./role-select";
 import OfficeLocation from "./office-location";
+import WorkHours from "./work-hours";
 
 type Profile = {
   id: string;
@@ -49,6 +50,9 @@ export default async function SettingsPage() {
       </header>
 
       <section className="space-y-8 p-6">
+        {/* أوقات الدوام */}
+        <WorkHours settings={settings} />
+
         {/* موقع البصمة */}
         <OfficeLocation settings={settings} />
 

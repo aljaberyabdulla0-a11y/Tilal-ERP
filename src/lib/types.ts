@@ -278,6 +278,11 @@ export type CompanySettings = {
   geofence_radius_m: number;
   geofence_enabled: boolean;
   updated_at: string;
+  // أوقات الدوام الرسمية — تُحسب منها حالات التأخير والغياب
+  work_start_time: string;      // "09:00:00"
+  work_end_time: string;        // "17:00:00"
+  late_grace_minutes: number;   // سماح قبل احتساب التأخير
+  work_days: number[];          // 0=الأحد ... 6=السبت
 };
 
 // المسافة بالمتر بين نقطتين (نفس معادلة Haversine المستخدمة في قاعدة البيانات)

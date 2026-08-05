@@ -580,6 +580,8 @@ export type AppNotification = {
 // أيقونة Material Symbols حسب نوع الإشعار
 export const NOTIFICATION_ICONS: Record<string, string> = {
   "إجازة": "beach_access",
+  "متابعة": "phone_callback",
+  "تصعيد": "priority_high",
   "عام": "notifications",
 };
 

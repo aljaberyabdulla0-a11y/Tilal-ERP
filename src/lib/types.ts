@@ -19,7 +19,108 @@ export type Client = {
   notes: string | null;
   stage?: string;               // مرحلة المبيعات (Pipeline)
   follow_up_date?: string | null; // تاريخ المتابعة
+  last_contact_at?: string | null; // آخر تواصل (يُحدَّث تلقائياً من سجلّ الأنشطة)
+  contact_count?: number;          // عدد مرات التواصل
 };
+
+// ===== سجلّ التواصل مع العميل =====
+
+export type ClientActivity = {
+  id: string;
+  client_id: string;
+  created_at: string;
+  created_by: string | null;
+  activity_type: string;
+  direction: string | null;
+  outcome: string | null;
+  occurred_at: string;
+  duration_min: number | null;
+  summary: string | null;
+  next_action: string | null;
+  next_action_date: string | null;
+  stage_from: string | null;
+  stage_to: string | null;
+  actor_name: string | null;
+  // مرتبط (عند عرض السجلّ العام)
+  clients?: { name: string; phone: string | null } | null;
+};
+
+export type ActivityTypeMeta = {
+  key: string;
+  icon: string;      // Material Symbols
+  color: string;     // ألوان الشارة والأيقونة
+  hasDirection?: boolean;  // صادر/وارد
+  hasDuration?: boolean;   // مدة بالدقائق
+};
+
+// أنواع التواصل — الترتيب هو ترتيب أزرار التسجيل السريع
+export const ACTIVITY_TYPES: ActivityTypeMeta[] = [
+  { key: "مكالمة", icon: "call", color: "bg-blue-100 text-blue-700", hasDirection: true, hasDuration: true },
+  { key: "واتساب", icon: "chat", color: "bg-green-100 text-green-700", hasDirection: true },
+  { key: "اجتماع", icon: "groups", color: "bg-purple-100 text-purple-700", hasDuration: true },
+  { key: "زيارة", icon: "location_on", color: "bg-amber-100 text-amber-700", hasDuration: true },
+  { key: "عرض سعر", icon: "request_quote", color: "bg-teal-100 text-teal-700" },
+  { key: "ملاحظة", icon: "sticky_note_2", color: "bg-gray-100 text-gray-600" },
+];
+
+// نوع يُنشئه النظام تلقائياً ولا يظهر في أزرار التسجيل
+export const STAGE_CHANGE_TYPE: ActivityTypeMeta = {
+  key: "تغيير مرحلة",
+  icon: "swap_horiz",
+  color: "bg-indigo-100 text-indigo-700",
+};
+
+export function activityMeta(type: string): ActivityTypeMeta {
+  if (type === STAGE_CHANGE_TYPE.key) return STAGE_CHANGE_TYPE;
+  return (
+    ACTIVITY_TYPES.find((t) => t.key === type) ?? {
+      key: type,
+      icon: "bolt",
+      color: "bg-gray-100 text-gray-600",
+    }
+  );
+}
+
+export const ACTIVITY_DIRECTIONS = ["صادر", "وارد"] as const;
+
+// نتيجة التواصل — تساعد على معرفة جودة المتابعة
+export const ACTIVITY_OUTCOMES = [
+  "تم التواصل",
+  "لم يرد",
+  "مهتم",
+  "غير مهتم",
+  "مؤجل",
+  "تم الاتفاق",
+] as const;
+
+export const ACTIVITY_OUTCOME_COLORS: Record<string, string> = {
+  "تم التواصل": "bg-blue-100 text-blue-700",
+  "لم يرد": "bg-gray-200 text-gray-600",
+  "مهتم": "bg-green-100 text-green-700",
+  "غير مهتم": "bg-red-100 text-red-700",
+  "مؤجل": "bg-amber-100 text-amber-700",
+  "تم الاتفاق": "bg-emerald-100 text-emerald-700",
+};
+
+// "قبل ٣ أيام" — منذ متى لم نتواصل مع هذا العميل
+export function sinceLabel(ts: string | null | undefined): string {
+  if (!ts) return "لا يوجد تواصل";
+  const days = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
+  if (days <= 0) return "اليوم";
+  if (days === 1) return "أمس";
+  if (days < 30) return `قبل ${days} يوم`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? "قبل شهر" : `قبل ${months} أشهر`;
+}
+
+// لون تحذيري كلّما طال انقطاع التواصل
+export function sinceColor(ts: string | null | undefined): string {
+  if (!ts) return "text-red-600";
+  const days = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
+  if (days <= 7) return "text-green-700";
+  if (days <= 21) return "text-amber-600";
+  return "text-red-600";
+}
 
 // مراحل خطّ المبيعات (Sales Pipeline)
 export const PIPELINE_STAGES = [

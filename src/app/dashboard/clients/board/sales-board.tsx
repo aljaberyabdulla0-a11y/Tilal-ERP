@@ -3,9 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Client, PIPELINE_STAGES, PIPELINE_STAGE_COLORS } from "@/lib/types";
+import {
+  Client,
+  PIPELINE_STAGES,
+  PIPELINE_STAGE_COLORS,
+  sinceColor,
+  sinceLabel,
+} from "@/lib/types";
+import { baghdadDate } from "@/lib/time";
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => baghdadDate();
 
 // لوحة المبيعات (Kanban) — سحب وإفلات بين المراحل + تحكّم بتاريخ المتابعة
 export default function SalesBoard({ initial }: { initial: Client[] }) {
@@ -100,12 +107,20 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
                       </div>
                     </div>
 
-                    {/* موظف المبيعات */}
-                    {c.sales_employee && (
-                      <span className="mt-2 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[11px] text-brand-700">
-                        {c.sales_employee}
+                    {/* موظف المبيعات + آخر تواصل */}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {c.sales_employee && (
+                        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] text-brand-700">
+                          {c.sales_employee}
+                        </span>
+                      )}
+                      <span
+                        className={`text-[11px] font-medium ${sinceColor(c.last_contact_at)}`}
+                        title="آخر تواصل مسجّل"
+                      >
+                        ☎ {sinceLabel(c.last_contact_at)}
                       </span>
-                    )}
+                    </div>
 
                     {/* تاريخ المتابعة + زر التحكم */}
                     <div className="mt-2 flex items-center justify-between border-t pt-2">

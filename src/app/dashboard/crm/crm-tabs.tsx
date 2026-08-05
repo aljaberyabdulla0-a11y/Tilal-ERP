@@ -3,6 +3,7 @@ import Link from "next/link";
 // شريط تبويبات CRM — يظهر أعلى أقسام العملاء والوحدات والحجوزات
 const TABS = [
   { key: "clients", label: "العملاء", href: "/dashboard/clients" },
+  { key: "activities", label: "سجلّ التواصل", href: "/dashboard/clients/activities" },
   { key: "units", label: "الوحدات العقارية", href: "/dashboard/units" },
   { key: "reservations", label: "الحجوزات", href: "/dashboard/reservations" },
 ];

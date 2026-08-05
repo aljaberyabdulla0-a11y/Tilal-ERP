@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
-import { Client, PAYMENT_METHOD_COLORS } from "@/lib/types";
+import {
+  Client,
+  PAYMENT_METHOD_COLORS,
+  sinceColor,
+  sinceLabel,
+} from "@/lib/types";
 import DeleteClientButton from "./delete-client-button";
 import CrmTabs from "../crm/crm-tabs";
 
@@ -156,7 +161,7 @@ export default async function ClientsPage({
                   <th className="px-4 py-3 font-medium">طريقة الدفع</th>
                   <th className="px-4 py-3 font-medium">المصدر</th>
                   <th className="px-4 py-3 font-medium">موظف المبيعات</th>
-                  <th className="px-4 py-3 font-medium">التاريخ</th>
+                  <th className="px-4 py-3 font-medium">آخر تواصل</th>
                   <th className="px-4 py-3 font-medium">إجراءات</th>
                 </tr>
               </thead>
@@ -193,8 +198,15 @@ export default async function ClientsPage({
                     </td>
                     <td className="px-4 py-3 text-gray-600">{c.source || "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{c.sales_employee || "—"}</td>
-                    <td className="px-4 py-3 text-gray-600" dir="ltr">
-                      {c.entry_date || "—"}
+                    <td className="px-4 py-3">
+                      <span className={`font-medium ${sinceColor(c.last_contact_at)}`}>
+                        {sinceLabel(c.last_contact_at)}
+                      </span>
+                      {(c.contact_count ?? 0) > 0 && (
+                        <span className="block text-xs text-gray-400">
+                          {c.contact_count} تواصل
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <Link

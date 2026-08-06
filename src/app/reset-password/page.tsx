@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -8,7 +8,9 @@ import Logo from "@/components/logo";
 
 // تعيين كلمة مرور جديدة (بعد فتح رابط الاستعادة)
 export default function ResetPasswordPage() {
-  const supabase = createClient();
+  // useMemo ضروري: createClient() في كل رسم يعطي مرجعاً جديداً
+  // فيعيد تشغيل useEffect أدناه بلا داعٍ
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   const [ready, setReady] = useState<boolean | null>(null); // null=يتحقق

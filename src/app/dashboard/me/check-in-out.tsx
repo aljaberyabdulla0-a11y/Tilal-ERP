@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -47,7 +47,13 @@ export default function CheckInOut({
   // يوم البصمة بتوقيت بغداد (وليس توقيت جهاز الموظف)
   const today = baghdadDate();
 
-  const activeLocations = locations.filter((l) => l.is_active);
+  // ⚠️ لا تحذف useMemo: بدونها تُنتج filter مصفوفة جديدة في كل رسم،
+  // فيتغيّر مرجع findNearest ثم locate، فيعمل useEffect في كل رسم،
+  // فيستدعي setGeo فيعيد الرسم — حلقة لا نهائية تُجمّد الصفحة كلها.
+  const activeLocations = useMemo(
+    () => locations.filter((l) => l.is_active),
+    [locations]
+  );
   const geofenceOn = !!settings?.geofence_enabled && activeLocations.length > 0;
 
   // أقرب موقع عمل للإحداثيات المعطاة
@@ -91,8 +97,13 @@ export default function CheckInOut({
     );
   }, [findNearest]);
 
-  // نحدّد الموقع تلقائياً عند فتح الصفحة
+  // نحدّد الموقع تلقائياً عند فتح الصفحة — مرة واحدة فقط.
+  // الحارس هنا شبكة أمان: حتى لو تغيّر مرجع locate لأي سبب مستقبلاً،
+  // لن يتحوّل هذا إلى حلقة تُجمّد الصفحة.
+  const didAutoLocate = useRef(false);
   useEffect(() => {
+    if (didAutoLocate.current) return;
+    didAutoLocate.current = true;
     locate();
   }, [locate]);
 

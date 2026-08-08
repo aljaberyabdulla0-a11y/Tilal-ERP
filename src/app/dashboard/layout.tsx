@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getCurrentUser, getUserRole } from "@/lib/auth";
 import AppShell, { NavItem } from "./app-shell";
 
 // التخطيط العام لكل صفحات النظام — يضيف الشريط الجانبي
@@ -8,11 +7,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const role = await getUserRole();
+  // الاثنان مخزّنان لكل طلب، فلا يكلّفان رحلة شبكة إضافية
+  const [user, role] = await Promise.all([getCurrentUser(), getUserRole()]);
   const admin = role === "admin";
 
   const nav: NavItem[] = [

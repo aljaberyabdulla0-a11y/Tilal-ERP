@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { CompanySettings, WorkLocation } from "@/lib/types";
 import RoleSelect from "./role-select";
 import WorkLocations from "./work-locations";
@@ -22,9 +22,7 @@ export default async function SettingsPage() {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const [{ data }, { data: cfg }, { data: locs }] = await Promise.all([
     supabase

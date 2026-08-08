@@ -1,14 +1,15 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { Employee } from "@/lib/types";
 
 // جلب ملف الموظف المرتبط بالمستخدم الحالي (أو null إن لم يُربط)
-export async function getMyEmployee(): Promise<Employee | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+// ملفوف بـ cache(): تُستدعى من التخطيط والصفحة معاً في نفس الطلب
+export const getMyEmployee = cache(async (): Promise<Employee | null> => {
+  const user = await getCurrentUser();
   if (!user) return null;
 
+  const supabase = await createClient();
   const { data } = await supabase
     .from("employees")
     .select("*")
@@ -16,7 +17,7 @@ export async function getMyEmployee(): Promise<Employee | null> {
     .single();
 
   return (data as Employee) ?? null;
-}
+});
 
 // ============================================================
 // أسماء الموظفين المتاحة لحقل «موظف المبيعات».
@@ -26,7 +27,7 @@ export async function getMyEmployee(): Promise<Employee | null> {
 //   المدير  → كل الموظفين النشطين.
 //   الموظف → اسمه هو فقط.
 // ============================================================
-export async function getSalesEmployeeNames(): Promise<string[]> {
+export const getSalesEmployeeNames = cache(async (): Promise<string[]> => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("employees")
@@ -40,4 +41,4 @@ export async function getSalesEmployeeNames(): Promise<string[]> {
 
   // نحذف التكرار (قد يوجد ملفان بنفس الاسم)
   return Array.from(new Set(names));
-}
+});

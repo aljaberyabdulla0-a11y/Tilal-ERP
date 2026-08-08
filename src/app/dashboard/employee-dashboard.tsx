@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getMyEmployee } from "@/lib/hr";
+import { getCurrentUser } from "@/lib/auth";
 import {
   Attendance,
   CompanySettings,
@@ -13,10 +14,7 @@ import CheckInOut from "./me/check-in-out";
 // لوحة تحكم الموظف — بياناته الشخصية فقط (لا أرقام عامة للشركة)
 export default async function EmployeeDashboard() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const emp = await getMyEmployee();
+  const [user, emp] = await Promise.all([getCurrentUser(), getMyEmployee()]);
   const uid = user?.id ?? "";
   // يوم البصمة بتوقيت بغداد (خادم Vercel يعمل بـ UTC فلا نعتمد عليه)
   const today = baghdadDate();

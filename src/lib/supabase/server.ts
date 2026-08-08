@@ -1,12 +1,19 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 // نوع مجموعة الكوكيز التي يمررها Supabase لدالة setAll
 type CookiesToSet = { name: string; value: string; options: CookieOptions }[];
 
+// ============================================================
 // عميل Supabase للخادم — يُستخدم داخل Server Components وصفحات الخادم
-// يقرأ جلسة المستخدم من الكوكيز بشكل آمن
-export async function createClient() {
+// ويقرأ جلسة المستخدم من الكوكيز بشكل آمن.
+//
+// ملفوف بـ cache() من React: الصفحة الواحدة تستدعيه من عدة أماكن
+// (التخطيط، الصفحة، المكوّنات)، وبدون التخزين يُنشأ عميل جديد كل مرة.
+// نطاق الـ cache هو الطلب الواحد فقط، فلا تتسرّب جلسة مستخدم لآخر.
+// ============================================================
+export const createClient = cache(async () => {
   const cookieStore = cookies();
 
   return createServerClient(
@@ -30,4 +37,4 @@ export async function createClient() {
       },
     }
   );
-}
+});

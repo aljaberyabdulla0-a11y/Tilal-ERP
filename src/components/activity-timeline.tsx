@@ -10,10 +10,17 @@ import {
   activityMeta,
 } from "@/lib/types";
 import { baghdadDateLabel, baghdadTime } from "@/lib/time";
+import ActivityFields from "@/components/activity-fields";
+import {
+  ActivityFormState,
+  activityFormFrom,
+  buildActivityPayload,
+} from "@/lib/activity-form";
 
 // ============================================================
 // الخط الزمني لسجلّ التواصل — الأحدث أولاً.
 // يُستخدم في صفحة العميل (بلا اسم عميل) وفي السجلّ العام (مع اسمه).
+// canManage (المدير) يتيح التعديل والحذف.
 // ============================================================
 export default function ActivityTimeline({
   activities,
@@ -27,6 +34,46 @@ export default function ActivityTimeline({
   const router = useRouter();
   const supabase = createClient();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<ActivityFormState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function startEdit(a: ClientActivity) {
+    setError(null);
+    setEditingId(a.id);
+    setForm(activityFormFrom(a));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(null);
+    setError(null);
+  }
+
+  async function saveEdit(a: ClientActivity) {
+    if (!form) return;
+    setError(null);
+
+    const result = buildActivityPayload(form);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+
+    setBusyId(a.id);
+    const { error } = await supabase
+      .from("client_activities")
+      .update(result.payload)
+      .eq("id", a.id);
+    setBusyId(null);
+
+    if (error) {
+      setError("تعذّر الحفظ: " + error.message);
+      return;
+    }
+    cancelEdit();
+    router.refresh();
+  }
 
   async function remove(a: ClientActivity) {
     if (!confirm("حذف هذا التواصل من السجلّ؟")) return;
@@ -56,6 +103,60 @@ export default function ActivityTimeline({
       {activities.map((a, i) => {
         const meta = activityMeta(a.activity_type);
         const isSystem = a.activity_type === "تغيير مرحلة";
+
+        // ===== وضع التعديل (للمدير) =====
+        if (editingId === a.id && form) {
+          return (
+            <li key={a.id} className="relative flex gap-3">
+              <span
+                className={`z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${meta.color}`}
+              >
+                <span className="material-symbols-outlined text-[20px]">edit</span>
+              </span>
+
+              <div className="min-w-0 flex-1 space-y-4 rounded-2xl border-2 border-brand-500 bg-white p-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-gray-800">تعديل التواصل</span>
+                  {showClient && a.clients && (
+                    <span className="text-xs text-gray-500">{a.clients.name}</span>
+                  )}
+                </div>
+
+                <ActivityFields value={form} onChange={setForm} showTypePicker />
+
+                {error && (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {error}
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => saveEdit(a)}
+                    disabled={busyId === a.id}
+                    className="rounded-lg bg-brand-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+                  >
+                    {busyId === a.id ? "جاري الحفظ..." : "حفظ التعديل"}
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    disabled={busyId === a.id}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 transition hover:bg-gray-100"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    onClick={() => remove(a)}
+                    disabled={busyId === a.id}
+                    className="mr-auto text-sm text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    حذف السجلّ
+                  </button>
+                </div>
+              </div>
+            </li>
+          );
+        }
 
         return (
           <li key={a.id} className="relative flex gap-3">
@@ -133,16 +234,25 @@ export default function ActivityTimeline({
                 </div>
               )}
 
-              <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-400">
+              <div className="mt-2 flex items-center gap-3 text-[11px] text-gray-400">
                 <span>{a.actor_name || "—"}</span>
                 {canManage && !isSystem && (
-                  <button
-                    onClick={() => remove(a)}
-                    disabled={busyId === a.id}
-                    className="mr-auto text-red-500 hover:underline disabled:opacity-50"
-                  >
-                    حذف
-                  </button>
+                  <>
+                    <button
+                      onClick={() => startEdit(a)}
+                      disabled={busyId === a.id}
+                      className="mr-auto font-medium text-brand-700 hover:underline disabled:opacity-50"
+                    >
+                      تعديل
+                    </button>
+                    <button
+                      onClick={() => remove(a)}
+                      disabled={busyId === a.id}
+                      className="text-red-500 hover:underline disabled:opacity-50"
+                    >
+                      حذف
+                    </button>
+                  </>
                 )}
               </div>
             </div>

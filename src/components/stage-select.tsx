@@ -58,8 +58,8 @@ export default function StageSelect({
         value={value}
         onChange={(e) => change(e.target.value)}
         disabled={saving}
-        title="تغيير مرحلة العميل"
-        aria-label="مرحلة العميل"
+        title="تغيير حالة العميل"
+        aria-label="حالة العميل"
         className={`cursor-pointer rounded-full border-0 font-medium outline-none transition focus:ring-2 focus:ring-brand-500 disabled:opacity-50 ${color} ${sizing}`}
       >
         {PIPELINE_STAGES.map((s) => (

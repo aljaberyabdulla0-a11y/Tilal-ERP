@@ -155,7 +155,7 @@ export default async function ClientsPage({
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الاسم</th>
-                  <th className="px-4 py-3 font-medium">المرحلة</th>
+                  <th className="px-4 py-3 font-medium">الحالة</th>
                   <th className="px-4 py-3 font-medium">الهاتف</th>
                   <th className="px-4 py-3 font-medium">المحافظة</th>
                   <th className="px-4 py-3 font-medium">المنطقة</th>

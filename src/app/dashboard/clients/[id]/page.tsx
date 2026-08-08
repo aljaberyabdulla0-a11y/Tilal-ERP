@@ -5,7 +5,6 @@ import { isAdmin } from "@/lib/auth";
 import {
   Client,
   ClientActivity,
-  PIPELINE_STAGE_COLORS,
   sinceColor,
   sinceLabel,
   toIntlPhone,
@@ -14,6 +13,7 @@ import {
 import DeleteClientButton from "../delete-client-button";
 import LogActivity from "./log-activity";
 import ActivityTimeline from "@/components/activity-timeline";
+import StageSelect from "@/components/stage-select";
 
 // صفحة تفاصيل عميل واحد — تعرض كل المعلومات المسجّلة
 export default async function ClientDetailsPage({
@@ -85,15 +85,7 @@ export default async function ClientDetailsPage({
         <div className="space-y-6">
         {/* شريط حالة سريع */}
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-          {c.stage && (
-            <span
-              className={`rounded-full px-3 py-1 text-sm font-medium ${
-                PIPELINE_STAGE_COLORS[c.stage] ?? "bg-gray-100 text-gray-600"
-              }`}
-            >
-              {c.stage}
-            </span>
-          )}
+          <StageSelect clientId={c.id} stage={c.stage} size="md" />
           <span className="text-sm text-gray-500">
             آخر تواصل:{" "}
             <b className={sinceColor(c.last_contact_at)}>

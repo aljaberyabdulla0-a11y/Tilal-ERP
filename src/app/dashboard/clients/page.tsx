@@ -9,6 +9,7 @@ import {
 } from "@/lib/types";
 import DeleteClientButton from "./delete-client-button";
 import CrmTabs from "../crm/crm-tabs";
+import StageSelect from "@/components/stage-select";
 
 // صفحة قائمة العملاء (CRM)
 // تقرأ العملاء من قاعدة البيانات وتعرضهم في جدول، مع بحث بالاسم أو الجوال
@@ -150,10 +151,11 @@ export default async function ClientsPage({
         {/* الجدول */}
         {!error && clients.length > 0 && (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[900px] text-right text-sm">
+            <table className="w-full min-w-[1040px] text-right text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الاسم</th>
+                  <th className="px-4 py-3 font-medium">المرحلة</th>
                   <th className="px-4 py-3 font-medium">الهاتف</th>
                   <th className="px-4 py-3 font-medium">المحافظة</th>
                   <th className="px-4 py-3 font-medium">المنطقة</th>
@@ -175,6 +177,9 @@ export default async function ClientsPage({
                       >
                         {c.name}
                       </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StageSelect clientId={c.id} stage={c.stage} />
                     </td>
                     <td className="px-4 py-3 text-gray-600" dir="ltr">
                       {c.phone || "—"}

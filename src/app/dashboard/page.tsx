@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { formatPrice } from "@/lib/types";
 import EmployeeDashboard from "./employee-dashboard";
+import TodayTasks from "@/components/today-tasks";
 
 type RecentReservation = {
   id: string;
@@ -127,6 +128,11 @@ export default async function DashboardPage() {
         ))}
       </section>
 
+      {/* مهام اليوم — أول ما يجب أن تراه الإدارة */}
+      <section className="mb-6">
+        <TodayTasks />
+      </section>
+
       {/* المخطط + مسار المبيعات */}
       <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* مخطط الإيرادات الشهرية */}
@@ -214,6 +220,8 @@ export default async function DashboardPage() {
           <h4 className="mb-4 text-lg font-bold text-brand-900">وصول سريع</h4>
           <div className="space-y-2">
             {[
+              { href: "/dashboard/tasks/new", label: "إسناد مهمة لموظف", icon: "add_task" },
+              { href: "/dashboard/chat", label: "إعلان أو رسالة للموظفين", icon: "campaign" },
               { href: "/dashboard/crm", label: "إدارة العملاء والعقارات", icon: "groups" },
               // الفواتير للمدير فقط
               ...(admin

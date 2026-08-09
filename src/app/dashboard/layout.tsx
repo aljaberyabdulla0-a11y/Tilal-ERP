@@ -13,6 +13,14 @@ export default async function DashboardLayout({
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: "لوحة التحكم", icon: "dashboard", prefixes: ["/dashboard"], exact: true },
+    { href: "/dashboard/tasks", label: "المهام", icon: "checklist", prefixes: ["/dashboard/tasks"] },
+    {
+      href: "/dashboard/chat",
+      label: "المحادثات",
+      icon: "chat",
+      prefixes: ["/dashboard/chat"],
+      badge: "chat",
+    },
     {
       href: "/dashboard/crm",
       label: "CRM",

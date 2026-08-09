@@ -10,6 +10,7 @@ import {
 } from "@/lib/types";
 import { baghdadDate } from "@/lib/time";
 import CheckInOut from "./me/check-in-out";
+import TodayTasks from "@/components/today-tasks";
 
 // لوحة تحكم الموظف — بياناته الشخصية فقط (لا أرقام عامة للشركة)
 export default async function EmployeeDashboard() {
@@ -106,6 +107,11 @@ export default async function EmployeeDashboard() {
         </section>
       )}
 
+      {/* مهام اليوم — «ماذا أفعل اليوم؟» */}
+      <section className="mb-6">
+        <TodayTasks />
+      </section>
+
       {/* مؤشراتي */}
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {kpis.map((k) => (
@@ -156,6 +162,8 @@ export default async function EmployeeDashboard() {
           <h4 className="mb-4 text-lg font-bold text-brand-900">أدواتي</h4>
           <div className="space-y-2">
             {[
+              { href: "/dashboard/tasks", label: "مهامي اليومية", icon: "checklist" },
+              { href: "/dashboard/chat", label: "المحادثات", icon: "chat" },
               { href: "/dashboard/clients/new", label: "إضافة عميل جديد", icon: "person_add" },
               { href: "/dashboard/reservations/new", label: "تسجيل حجز جديد", icon: "key" },
               { href: "/dashboard/me/leaves", label: "إجازاتي", icon: "beach_access" },

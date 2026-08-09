@@ -590,6 +590,8 @@ export const NOTIFICATION_ICONS: Record<string, string> = {
   "إجازة": "beach_access",
   "متابعة": "phone_callback",
   "تصعيد": "priority_high",
+  "رسالة": "chat_bubble",
+  "مهمة": "task_alt",
   "عام": "notifications",
 };
 
@@ -752,6 +754,157 @@ export type CashMove = {
   notes: string | null;
   journal_entry_id: string | null;
 };
+
+// ===== المهام اليومية =====
+
+export type Task = {
+  id: string;
+  created_at: string;
+
+  // من طلب المهمة (يُثبَّت داخل القاعدة فلا يُزوَّر)
+  created_by: string | null;
+  created_by_name: string | null;
+  created_by_role: string | null; // مدير | موظف
+
+  assigned_to: string;
+  assigned_to_name: string | null;
+
+  title: string;
+  description: string | null;
+
+  priority: string; // عاجلة | متوسطة | عادية
+  status: string;   // جديدة | قيد التنفيذ | منجزة | ملغاة
+
+  due_date: string;        // يوم التنفيذ YYYY-MM-DD
+  due_time: string | null; // وقت اختياري HH:MM:SS
+
+  next_step: string | null;      // الخطوة القادمة
+  follow_up_date: string | null; // موعد المتابعة
+
+  client_id: string | null;
+
+  completed_at: string | null;
+  updated_at: string;
+};
+
+export const TASK_STATUSES = ["جديدة", "قيد التنفيذ", "منجزة", "ملغاة"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+// الحالات التي ما زالت تحتاج عملاً
+export const OPEN_TASK_STATUSES = ["جديدة", "قيد التنفيذ"] as const;
+
+export function isOpenTask(status: string): boolean {
+  return status === "جديدة" || status === "قيد التنفيذ";
+}
+
+export const TASK_STATUS_COLORS: Record<string, string> = {
+  "جديدة": "bg-blue-100 text-blue-700",
+  "قيد التنفيذ": "bg-amber-100 text-amber-700",
+  "منجزة": "bg-emerald-100 text-emerald-700",
+  "ملغاة": "bg-gray-100 text-gray-500",
+};
+
+export const TASK_PRIORITIES = ["عاجلة", "متوسطة", "عادية"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+export const TASK_PRIORITY_COLORS: Record<string, string> = {
+  "عاجلة": "bg-red-100 text-red-700",
+  "متوسطة": "bg-amber-100 text-amber-700",
+  "عادية": "bg-gray-100 text-gray-600",
+};
+
+// شريط جانبي ملوّن للبطاقة حسب الأولوية
+export const TASK_PRIORITY_BORDER: Record<string, string> = {
+  "عاجلة": "border-r-red-500",
+  "متوسطة": "border-r-amber-500",
+  "عادية": "border-r-gray-300",
+};
+
+// «من طلب المهمة» — أهم معلومة يريدها الموظف عند فتح مهمته
+export function taskOrigin(task: Task, myUserId: string | null): string {
+  if (task.created_by && task.created_by === task.assigned_to) {
+    return task.created_by === myUserId ? "أضفتها بنفسي" : "أضافها لنفسه";
+  }
+  const who = task.created_by_name || "غير معروف";
+  const role = task.created_by_role === "مدير" ? "المدير " : "";
+  return `طلبها: ${role}${who}`;
+}
+
+// متأخرة = يوم التنفيذ مضى ولم تُنجز (todayISO بتوقيت بغداد)
+export function isTaskLate(task: Task, todayISO: string): boolean {
+  return isOpenTask(task.status) && task.due_date < todayISO;
+}
+
+// وصف مقروء ليوم المهمة: اليوم / أمس / غداً / التاريخ
+export function dayLabel(dateISO: string, todayISO: string): string {
+  if (dateISO === todayISO) return "اليوم";
+  const diff = Math.round(
+    (new Date(dateISO + "T00:00:00Z").getTime() -
+      new Date(todayISO + "T00:00:00Z").getTime()) /
+      86400000
+  );
+  if (diff === -1) return "أمس";
+  if (diff === 1) return "غداً";
+  if (diff < 0) return `متأخرة ${Math.abs(diff)} يوم`;
+  if (diff <= 7) return `بعد ${diff} أيام`;
+  return dateISO;
+}
+
+// ===== المحادثات الداخلية =====
+
+// صف واحد من دالة my_conversations() في القاعدة
+export type ConversationRow = {
+  id: string;
+  kind: "direct" | "group";
+  title: string | null;
+  is_announcement: boolean;
+  last_message_at: string | null;
+  last_message_text: string | null;
+  last_sender_name: string | null;
+  unread: number;
+  other_user: string | null;
+  display_title: string;
+  member_count: number;
+};
+
+export type ChatMessage = {
+  id: string;
+  conversation_id: string;
+  sender_id: string | null;
+  sender_name: string | null;
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+  deleted_at: string | null;
+};
+
+export type ChatPerson = {
+  user_id: string;
+  name: string;
+  email: string | null;
+  role: string; // admin | employee
+};
+
+// لون ثابت لصورة الحرف الأول (نفس الشخص = نفس اللون دائماً)
+const AVATAR_COLORS = [
+  "bg-brand-100 text-brand-700",
+  "bg-blue-100 text-blue-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+  "bg-violet-100 text-violet-700",
+  "bg-teal-100 text-teal-700",
+];
+
+export function avatarColor(seed: string): string {
+  let sum = 0;
+  for (let i = 0; i < seed.length; i++) sum += seed.charCodeAt(i);
+  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+}
+
+export function initials(name: string): string {
+  const clean = (name || "؟").trim();
+  return clean ? clean[0] : "؟";
+}
 
 // ===== أدوات رقم الهاتف العراقي =====
 // المحلي: 11 رقم يبدأ بـ 07  (مثال: 07701234567)

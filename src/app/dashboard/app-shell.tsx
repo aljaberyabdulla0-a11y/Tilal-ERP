@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import LogoutButton from "./logout-button";
 import Logo from "@/components/logo";
 import NotificationBell from "@/components/notification-bell";
+import ChatUnreadBadge from "@/components/chat-unread-badge";
 
 export type NavItem = {
   href: string;
@@ -13,6 +14,7 @@ export type NavItem = {
   icon: string; // اسم أيقونة Material Symbols
   prefixes: string[];
   exact?: boolean;
+  badge?: "chat"; // شارة عدّاد بجانب الرابط
 };
 
 // الهيكل العام: شريط جانبي زجاجي فاتح (نظام تصميم Stitch "Emerald Executive")
@@ -58,6 +60,7 @@ export default function AppShell({
           >
             <span className="material-symbols-outlined text-xl">{item.icon}</span>
             <span>{item.label}</span>
+            {item.badge === "chat" && <ChatUnreadBadge />}
           </Link>
         ))}
       </nav>

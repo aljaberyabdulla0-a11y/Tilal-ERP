@@ -16,7 +16,13 @@ import {
 // الاستخدام المقصود: اضغط نوع التواصل (مكالمة/واتساب/اجتماع...) فيفتح
 // نموذج مختصر مملوء بوقت الآن، تكتب ملخّصاً وتحدّد موعد المتابعة وتحفظ.
 // ============================================================
-export default function LogActivity({ clientId }: { clientId: string }) {
+export default function LogActivity({
+  clientId,
+  stage,
+}: {
+  clientId: string;
+  stage?: string | null;
+}) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -38,7 +44,7 @@ export default function LogActivity({ clientId }: { clientId: string }) {
     if (!form) return;
     setError(null);
 
-    const result = buildActivityPayload(form);
+    const result = buildActivityPayload(form, stage);
     if ("error" in result) {
       setError(result.error);
       return;
@@ -100,7 +106,7 @@ export default function LogActivity({ clientId }: { clientId: string }) {
             <span className="font-semibold text-gray-800">{form.activity_type}</span>
           </div>
 
-          <ActivityFields value={form} onChange={setForm} />
+          <ActivityFields value={form} onChange={setForm} stage={stage} />
 
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>

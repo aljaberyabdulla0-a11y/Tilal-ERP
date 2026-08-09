@@ -168,7 +168,7 @@ export default async function ClientDetailsPage({
 
         {/* ===== العمود الثاني: سجلّ التواصل ===== */}
         <div className="space-y-4">
-          <LogActivity clientId={c.id} />
+          <LogActivity clientId={c.id} stage={c.stage} />
 
           <div>
             <div className="mb-3 flex items-center justify-between">
@@ -177,7 +177,11 @@ export default async function ClientDetailsPage({
                 {activities.length} حدث
               </span>
             </div>
-            <ActivityTimeline activities={activities} canManage={admin} />
+            <ActivityTimeline
+              activities={activities}
+              canManage={admin}
+              clientStage={c.stage}
+            />
           </div>
         </div>
       </section>

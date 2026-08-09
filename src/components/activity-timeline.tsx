@@ -26,10 +26,13 @@ export default function ActivityTimeline({
   activities,
   showClient = false,
   canManage = false,
+  clientStage,
 }: {
   activities: ClientActivity[];
   showClient?: boolean;
   canManage?: boolean;
+  // مرحلة العميل في صفحة العميل — في السجلّ العام تُقرأ من كل سجلّ
+  clientStage?: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -50,11 +53,14 @@ export default function ActivityTimeline({
     setError(null);
   }
 
+  // مرحلة صاحب السجلّ — من الصفحة أو من العلاقة المحمّلة معه
+  const stageOf = (a: ClientActivity) => clientStage ?? a.clients?.stage;
+
   async function saveEdit(a: ClientActivity) {
     if (!form) return;
     setError(null);
 
-    const result = buildActivityPayload(form);
+    const result = buildActivityPayload(form, stageOf(a));
     if ("error" in result) {
       setError(result.error);
       return;
@@ -122,7 +128,12 @@ export default function ActivityTimeline({
                   )}
                 </div>
 
-                <ActivityFields value={form} onChange={setForm} showTypePicker />
+                <ActivityFields
+                  value={form}
+                  onChange={setForm}
+                  showTypePicker
+                  stage={stageOf(a)}
+                />
 
                 {error && (
                   <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">

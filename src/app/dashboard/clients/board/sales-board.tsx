@@ -7,6 +7,7 @@ import {
   Client,
   PIPELINE_STAGES,
   PIPELINE_STAGE_COLORS,
+  isClosedStage,
   sinceColor,
   sinceLabel,
 } from "@/lib/types";
@@ -276,11 +277,10 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
             {/* البطاقات */}
             <div className="flex-1 space-y-2 p-2" style={{ minHeight: 120 }}>
               {cards.map((c) => {
+                // ملف مغلق (بيع/فشل البيع): لا متابعة ولا تأخّر
+                const closed = isClosedStage(stage);
                 const overdue =
-                  c.follow_up_date &&
-                  c.follow_up_date < todayStr() &&
-                  stage !== "بيع" &&
-                  stage !== "فشل البيع";
+                  !closed && c.follow_up_date && c.follow_up_date < todayStr();
                 return (
                   <div
                     key={c.id}
@@ -318,7 +318,12 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
                       </span>
                     </div>
 
-                    {/* تاريخ المتابعة + زر التحكم */}
+                    {/* تاريخ المتابعة + زر التحكم — يختفي في المراحل المغلقة */}
+                    {closed ? (
+                      <div className="mt-2 border-t pt-2 text-[11px] text-gray-400">
+                        ✓ ملف مغلق — بلا متابعة
+                      </div>
+                    ) : (
                     <div className="mt-2 flex items-center justify-between border-t pt-2">
                       {editDateId === c.id ? (
                         <input
@@ -350,6 +355,7 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
                         edit_calendar
                       </button>
                     </div>
+                    )}
                   </div>
                 );
               })}

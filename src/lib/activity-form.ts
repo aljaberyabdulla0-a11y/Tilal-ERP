@@ -5,7 +5,7 @@
 // ============================================================
 
 import type { ClientActivity } from "@/lib/types";
-import { activityMeta } from "@/lib/types";
+import { activityMeta, isClosedStage } from "@/lib/types";
 import { baghdadDate, baghdadStamp, baghdadTime } from "@/lib/time";
 
 export type ActivityFormState = {
@@ -58,15 +58,17 @@ export type ActivityPayload = {
   duration_min: number | null;
   summary: string | null;
   next_action: string | null;
-  next_action_date: string;
+  next_action_date: string | null;
 };
 
 export const FOLLOWUP_REQUIRED_MSG =
-  "حدّد موعد المتابعة القادم — إلزامي في كل الحالات.";
+  "حدّد موعد المتابعة القادم — إلزامي ما دام ملف العميل مفتوحاً.";
 
-// التحقّق وبناء ما يُحفظ
+// التحقّق وبناء ما يُحفظ.
+// stage = مرحلة العميل: إن كانت مغلقة (بيع/فشل البيع) فلا متابعة أصلاً.
 export function buildActivityPayload(
-  f: ActivityFormState
+  f: ActivityFormState,
+  stage?: string | null
 ): { error: string } | { payload: ActivityPayload } {
   const occurredAt = baghdadStamp(f.date, f.time);
   if (!occurredAt) return { error: "تاريخ أو وقت التواصل غير صحيح." };
@@ -74,10 +76,14 @@ export function buildActivityPayload(
     return { error: "لا يمكن تسجيل تواصل في المستقبل." };
   }
 
-  // موعد المتابعة إلزامي في كل المراحل — حتى لا يبقى عميل بلا خطوة تالية
-  if (!f.next_date) return { error: FOLLOWUP_REQUIRED_MSG };
-  if (f.next_date < f.date) {
-    return { error: "موعد المتابعة يجب أن يكون في نفس يوم التواصل أو بعده." };
+  const closed = isClosedStage(stage);
+
+  // موعد المتابعة إلزامي ما دام الملف مفتوحاً — حتى لا يبقى عميل بلا خطوة تالية
+  if (!closed) {
+    if (!f.next_date) return { error: FOLLOWUP_REQUIRED_MSG };
+    if (f.next_date < f.date) {
+      return { error: "موعد المتابعة يجب أن يكون في نفس يوم التواصل أو بعده." };
+    }
   }
 
   const meta = activityMeta(f.activity_type);
@@ -89,8 +95,9 @@ export function buildActivityPayload(
       occurred_at: occurredAt,
       duration_min: meta.hasDuration && f.duration ? Number(f.duration) : null,
       summary: f.summary.trim() || null,
-      next_action: f.next_action.trim() || null,
-      next_action_date: f.next_date,
+      // مرحلة مغلقة: لا خطوة قادمة ولا موعد
+      next_action: closed ? null : f.next_action.trim() || null,
+      next_action_date: closed ? null : f.next_date,
     },
   };
 }

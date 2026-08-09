@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { Client, ClientActivity } from "@/lib/types";
+import { isClosedStage } from "@/lib/types";
 import { baghdadDate } from "@/lib/time";
 
 // المراحل التي ما زالت تحتاج متابعة
@@ -16,8 +17,7 @@ export const LOST_STAGE = "فشل البيع";
 export const FUNNEL_STAGES = [...OPEN_STAGES, WON_STAGE];
 
 export function isOpen(c: Client): boolean {
-  const s = c.stage ?? "ليد";
-  return s !== WON_STAGE && s !== LOST_STAGE;
+  return !isClosedStage(c.stage);
 }
 
 // فرق الأيام بين تاريخين بصيغة YYYY-MM-DD

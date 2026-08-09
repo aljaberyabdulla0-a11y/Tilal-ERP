@@ -5,6 +5,7 @@ import {
   ACTIVITY_OUTCOMES,
   ACTIVITY_TYPES,
   activityMeta,
+  isClosedStage,
 } from "@/lib/types";
 import type { ActivityFormState } from "@/lib/activity-form";
 
@@ -17,13 +18,17 @@ export default function ActivityFields({
   value,
   onChange,
   showTypePicker = false,
+  stage,
 }: {
   value: ActivityFormState;
   onChange: (next: ActivityFormState) => void;
   // يظهر في التعديل فقط — التسجيل يختار النوع من الأزرار السريعة
   showTypePicker?: boolean;
+  // مرحلة العميل — تُخفي المتابعة إذا كان الملف مغلقاً (بيع/فشل البيع)
+  stage?: string | null;
 }) {
   const meta = activityMeta(value.activity_type);
+  const closed = isClosedStage(stage);
   const set = <K extends keyof ActivityFormState>(key: K, v: ActivityFormState[K]) =>
     onChange({ ...value, [key]: v });
 
@@ -136,7 +141,18 @@ export default function ActivityFields({
         />
       </div>
 
-      {/* المتابعة القادمة — الموعد إلزامي */}
+      {/* ملف مغلق (بيع / فشل البيع) — لا متابعة بعده */}
+      {closed ? (
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+          <span className="material-symbols-outlined text-[18px] text-gray-400">
+            task_alt
+          </span>
+          <span>
+            حالة العميل «{stage}» — لا حاجة لخطوة قادمة ولا موعد متابعة.
+          </span>
+        </div>
+      ) : (
+      /* المتابعة القادمة — الموعد إلزامي */
       <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
@@ -171,6 +187,7 @@ export default function ActivityFields({
           العميل تلقائياً فيصلك تذكير عند حلوله.
         </p>
       </div>
+      )}
     </div>
   );
 }

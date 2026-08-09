@@ -42,7 +42,7 @@ export type ClientActivity = {
   stage_to: string | null;
   actor_name: string | null;
   // مرتبط (عند عرض السجلّ العام)
-  clients?: { name: string; phone: string | null } | null;
+  clients?: { name: string; phone: string | null; stage?: string | null } | null;
 };
 
 export type ActivityTypeMeta = {
@@ -131,6 +131,14 @@ export const PIPELINE_STAGES = [
   "بيع",
   "فشل البيع",
 ] as const;
+
+// المراحل المغلقة — انتهى الملف عندها (بيع أو فشل)، فلا حاجة
+// لخطوة قادمة ولا موعد متابعة.
+export const CLOSED_STAGES = ["بيع", "فشل البيع"] as const;
+
+export function isClosedStage(stage: string | null | undefined): boolean {
+  return (CLOSED_STAGES as readonly string[]).includes(stage ?? "ليد");
+}
 
 // ألوان رأس كل مرحلة (Tailwind)
 export const PIPELINE_STAGE_COLORS: Record<string, string> = {

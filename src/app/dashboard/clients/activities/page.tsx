@@ -37,7 +37,7 @@ export default async function ActivitiesPage({
 
   let query = supabase
     .from("client_activities")
-    .select("*, clients(name, phone)")
+    .select("*, clients(name, phone, stage)")
     .order("occurred_at", { ascending: false })
     .limit(200);
 

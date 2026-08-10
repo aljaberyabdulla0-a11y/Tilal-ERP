@@ -97,9 +97,9 @@ export default async function AccountingHome() {
           ))}
         </div>
 
-        {/* ما على الشركة الآن */}
-        {(o.payrollDue > 0.009 || o.partnerDue > 0.009) && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* ما على الشركة الآن — وما لها عند الناس */}
+        {(o.payrollDue > 0.009 || o.partnerDue > 0.009 || o.externalDebtDue > 0.009) && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {o.payrollDue > 0.009 && (
               <Link
                 href="/dashboard/hr/payroll"
@@ -133,6 +133,25 @@ export default async function AccountingHome() {
                 </div>
                 <span className="material-symbols-outlined text-3xl text-blue-400">
                   handshake
+                </span>
+              </Link>
+            )}
+            {o.externalDebtDue > 0.009 && (
+              <Link
+                href="/dashboard/accounting/debts"
+                className="glass-card flex items-center justify-between border-r-4 border-r-purple-500 p-5 transition hover:shadow-md"
+              >
+                <div>
+                  <span className="text-sm text-gray-500">
+                    ديون خارجية لم تُستحصَل بعد
+                  </span>
+                  <p className="mt-1 text-2xl font-bold text-purple-700" dir="ltr">
+                    {formatPrice(o.externalDebtDue)}
+                  </p>
+                  <span className="text-xs text-gray-400">من نستحصل منه ←</span>
+                </div>
+                <span className="material-symbols-outlined text-3xl text-purple-400">
+                  request_quote
                 </span>
               </Link>
             )}

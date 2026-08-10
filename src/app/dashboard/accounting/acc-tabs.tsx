@@ -4,6 +4,7 @@ import Link from "next/link";
 const TABS = [
   { key: "home", label: "الملخص المالي", href: "/dashboard/accounting" },
   { key: "moves", label: "الحركات المالية", href: "/dashboard/accounting/moves" },
+  { key: "debts", label: "الديون الخارجية", href: "/dashboard/accounting/debts" },
   { key: "partners", label: "الشركاء والتصفية", href: "/dashboard/accounting/partners" },
   { key: "advanced", label: "المحاسبة المتقدمة", href: "/dashboard/accounting/advanced" },
 ];

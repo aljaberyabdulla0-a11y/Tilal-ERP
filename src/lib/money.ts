@@ -1,5 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import { CashMove, Partner, PartnerSettlement } from "@/lib/types";
+import {
+  CashMove,
+  DebtRepayment,
+  ExternalDebt,
+  Partner,
+  PartnerSettlement,
+  debtStatus,
+  isDebtOverdue,
+} from "@/lib/types";
+import { baghdadDate } from "@/lib/time";
 
 // ============================================================
 // الطبقة المبسّطة للمحاسبة.
@@ -59,6 +68,7 @@ export type MoneyOverview = {
   net: number; // الفرق
   payrollDue: number; // رواتب وعمولات مستحقة لم تُدفع بعد (حساب 2300)
   partnerDue: number; // ما تدين به الشركة للشركاء (حساب 2500)
+  externalDebtDue: number; // ديون أعطيناها للناس ولم تُستحصل بعد (حساب 1350)
   monthIncome: number;
   monthExpense: number;
   byCategory: Bucket[]; // الصرف حسب نوع المصروف (الأكبر أولاً)
@@ -85,6 +95,12 @@ export function summarize(rows: LedgerRow[]): MoneyOverview {
     rows
       .filter((r) => r.code === code)
       .reduce((s, r) => s + r.credit - r.debit, 0);
+
+  // الأصول: رصيدها مدين (مدين − دائن)
+  const asset = (code: string) =>
+    rows
+      .filter((r) => r.code === code)
+      .reduce((s, r) => s + r.debit - r.credit, 0);
 
   const incomeRows = rows.filter((r) => r.type === "revenue");
   const expenseRows = rows.filter((r) => r.type === "expense");
@@ -138,6 +154,7 @@ export function summarize(rows: LedgerRow[]): MoneyOverview {
     net: income - expense,
     payrollDue: liability("2300"),
     partnerDue: liability("2500"),
+    externalDebtDue: asset("1350"),
     monthIncome,
     monthExpense,
     byCategory: group(expenseRows, (r) => r.name),
@@ -148,6 +165,70 @@ export function summarize(rows: LedgerRow[]): MoneyOverview {
 
 export async function getMoneyOverview(): Promise<MoneyOverview> {
   return summarize(await getLedgerRows());
+}
+
+// ============================================================
+// الديون الخارجية — فلوس أعطيناها لناس نشتغل وياهم ونستحصلها لاحقاً.
+// المتبقّي على كل شخص = المبلغ المعطى − مجموع ما استحصلناه منه.
+// ============================================================
+
+export type DebtRow = ExternalDebt & {
+  repayments: DebtRepayment[];
+  collected: number;
+  remaining: number;
+  status: ReturnType<typeof debtStatus>;
+  overdue: boolean;
+};
+
+export type DebtsState = {
+  rows: DebtRow[];
+  given: number;      // إجمالي ما أعطيناه
+  collected: number;  // إجمالي ما رجع لنا
+  outstanding: number; // ما زال في ذمّة الناس
+  overdueAmount: number;
+  overdueCount: number;
+};
+
+export async function getDebtsState(): Promise<DebtsState> {
+  const supabase = await createClient();
+  const [{ data: dData }, { data: rData }] = await Promise.all([
+    supabase.from("external_debts").select("*").order("debt_date", { ascending: false }),
+    supabase.from("debt_repayments").select("*").order("pay_date", { ascending: false }),
+  ]);
+
+  const debts = (dData ?? []) as ExternalDebt[];
+  const repayments = (rData ?? []) as DebtRepayment[];
+  const today = baghdadDate();
+
+  const rows: DebtRow[] = debts.map((d) => {
+    const mine = repayments.filter((r) => r.debt_id === d.id);
+    const collected = mine.reduce((s, r) => s + Number(r.amount ?? 0), 0);
+    const amount = Number(d.amount ?? 0);
+    const status = debtStatus(amount, collected);
+    return {
+      ...d,
+      amount,
+      repayments: mine,
+      collected,
+      remaining: status.remaining,
+      status,
+      overdue: isDebtOverdue(d, status.remaining, today),
+    };
+  });
+
+  const sum = (pick: (r: DebtRow) => number) =>
+    rows.reduce((s, r) => s + pick(r), 0);
+
+  const overdueRows = rows.filter((r) => r.overdue);
+
+  return {
+    rows,
+    given: sum((r) => r.amount),
+    collected: sum((r) => r.collected),
+    outstanding: sum((r) => r.remaining),
+    overdueAmount: overdueRows.reduce((s, r) => s + r.remaining, 0),
+    overdueCount: overdueRows.length,
+  };
 }
 
 // ============================================================

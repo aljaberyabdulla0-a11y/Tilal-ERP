@@ -666,6 +666,67 @@ export function invoiceStatus(
   return { label: "مدفوعة جزئياً", color: "bg-amber-100 text-amber-700" };
 }
 
+// ===== الديون الخارجية (سلف نعطيها ونستحصلها) =====
+// ليست مصروفاً: الفلوس ما راحت، انتقلت من الصندوق إلى ذمّة شخص.
+// حسابها 1350 مستقل تماماً عن حسابات المصاريف. انظر sql/035.
+
+export const DEBT_PERSON_KINDS = [
+  "مقاول",
+  "وسيط",
+  "مورّد",
+  "موظف",
+  "جهة أخرى",
+] as const;
+
+export type ExternalDebt = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  person_name: string;
+  person_phone: string | null;
+  person_kind: string;
+  amount: number;
+  debt_date: string;
+  due_date: string | null;   // موعد الاستحصال المتوقّع
+  method: "نقد" | "بنك";
+  reason: string | null;
+  notes: string | null;
+  journal_entry_id: string | null;
+};
+
+export type DebtRepayment = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  debt_id: string;
+  pay_date: string;
+  amount: number;
+  method: "نقد" | "بنك";
+  note: string | null;
+  journal_entry_id: string | null;
+};
+
+export function debtStatus(
+  amount: number,
+  collected: number
+): { label: string; color: string; remaining: number } {
+  const remaining = Math.max(amount - collected, 0);
+  if (collected >= amount - 0.01)
+    return { label: "مُستحصَل", color: "bg-green-100 text-green-700", remaining: 0 };
+  if (collected > 0)
+    return { label: "استُحصل جزئياً", color: "bg-amber-100 text-amber-700", remaining };
+  return { label: "لم يُستحصَل", color: "bg-red-100 text-red-700", remaining };
+}
+
+// متأخر = فات موعد الاستحصال وما زال عليه متبقٍّ
+export function isDebtOverdue(
+  debt: Pick<ExternalDebt, "due_date">,
+  remaining: number,
+  today: string
+): boolean {
+  return remaining > 0.009 && !!debt.due_date && debt.due_date < today;
+}
+
 // ===== الشركاء والتصفية =====
 
 export type Partner = {

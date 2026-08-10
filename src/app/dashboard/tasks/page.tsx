@@ -4,7 +4,9 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getPeople } from "@/lib/people";
 import { Task } from "@/lib/types";
 import { groupTasks, followUpsDue, taskCounts } from "@/lib/tasks";
+import { getMyFollowUps } from "@/lib/client-followups";
 import { baghdadDate } from "@/lib/time";
+import ClientFollowUps from "@/components/client-followups";
 import QuickAdd from "./quick-add";
 import TaskCard from "./task-card";
 import EmployeeFilter from "./employee-filter";
@@ -53,7 +55,13 @@ export default async function TasksPage({
     doneQuery = doneQuery.eq("assigned_to", empFilter);
   }
 
-  const [openRes, doneRes] = await Promise.all([openQuery, doneQuery]);
+  // متابعات العملاء تُقرأ بالتوازي — نفس الدالة يستدعيها المكوّن أدناه
+  // (ملفوفة بـ cache) فلا تتكرّر الرحلة للقاعدة
+  const [openRes, doneRes, clientFollow] = await Promise.all([
+    openQuery,
+    doneQuery,
+    getMyFollowUps(),
+  ]);
 
   const openTasks = (openRes.data ?? []) as Task[];
   const doneTasks = (doneRes.data ?? []) as Task[];
@@ -64,9 +72,9 @@ export default async function TasksPage({
   const counts = taskCounts([...openTasks, ...doneTasks], today);
 
   const kpis = [
-    { label: "متأخرة", value: counts.late, icon: "warning", color: "text-red-700 bg-red-50" },
-    { label: "اليوم", value: counts.today, icon: "today", color: "text-brand-700 bg-brand-50" },
-    { label: "متابعات اليوم", value: counts.followUps, icon: "event_repeat", color: "text-amber-700 bg-amber-50" },
+    { label: "مهام متأخرة", value: counts.late, icon: "warning", color: "text-red-700 bg-red-50" },
+    { label: "مهام اليوم", value: counts.today, icon: "today", color: "text-brand-700 bg-brand-50" },
+    { label: "متابعات عملاء", value: clientFollow.total, icon: "groups", color: "text-amber-700 bg-amber-50" },
     { label: "أُنجزت اليوم", value: counts.doneToday, icon: "check_circle", color: "text-emerald-700 bg-emerald-50" },
   ];
 
@@ -76,7 +84,7 @@ export default async function TasksPage({
         <div>
           <h1 className="text-3xl font-bold text-brand-900">المهام اليومية</h1>
           <p className="mt-1 text-gray-500">
-            كل ما عليك عمله اليوم في مكان واحد — مع الخطوة القادمة وموعد المتابعة.
+            كل ما عليك عمله اليوم في مكان واحد — مهامك ومتابعات عملائك.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -115,12 +123,17 @@ export default async function TasksPage({
         <QuickAdd people={people} myUserId={myUserId} isAdmin={admin} />
       </section>
 
-      {/* متابعات اليوم — تذكير بارز */}
+      {/* متابعات العملاء — العمل الميداني لليوم (لكل موظف عملاؤه) */}
+      <section className="mb-8">
+        <ClientFollowUps />
+      </section>
+
+      {/* متابعات مكتوبة داخل المهام نفسها */}
       {follow.length > 0 && (
         <section className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
           <h2 className="mb-2 flex items-center gap-2 font-bold text-amber-900">
             <span className="material-symbols-outlined">event_repeat</span>
-            متابعات مستحقة اليوم ({follow.length})
+            متابعات داخل المهام ({follow.length})
           </h2>
           <ul className="space-y-1 text-sm text-amber-900">
             {follow.map((t) => (

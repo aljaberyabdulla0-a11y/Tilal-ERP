@@ -4,6 +4,7 @@ import { isAdmin } from "@/lib/auth";
 import { formatPrice } from "@/lib/types";
 import EmployeeDashboard from "./employee-dashboard";
 import TodayTasks from "@/components/today-tasks";
+import ClientFollowUps from "@/components/client-followups";
 
 type RecentReservation = {
   id: string;
@@ -131,6 +132,11 @@ export default async function DashboardPage() {
       {/* مهام اليوم — أول ما يجب أن تراه الإدارة */}
       <section className="mb-6">
         <TodayTasks />
+      </section>
+
+      {/* متابعات العملاء المستحقة (كل العملاء — المدير يرى الجميع) */}
+      <section className="mb-6">
+        <ClientFollowUps compact />
       </section>
 
       {/* المخطط + مسار المبيعات */}

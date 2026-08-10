@@ -11,6 +11,7 @@ import {
 import { baghdadDate } from "@/lib/time";
 import CheckInOut from "./me/check-in-out";
 import TodayTasks from "@/components/today-tasks";
+import ClientFollowUps from "@/components/client-followups";
 
 // لوحة تحكم الموظف — بياناته الشخصية فقط (لا أرقام عامة للشركة)
 export default async function EmployeeDashboard() {
@@ -110,6 +111,11 @@ export default async function EmployeeDashboard() {
       {/* مهام اليوم — «ماذا أفعل اليوم؟» */}
       <section className="mb-6">
         <TodayTasks />
+      </section>
+
+      {/* متابعات عملائي — من عليّ الاتصال به اليوم */}
+      <section className="mb-6">
+        <ClientFollowUps compact />
       </section>
 
       {/* مؤشراتي */}

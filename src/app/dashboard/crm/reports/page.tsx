@@ -34,14 +34,22 @@ export default async function CrmReportsPage({
   const today = baghdadDate();
 
   const supabase = await createClient();
-  const [{ data: cData }, { data: aData }] = await Promise.all([
+  const [{ data: cData }, { data: aData }, { data: unmatchedData }] = await Promise.all([
     supabase.from("clients").select("*").limit(5000),
     supabase
       .from("client_activities")
       .select("*")
       .gte("occurred_at", since)
       .limit(5000),
+    // أسماء موظفي مبيعات بلا حساب مطابق (sql/032) — null إن لم يُشغَّل بعد
+    supabase.rpc("unmatched_sales_employees"),
   ]);
+
+  const unmatched = (unmatchedData ?? []) as {
+    sales_employee: string;
+    clients: number;
+    due_followups: number;
+  }[];
 
   const clients = (cData ?? []) as Client[];
   const activities = (aData ?? []) as ClientActivity[];
@@ -222,6 +230,34 @@ export default async function CrmReportsPage({
             hint="من الإضافة حتى البيع"
           />
         </div>
+
+        {/* ===== تحذير: عملاء لا يراهم أي موظف ===== */}
+        {unmatched.length > 0 && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5">
+            <h2 className="flex items-center gap-2 font-bold text-amber-900">
+              <span className="material-symbols-outlined">person_alert</span>
+              عملاء لا يراهم أي موظف ({unmatched.reduce((s, r) => s + r.clients, 0)})
+            </h2>
+            <p className="mt-1 text-sm text-amber-800">
+              اسم «موظف المبيعات» المكتوب على هؤلاء العملاء لا يطابق أي حساب موظف،
+              فلا تصل متابعاتهم إلا لك. الحل: افتح ملف الموظف واربطه بحساب دخول،
+              أو صحّح اسم موظف المبيعات على العميل.
+            </p>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {unmatched.map((r) => (
+                <li
+                  key={r.sales_employee}
+                  className="rounded-full border border-amber-300 bg-white px-3 py-1 text-sm text-amber-900"
+                >
+                  {r.sales_employee} — {r.clients} عميل
+                  {r.due_followups > 0 && (
+                    <b className="text-red-700"> · {r.due_followups} متابعة مستحقة</b>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* ===== لوحة عمل اليوم — أهم شاشة عملية ===== */}
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

@@ -138,7 +138,7 @@ export default function ChatThread({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
       {/* الرسائل */}
       <div ref={boxRef} className="flex-1 space-y-1 overflow-y-auto bg-gray-50/60 p-4">
         {messages.length === 0 && (

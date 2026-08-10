@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
-import { ChatMessage, ConversationRow } from "@/lib/types";
+import { ChatMessage, ConversationRow, avatarColor, initials } from "@/lib/types";
 import ChatThread from "./chat-thread";
 
 // صفحة محادثة واحدة — الرسائل + مربّع الكتابة
@@ -41,18 +41,36 @@ export default async function ConversationPage({
   const canWrite = !conversation.is_announcement || admin;
 
   return (
-    <main className="flex h-[calc(100vh-4rem)] flex-col p-4 lg:h-screen lg:p-6">
-      {/* رأس المحادثة */}
-      <header className="mb-3 flex items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* رأس المحادثة — شريط أبيض ثابت مثل ماسنجر */}
+      <header className="flex shrink-0 items-center gap-3 border-b border-gray-200 bg-white px-4 py-3">
+        {/* الرجوع للقائمة — على الجوّال فقط (القائمة ظاهرة دائماً على الشاشات الكبيرة) */}
         <Link
           href="/dashboard/chat"
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-brand-700 lg:hidden"
           aria-label="رجوع"
         >
           <span className="material-symbols-outlined">arrow_forward</span>
         </Link>
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold text-brand-900">
+
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-bold ${
+            conversation.is_announcement
+              ? "bg-brand-600 text-white"
+              : avatarColor(conversation.display_title)
+          }`}
+        >
+          {conversation.is_announcement ? (
+            <span className="material-symbols-outlined text-[20px]">campaign</span>
+          ) : conversation.kind === "group" ? (
+            <span className="material-symbols-outlined text-[20px]">groups</span>
+          ) : (
+            initials(conversation.display_title)
+          )}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-base font-bold text-gray-900">
             {conversation.display_title}
           </h1>
           <p className="truncate text-xs text-gray-400">
@@ -72,6 +90,6 @@ export default async function ConversationPage({
         canWrite={canWrite}
         isGroup={conversation.kind === "group"}
       />
-    </main>
+    </div>
   );
 }

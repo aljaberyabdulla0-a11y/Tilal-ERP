@@ -1,5 +1,6 @@
 import { getCurrentUser, getUserRole } from "@/lib/auth";
 import AppShell, { NavItem } from "./app-shell";
+import ChatWidget from "@/components/chat-widget";
 
 // التخطيط العام لكل صفحات النظام — يضيف الشريط الجانبي
 export default async function DashboardLayout({
@@ -45,6 +46,8 @@ export default async function DashboardLayout({
   return (
     <AppShell nav={nav} userEmail={user?.email ?? ""} roleLabel={admin ? "مدير" : "موظف"}>
       {children}
+      {/* نافذة المحادثة المنبثقة — متاحة في كل صفحات النظام */}
+      <ChatWidget myUserId={user?.id ?? ""} isAdmin={admin} />
     </AppShell>
   );
 }

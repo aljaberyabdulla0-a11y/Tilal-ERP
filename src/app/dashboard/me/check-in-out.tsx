@@ -10,6 +10,7 @@ import {
   distanceMeters,
   formatDistance,
   formatTime,
+  isAutoCheckout,
 } from "@/lib/types";
 import { baghdadDate, baghdadDateLabel } from "@/lib/time";
 
@@ -272,10 +273,19 @@ export default function CheckInOut({
             <b className="text-gray-800" dir="ltr">
               {formatTime(todayRecord?.check_out ?? null)}
             </b>
-            {todayRecord?.check_out_location && (
-              <span className="mr-1 text-xs text-gray-400">
-                ({todayRecord.check_out_location})
+            {isAutoCheckout(todayRecord) ? (
+              <span
+                className="mr-1 text-xs text-gray-400"
+                title="لم تسجّل انصرافك، فسجّله النظام على نهاية دوامك"
+              >
+                (تلقائي)
               </span>
+            ) : (
+              todayRecord?.check_out_location && (
+                <span className="mr-1 text-xs text-gray-400">
+                  ({todayRecord.check_out_location})
+                </span>
+              )
             )}
           </div>
         </div>

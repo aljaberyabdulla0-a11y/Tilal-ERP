@@ -10,6 +10,7 @@ import {
   WorkLocation,
   formatDistance,
   formatTime,
+  isAutoCheckout,
 } from "@/lib/types";
 import {
   companySchedule,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/attendance";
 import AttendanceTabs from "./attendance-tabs";
 import ManualStamp from "@/components/manual-stamp";
+import RunAutoCheckout from "./run-auto-checkout";
 
 // ============================================================
 // دوام اليوم (للمدير) — بصمات يوم محدّد لكل الموظفين مع ساعات
@@ -105,19 +107,22 @@ export default async function AttendanceTodayPage({
             {weekdayName(date)} {date}
           </span>
         </div>
-        <form className="flex items-center gap-2">
-          <label className="text-sm text-gray-500">التاريخ</label>
-          <input
-            type="date"
-            name="date"
-            dir="ltr"
-            defaultValue={date}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-left text-sm focus:border-brand-500 focus:outline-none"
-          />
-          <button className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
-            عرض
-          </button>
-        </form>
+        <div className="flex flex-wrap items-center gap-3">
+          <RunAutoCheckout />
+          <form className="flex items-center gap-2">
+            <label className="text-sm text-gray-500">التاريخ</label>
+            <input
+              type="date"
+              name="date"
+              dir="ltr"
+              defaultValue={date}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-left text-sm focus:border-brand-500 focus:outline-none"
+            />
+            <button className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+              عرض
+            </button>
+          </form>
+        </div>
       </header>
 
       <AttendanceTabs active="today" />
@@ -271,9 +276,20 @@ export default async function AttendanceTodayPage({
                       </td>
                       <td className="px-4 py-3" dir="ltr">
                         {r?.check_out ? (
-                          <span className="font-medium text-gray-700">
-                            {formatTime(r.check_out)}
-                          </span>
+                          <>
+                            <span className="font-medium text-gray-700">
+                              {formatTime(r.check_out)}
+                            </span>
+                            {isAutoCheckout(r) && (
+                              <span
+                                dir="rtl"
+                                title="نسي الموظف بصمة الانصراف، فسجّلها النظام على نهاية دوامه"
+                                className="block text-xs text-gray-400"
+                              >
+                                تلقائي
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}

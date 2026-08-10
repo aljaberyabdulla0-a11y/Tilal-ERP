@@ -400,6 +400,14 @@ export type Attendance = {
   source: string | null; // بصمة ذاتية | تسجيل يدوي بواسطة المدير
 };
 
+// الملاحظة التي يكتبها النظام حين يسجّل الانصراف بدل الموظف الذي نسيه.
+// نفس النص مكتوب في sql/033_auto_checkout.sql — لا تغيّره في مكان واحد فقط.
+export const AUTO_CHECKOUT_NOTE = "انصراف تلقائي";
+
+export function isAutoCheckout(record: Attendance | null | undefined): boolean {
+  return !!record?.check_out && !!record.note?.includes(AUTO_CHECKOUT_NOTE);
+}
+
 // إعدادات الشركة — موقع مركز المبيعات ونطاق البصمة المسموح
 export type CompanySettings = {
   id: number;

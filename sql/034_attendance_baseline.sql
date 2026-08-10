@@ -1,32 +1,29 @@
 -- ============================================================
--- تلال ERP — الانصراف التلقائي عند نهاية الدوام
+-- تلال ERP — تصفير سجلّ الدوام وبدء الاحتساب الفعلي 2026-08-11
 -- انسخ هذا الملف كاملاً والصقه في: Supabase ← SQL Editor ← New query ← Run
 --
--- المشكلة: الموظف يبصم حضوره، ثم يغلق النظام ويمشي بلا بصمة انصراف،
--- فيبقى يومه «بلا انصراف» ولا تُحتسب له ساعات عمل.
+-- الغرض (بطلب المستخدم 2026-08-10):
+--   كان النظام تحت التجربة، فسجلّ الدوام مليء بأيام فارغة وبصمات
+--   بلا انصراف — وهذه ليست غياباً حقيقياً. القرار: يُعتبر كل موظف
+--   **حاضراً دواماً كاملاً** من تاريخ تعيينه حتى 2026-08-10، ويبدأ
+--   الاحتساب الحقيقي من **2026-08-11**.
 --
--- الحل: كل ليلة يمرّ النظام على بصمات اليوم التي بلا انصراف ويسجّل
--- الانصراف على **نهاية دوام الموظف** (دوام الشركة الآن ينتهي 18:00 أي
--- الساعة ٦ مساءً، ومن له دوام خاص يُحسب حسب دوامه هو).
+-- ⚠️ هذا الملف يحذف بصمات الفترة السابقة ويبنيها من جديد.
+--    السجلّ القديم يُنسخ أولاً إلى public.attendance_archive_20260811
+--    (للمدير فقط) فيمكن الرجوع إليه.
 --
--- لماذا يعمل الفحص ليلاً لا في السادسة بالضبط؟
---   لو أغلقنا السجلّات الساعة ٦، لَما استطاع الموظف الذي بقي حتى ٧
---   أن يسجّل انصرافه الحقيقي. فالفحص ينتظر آخر اليوم: من بصم انصرافه
---   بنفسه يبقى وقته الحقيقي، ومن نسي فقط يأخذ توقيت نهاية الدوام.
+-- ⚠️ للتشغيل مرة واحدة. إعادة تشغيله تعيد بناء نفس الفترة (لا تضرّ،
+--    لكنها تمسح أي تصحيح يدوي أجريته على أيام ما قبل 2026-08-11).
 --
--- يتطلب: sql/012 (الدوام) و sql/022 (الإشعارات) و sql/027 (baghdad_today).
--- آمن لإعادة التشغيل، وآمن للتشغيل أكثر من مرة في اليوم.
+-- يتطلب: sql/012 و sql/024 و sql/025 و sql/033.
 -- ============================================================
 
-create extension if not exists pg_cron;
-
 -- ------------------------------------------------------------
--- 1) استثناء البصمة التلقائية من فحص الموقع
+-- 1) توحيد علامة «بصمة من النظام»
 -- ------------------------------------------------------------
--- البصمة التي يسجّلها النظام (لا الموظف) لا إحداثيات معها لتُفحص.
--- العلامة app.system_stamp تُضبط داخل دوال النظام وحدها وتنتهي بانتهاء
--- المعاملة، والموظف العادي لا يملك أي طريق لضبطها من الواجهة
--- (set_config ليست في schema public فلا تصلها PostgREST).
+-- كان اسمها app.auto_checkout في sql/033 وخاصاً بالانصراف التلقائي.
+-- صارت app.system_stamp لأن هذا الملف يحتاجها أيضاً: أي بصمة يكتبها
+-- النظام بنفسه لا إحداثيات معها، فلا معنى لفحص الموقع عليها.
 create or replace function public.enforce_attendance_geofence()
 returns trigger
 language plpgsql
@@ -120,11 +117,6 @@ begin
   return new;
 end; $function$;
 
--- ------------------------------------------------------------
--- 2) الانصراف التلقائي
--- ------------------------------------------------------------
--- p_days_back: كم يوماً للخلف نفحص (١ = أمس واليوم). الأيام السابقة
--- تُفحص أيضاً حتى لا يضيع يوم لو تعطّلت الجدولة ليلة واحدة.
 create or replace function public.auto_checkout(p_days_back int default 1)
 returns jsonb
 language plpgsql
@@ -142,7 +134,6 @@ declare
 begin
   select * into s from public.company_settings where id = 1;
 
-  -- هذه بصمة من النظام: تجاوز فحص الموقع (تنتهي العلامة بانتهاء المعاملة)
   perform set_config('app.system_stamp', 'on', true);
 
   for rec in
@@ -155,13 +146,9 @@ begin
        and a.work_date between today - greatest(p_days_back, 0) and today
      order by a.work_date, e.full_name
   loop
-    -- دوام الموظف الخاص إن وُجد، وإلا دوام الشركة العام
     shift_end := coalesce(rec.work_end_time, s.work_end_time, '17:00'::time);
+    out_ts    := (rec.work_date + shift_end) at time zone 'Asia/Baghdad';
 
-    -- نهاية الدوام بتوقيت بغداد في يوم البصمة نفسه
-    out_ts := (rec.work_date + shift_end) at time zone 'Asia/Baghdad';
-
-    -- من بصم حضوره بعد نهاية الدوام: لا يجوز أن يسبق انصرافُه حضورَه
     if out_ts < rec.check_in then
       out_ts := rec.check_in;
     end if;
@@ -173,7 +160,6 @@ begin
 
     closed := closed + 1;
 
-    -- نُعلم الموظف حتى يراجع المدير لو كان الوقت غير صحيح
     if rec.user_id is not null then
       insert into public.notifications (user_id, title, body, link, kind, entity_id)
       values (
@@ -191,44 +177,109 @@ begin
   end loop;
 
   return jsonb_build_object(
-    'ran_at',    now(),
-    'today',     today,
-    'closed',    closed,
-    'notified',  notified
+    'ran_at', now(), 'today', today, 'closed', closed, 'notified', notified
   );
 end; $$;
 
--- الدالة للنظام فقط، لا تُستدعى من الواجهة مباشرة
 revoke all on function public.auto_checkout(int) from public, anon, authenticated;
 
 -- ------------------------------------------------------------
--- 3) تشغيل يدوي للمدير (زر «إغلاق البصمات الناقصة»)
+-- 2) أرشفة السجلّ القديم قبل المساس به
 -- ------------------------------------------------------------
-create or replace function public.run_auto_checkout(p_days_back int default 1)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
+create table if not exists public.attendance_archive_20260811 (like public.attendance);
+
+insert into public.attendance_archive_20260811
+select * from public.attendance
+ where work_date <= date '2026-08-10'
+   and not exists (select 1 from public.attendance_archive_20260811);
+
+alter table public.attendance_archive_20260811 enable row level security;
+
+drop policy if exists "admins read attendance archive" on public.attendance_archive_20260811;
+create policy "admins read attendance archive"
+  on public.attendance_archive_20260811
+  for select to authenticated
+  using ((select public.is_admin()));
+
+-- ------------------------------------------------------------
+-- 3) إعادة بناء الفترة: دوام كامل من تاريخ التعيين حتى 2026-08-10
+-- ------------------------------------------------------------
+do $$
+declare
+  cutoff    date := date '2026-08-10';   -- آخر يوم يُبنى تلقائياً
+  floor_d   date := date '2026-01-01';   -- حارس ضد تواريخ التعيين الخاطئة
+  s         record;
+  e         record;
+  d         date;
+  sched     int[];
+  st        time;
+  en        time;
+  removed   int := 0;
+  gone      int := 0;
+  created   int := 0;
+  skipped   text := '';
 begin
-  if not public.is_admin() then
-    raise exception 'هذه العملية متاحة للإدارة فقط.';
+  -- بصمات يكتبها النظام: لا فحص موقع
+  perform set_config('app.system_stamp', 'on', true);
+
+  select * into s from public.company_settings where id = 1;
+
+  for e in
+    select * from public.employees
+     where status = 'active'
+       and not exempt_from_attendance     -- الإدارة معفاة أصلاً من البصمة
+       and hire_date is not null
+     order by full_name
+  loop
+    -- تاريخ تعيين قديم بشكل غير منطقي = بيانات خاطئة. نتخطّاه بصوت عالٍ
+    -- بدل أن نولّد له آلاف السجلات بصمت.
+    if e.hire_date < floor_d then
+      skipped := skipped || e.full_name || ' (تاريخ التعيين ' || e.hire_date || ') · ';
+      continue;
+    end if;
+
+    -- دوام الموظف الخاص إن وُجد، وإلا دوام الشركة العام
+    sched := coalesce(e.work_days,       s.work_days,       array[0,1,2,3,4]);
+    st    := coalesce(e.work_start_time, s.work_start_time, '09:00'::time);
+    en    := coalesce(e.work_end_time,   s.work_end_time,   '17:00'::time);
+
+    delete from public.attendance
+     where employee_id = e.id and work_date <= cutoff;
+    get diagnostics gone = row_count;
+    removed := removed + gone;
+
+    for d in
+      select generate_series(e.hire_date, cutoff, interval '1 day')::date
+    loop
+      -- عطلة أسبوعية
+      continue when not (extract(dow from d)::int = any (sched));
+
+      -- إجازة معتمدة تغطّي هذا اليوم: تبقى إجازة، لا نحوّلها لحضور
+      continue when exists (
+        select 1 from public.leaves l
+         where l.employee_id = e.id
+           and l.status = 'موافق عليها'
+           and l.start_date <= d
+           and l.end_date   >= d
+      );
+
+      insert into public.attendance
+        (employee_id, work_date, check_in, check_out, source, note)
+      values (
+        e.id, d,
+        (d + st) at time zone 'Asia/Baghdad',
+        (d + en) at time zone 'Asia/Baghdad',
+        'رصيد افتتاحي',
+        'دوام كامل — سجّله النظام قبل بدء الاحتساب الفعلي في 2026-08-11'
+      );
+      created := created + 1;
+    end loop;
+  end loop;
+
+  raise notice 'حُذف % سجلاً وأُنشئ % سجل دوام كامل حتى %.', removed, created, cutoff;
+  if skipped <> '' then
+    raise notice 'تُخطّي (تاريخ تعيين غير منطقي): %', skipped;
   end if;
-  return public.auto_checkout(p_days_back);
-end; $$;
-
-grant execute on function public.run_auto_checkout(int) to authenticated;
-
--- ------------------------------------------------------------
--- 4) الجدولة اليومية: 23:55 بتوقيت بغداد = 20:55 UTC
--- ------------------------------------------------------------
-select cron.unschedule('auto-checkout')
- where exists (select 1 from cron.job where jobname = 'auto-checkout');
-
-select cron.schedule(
-  'auto-checkout',
-  '55 20 * * *',
-  $cron$ select public.auto_checkout(1); $cron$
-);
+end $$;
 
 notify pgrst, 'reload schema';

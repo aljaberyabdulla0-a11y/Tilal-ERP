@@ -35,8 +35,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-brand-900 via-brand-700 to-brand-900 p-4">
-      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/5 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-brand-500/20 blur-2xl" />
+      <div className="pointer-events-none absolute -start-24 -top-24 h-72 w-72 rounded-full bg-white/5 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-24 -end-24 h-72 w-72 rounded-full bg-brand-500/20 blur-2xl" />
 
       <div className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
         <div className="mb-8 text-center">
@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
                   dir="ltr"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-transparent py-3 text-left focus:outline-none"
+                  className="w-full bg-transparent py-3 text-start focus:outline-none"
                   placeholder="name@company.com"
                 />
               </div>

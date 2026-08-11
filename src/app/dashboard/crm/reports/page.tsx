@@ -335,10 +335,10 @@ export default async function CrmReportsPage({
                   />
                 </div>
 
-                <span className="w-14 shrink-0 text-left text-sm font-bold text-gray-800" dir="ltr">
+                <span className="w-14 shrink-0 text-end text-sm font-bold text-gray-800" dir="ltr">
                   {s.count}
                 </span>
-                <span className="w-24 shrink-0 text-left text-xs text-gray-500" dir="ltr">
+                <span className="w-24 shrink-0 text-end text-xs text-gray-500" dir="ltr">
                   {s.stepConversion === null ? "—" : `↓ ${s.stepConversion}%`}
                 </span>
               </div>
@@ -385,7 +385,7 @@ export default async function CrmReportsPage({
             <p className="px-5 py-8 text-center text-sm text-gray-400">لا توجد بيانات بعد.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-right text-sm">
+              <table className="w-full min-w-[900px] text-start text-sm">
                 <thead className="border-b bg-gray-50 text-gray-600">
                   <tr>
                     <th className="px-4 py-3 font-medium">الموظف</th>
@@ -451,7 +451,7 @@ export default async function CrmReportsPage({
             {sources.length === 0 ? (
               <p className="px-5 py-8 text-center text-sm text-gray-400">لا توجد بيانات.</p>
             ) : (
-              <table className="w-full text-right text-sm">
+              <table className="w-full text-start text-sm">
                 <thead className="border-b bg-gray-50 text-gray-600">
                   <tr>
                     <th className="px-4 py-3 font-medium">المصدر</th>

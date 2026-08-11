@@ -102,7 +102,7 @@ export default async function MonthlyAttendancePage({
             name="month"
             dir="ltr"
             defaultValue={month}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-left text-sm focus:border-brand-500 focus:outline-none"
+            className="rounded-lg border border-gray-300 px-3 py-2 text-start text-sm focus:border-brand-500 focus:outline-none"
           />
           <button className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
             عرض
@@ -149,7 +149,7 @@ export default async function MonthlyAttendancePage({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-            <table className="w-full min-w-[1040px] text-right text-sm">
+            <table className="w-full min-w-[1040px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الموظف</th>
@@ -207,7 +207,7 @@ export default async function MonthlyAttendancePage({
                       {s.lateDays ? (
                         <span className="text-amber-700">
                           {s.lateDays}
-                          <span className="mr-1 text-xs text-gray-400">
+                          <span className="ms-1 text-xs text-gray-400">
                             ({formatDurationShort(s.lateMinutes)})
                           </span>
                         </span>
@@ -243,7 +243,7 @@ export default async function MonthlyAttendancePage({
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-left">
+                    <td className="px-4 py-3 text-end">
                       <Link
                         href={`/dashboard/attendance/${e.id}?month=${month}`}
                         className="whitespace-nowrap text-sm text-brand-700 hover:underline"

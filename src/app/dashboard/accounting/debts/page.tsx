@@ -22,28 +22,28 @@ export default async function DebtsPage() {
       value: s.outstanding,
       icon: "pending_actions",
       color: s.outstanding > 0 ? "text-amber-700" : "text-gray-500",
-      border: "border-r-amber-500",
+      border: "border-s-amber-500",
     },
     {
       label: "إجمالي ما أعطيناه",
       value: s.given,
       icon: "call_made",
       color: "text-gray-800",
-      border: "border-r-brand-500",
+      border: "border-s-brand-500",
     },
     {
       label: "استحصلناه",
       value: s.collected,
       icon: "call_received",
       color: "text-green-700",
-      border: "border-r-green-500",
+      border: "border-s-green-500",
     },
     {
       label: `متأخر عن موعده (${s.overdueCount})`,
       value: s.overdueAmount,
       icon: "running_with_errors",
       color: s.overdueCount > 0 ? "text-red-700" : "text-gray-500",
-      border: s.overdueCount > 0 ? "border-r-red-500" : "border-r-gray-300",
+      border: s.overdueCount > 0 ? "border-s-red-500" : "border-s-gray-300",
     },
   ];
 
@@ -64,7 +64,7 @@ export default async function DebtsPage() {
       <section className="space-y-6 p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {kpis.map((k) => (
-            <div key={k.label} className={`glass-card border-r-4 p-5 ${k.border}`}>
+            <div key={k.label} className={`glass-card border-s-4 p-5 ${k.border}`}>
               <div className="flex items-start justify-between">
                 <span className="text-sm text-gray-500">{k.label}</span>
                 <span className="material-symbols-outlined text-gray-300">{k.icon}</span>
@@ -88,7 +88,7 @@ export default async function DebtsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-            <table className="w-full min-w-[1000px] text-right text-sm">
+            <table className="w-full min-w-[1000px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الشخص / الجهة</th>
@@ -177,7 +177,7 @@ export default async function DebtsPage() {
                         {d.due_date ? `موعده: ${d.due_date}` : "بلا موعد"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-left">
+                    <td className="px-4 py-3 text-end">
                       <DebtActions
                         debtId={d.id}
                         personName={d.person_name}

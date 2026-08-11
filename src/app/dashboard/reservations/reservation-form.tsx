@@ -146,7 +146,7 @@ export default function ReservationForm({
             dir="ltr"
             value={form.reservation_date}
             onChange={(e) => update("reservation_date", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
           />
         </div>
 
@@ -177,7 +177,7 @@ export default function ReservationForm({
             dir="ltr"
             value={form.amount}
             onChange={(e) => update("amount", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
             placeholder="مثال: 25000000"
           />
         </div>

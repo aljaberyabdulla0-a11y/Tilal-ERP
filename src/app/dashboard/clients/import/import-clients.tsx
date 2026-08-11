@@ -246,7 +246,7 @@ export default function ImportClients() {
           )}
 
           <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-            <table className="w-full min-w-[1000px] text-right text-sm">
+            <table className="w-full min-w-[1000px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-3 py-3 font-medium">الصف</th>

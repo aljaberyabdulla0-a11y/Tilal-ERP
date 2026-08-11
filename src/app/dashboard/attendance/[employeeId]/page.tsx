@@ -121,7 +121,7 @@ export default async function EmployeeAttendancePage({
               name="month"
               dir="ltr"
               defaultValue={month}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-left text-sm focus:border-brand-500 focus:outline-none"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-start text-sm focus:border-brand-500 focus:outline-none"
             />
             <button className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
               عرض
@@ -167,7 +167,7 @@ export default async function EmployeeAttendancePage({
         </div>
 
         <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-          <table className="w-full min-w-[940px] text-right text-sm">
+          <table className="w-full min-w-[940px] text-start text-sm">
             <thead className="border-b bg-gray-50 text-gray-600">
               <tr>
                 <th className="px-4 py-3 font-medium">اليوم</th>
@@ -250,7 +250,7 @@ export default async function EmployeeAttendancePage({
                       ? "تسجيل يدوي"
                       : d.record?.note || "—"}
                   </td>
-                  <td className="px-4 py-3 text-left">
+                  <td className="px-4 py-3 text-end">
                     {d.status !== "off" && (
                       <ManualStamp
                         employeeId={employee.id}

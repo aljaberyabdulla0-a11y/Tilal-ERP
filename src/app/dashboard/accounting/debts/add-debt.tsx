@@ -123,7 +123,7 @@ export default function AddDebt() {
             onChange={(e) => update("person_phone", e.target.value)}
             dir="ltr"
             placeholder="07XXXXXXXXX"
-            className={cls + " w-full text-left"}
+            className={cls + " w-full text-start"}
           />
         </div>
         <div>
@@ -135,7 +135,7 @@ export default function AddDebt() {
             value={form.amount}
             onChange={(e) => update("amount", e.target.value)}
             placeholder="0"
-            className={cls + " w-full text-left"}
+            className={cls + " w-full text-start"}
           />
         </div>
         <div>
@@ -156,7 +156,7 @@ export default function AddDebt() {
             dir="ltr"
             value={form.debt_date}
             onChange={(e) => update("debt_date", e.target.value)}
-            className={cls + " w-full text-left"}
+            className={cls + " w-full text-start"}
           />
         </div>
         <div>
@@ -168,7 +168,7 @@ export default function AddDebt() {
             dir="ltr"
             value={form.due_date}
             onChange={(e) => update("due_date", e.target.value)}
-            className={cls + " w-full text-left"}
+            className={cls + " w-full text-start"}
           />
         </div>
         <div className="sm:col-span-2">

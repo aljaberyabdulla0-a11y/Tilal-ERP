@@ -128,7 +128,7 @@ export default function ManualStamp({
 
   if (editing) {
     return (
-      <div className="inline-flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-3 text-right shadow-sm">
+      <div className="inline-flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-3 text-start shadow-sm">
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-500">حضور</label>
           <input
@@ -136,7 +136,7 @@ export default function ManualStamp({
             dir="ltr"
             value={inTime}
             onChange={(e) => setInTime(e.target.value)}
-            className="w-28 rounded-lg border border-gray-300 px-2 py-1 text-left text-xs focus:border-brand-500 focus:outline-none"
+            className="w-28 rounded-lg border border-gray-300 px-2 py-1 text-start text-xs focus:border-brand-500 focus:outline-none"
           />
           <label className="text-xs text-gray-500">انصراف</label>
           <input
@@ -144,7 +144,7 @@ export default function ManualStamp({
             dir="ltr"
             value={outTime}
             onChange={(e) => setOutTime(e.target.value)}
-            className="w-28 rounded-lg border border-gray-300 px-2 py-1 text-left text-xs focus:border-brand-500 focus:outline-none"
+            className="w-28 rounded-lg border border-gray-300 px-2 py-1 text-start text-xs focus:border-brand-500 focus:outline-none"
           />
         </div>
 

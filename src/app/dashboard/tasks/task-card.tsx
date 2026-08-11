@@ -72,8 +72,8 @@ export default function TaskCard({
 
   return (
     <div
-      className={`rounded-2xl border border-gray-200 border-r-4 bg-white p-4 shadow-sm transition ${
-        TASK_PRIORITY_BORDER[task.priority] ?? "border-r-gray-300"
+      className={`rounded-2xl border border-gray-200 border-s-4 bg-white p-4 shadow-sm transition ${
+        TASK_PRIORITY_BORDER[task.priority] ?? "border-s-gray-300"
       } ${done ? "opacity-70" : ""}`}
     >
       <div className="flex items-start gap-3">

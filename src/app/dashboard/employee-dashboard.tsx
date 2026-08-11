@@ -143,7 +143,7 @@ export default async function EmployeeDashboard() {
           {recentClients.length === 0 ? (
             <p className="text-sm text-gray-400">لم تُضف أي عميل بعد.</p>
           ) : (
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <tbody>
                 {recentClients.map((c) => (
                   <tr key={c.id} className="border-b last:border-0">
@@ -153,7 +153,7 @@ export default async function EmployeeDashboard() {
                       </Link>
                     </td>
                     <td className="py-2.5 text-gray-500">{c.governorate || "—"}</td>
-                    <td className="py-2.5 text-left text-xs text-gray-400" dir="ltr">
+                    <td className="py-2.5 text-end text-xs text-gray-400" dir="ltr">
                       {new Date(c.created_at).toLocaleDateString("ar")}
                     </td>
                   </tr>

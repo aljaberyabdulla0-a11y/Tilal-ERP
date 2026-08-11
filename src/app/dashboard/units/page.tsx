@@ -115,7 +115,7 @@ export default async function UnitsPage({
 
         {!error && units.length > 0 && (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[900px] text-right text-sm">
+            <table className="w-full min-w-[900px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">المشروع</th>
@@ -164,7 +164,7 @@ export default async function UnitsPage({
                     <td className="px-4 py-3 whitespace-nowrap">
                       <Link
                         href={`/dashboard/units/${u.id}`}
-                        className="ml-3 text-sm text-brand-700 hover:underline"
+                        className="me-3 text-sm text-brand-700 hover:underline"
                       >
                         عرض
                       </Link>
@@ -172,7 +172,7 @@ export default async function UnitsPage({
                         <>
                           <Link
                             href={`/dashboard/units/${u.id}/edit`}
-                            className="ml-3 text-sm text-brand-700 hover:underline"
+                            className="me-3 text-sm text-brand-700 hover:underline"
                           >
                             تعديل
                           </Link>

@@ -190,7 +190,7 @@ export default function UnitForm({
             dir="ltr"
             value={form.space_m2}
             onChange={(e) => update("space_m2", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
             placeholder="مثال: 150"
           />
         </div>
@@ -205,7 +205,7 @@ export default function UnitForm({
             dir="ltr"
             value={form.rooms}
             onChange={(e) => update("rooms", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
             placeholder="مثال: 3"
           />
         </div>
@@ -221,7 +221,7 @@ export default function UnitForm({
             dir="ltr"
             value={form.price}
             onChange={(e) => update("price", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
             placeholder="مثال: 150000000"
           />
         </div>

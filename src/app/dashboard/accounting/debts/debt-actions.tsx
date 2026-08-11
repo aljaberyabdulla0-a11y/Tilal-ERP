@@ -82,7 +82,7 @@ export default function DebtActions({
 
   if (open) {
     return (
-      <div className="inline-flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-3 text-right shadow-sm">
+      <div className="inline-flex flex-col items-start gap-2 rounded-xl border border-gray-200 bg-white p-3 text-start shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="number"
@@ -90,14 +90,14 @@ export default function DebtActions({
             dir="ltr"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className={cls + " w-32 text-left"}
+            className={cls + " w-32 text-start"}
           />
           <input
             type="date"
             dir="ltr"
             value={payDate}
             onChange={(e) => setPayDate(e.target.value)}
-            className={cls + " text-left"}
+            className={cls + " text-start"}
           />
           <select value={method} onChange={(e) => setMethod(e.target.value)} className={cls}>
             <option value="نقد">للصندوق</option>

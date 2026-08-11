@@ -42,7 +42,7 @@ export default function AddDeduction({ employeeId }: { employeeId: string }) {
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
         placeholder="المبلغ"
-        className={cls + " w-32 text-left"}
+        className={cls + " w-32 text-start"}
       />
       <input
         type="text"

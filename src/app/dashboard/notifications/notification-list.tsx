@@ -77,7 +77,7 @@ export default function NotificationList({ items }: { items: AppNotification[] }
 
             <button
               onClick={() => openItem(n)}
-              className="min-w-0 flex-1 text-right"
+              className="min-w-0 flex-1 text-start"
               disabled={!n.link}
             >
               <span className="block font-semibold text-gray-800">{n.title}</span>

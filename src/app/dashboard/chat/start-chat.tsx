@@ -171,7 +171,7 @@ export default function StartChat({
               key={p.user_id}
               onClick={() => openDirect(p.user_id)}
               disabled={busy}
-              className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-right transition hover:bg-brand-50 disabled:opacity-50"
+              className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-start transition hover:bg-brand-50 disabled:opacity-50"
             >
               <span
                 className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${avatarColor(

@@ -83,7 +83,7 @@ export default function GeneratePayroll({
             dir="ltr"
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
-            className={cls + " text-left"}
+            className={cls + " text-start"}
           />
         </div>
         <div>
@@ -94,7 +94,7 @@ export default function GeneratePayroll({
             dir="ltr"
             value={allowances}
             onChange={(e) => setAllowances(e.target.value)}
-            className={cls + " w-28 text-left"}
+            className={cls + " w-28 text-start"}
           />
         </div>
         <div className="text-sm text-gray-600">

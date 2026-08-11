@@ -38,7 +38,7 @@ export default async function TrialBalancePage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[500px] text-right text-sm">
+            <table className="w-full min-w-[500px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الحساب</th>
@@ -55,10 +55,10 @@ export default async function TrialBalancePage() {
                       </span>{" "}
                       — {a.name}
                     </td>
-                    <td className="px-4 py-2.5 text-left" dir="ltr">
+                    <td className="px-4 py-2.5 text-end" dir="ltr">
                       {a.balance > 0 ? formatPrice(a.balance) : "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-left" dir="ltr">
+                    <td className="px-4 py-2.5 text-end" dir="ltr">
                       {a.balance < 0 ? formatPrice(-a.balance) : "—"}
                     </td>
                   </tr>
@@ -67,10 +67,10 @@ export default async function TrialBalancePage() {
               <tfoot>
                 <tr className="border-t-2 font-bold text-gray-800">
                   <td className="px-4 py-3">الإجمالي</td>
-                  <td className="px-4 py-3 text-left" dir="ltr">
+                  <td className="px-4 py-3 text-end" dir="ltr">
                     {formatPrice(totalDebit)}
                   </td>
-                  <td className="px-4 py-3 text-left" dir="ltr">
+                  <td className="px-4 py-3 text-end" dir="ltr">
                     {formatPrice(totalCredit)}
                   </td>
                 </tr>

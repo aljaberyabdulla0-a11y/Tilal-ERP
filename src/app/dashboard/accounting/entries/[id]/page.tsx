@@ -56,7 +56,7 @@ export default async function EntryDetailsPage({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[480px] text-right text-sm">
+            <table className="w-full min-w-[480px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-2 font-medium">الحساب</th>
@@ -73,10 +73,10 @@ export default async function EntryDetailsPage({
                       </span>{" "}
                       — {l.accounts?.name}
                     </td>
-                    <td className="px-4 py-2.5 text-left" dir="ltr">
+                    <td className="px-4 py-2.5 text-end" dir="ltr">
                       {l.debit ? formatPrice(l.debit) : "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-left" dir="ltr">
+                    <td className="px-4 py-2.5 text-end" dir="ltr">
                       {l.credit ? formatPrice(l.credit) : "—"}
                     </td>
                   </tr>
@@ -85,10 +85,10 @@ export default async function EntryDetailsPage({
               <tfoot>
                 <tr className="border-t font-semibold text-gray-700">
                   <td className="px-4 py-2.5">الإجمالي</td>
-                  <td className="px-4 py-2.5 text-left" dir="ltr">
+                  <td className="px-4 py-2.5 text-end" dir="ltr">
                     {formatPrice(totalDebit)}
                   </td>
-                  <td className="px-4 py-2.5 text-left" dir="ltr">
+                  <td className="px-4 py-2.5 text-end" dir="ltr">
                     {formatPrice(totalCredit)}
                   </td>
                 </tr>

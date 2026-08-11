@@ -61,7 +61,7 @@ export default async function ReservationsPage() {
 
         {!error && reservations.length > 0 && (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[800px] text-right text-sm">
+            <table className="w-full min-w-[800px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">العميل</th>
@@ -109,7 +109,7 @@ export default async function ReservationsPage() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <Link
                         href={`/dashboard/reservations/${r.id}`}
-                        className="ml-3 text-sm text-brand-700 hover:underline"
+                        className="me-3 text-sm text-brand-700 hover:underline"
                       >
                         عرض
                       </Link>
@@ -117,7 +117,7 @@ export default async function ReservationsPage() {
                         <>
                           <Link
                             href={`/dashboard/reservations/${r.id}/edit`}
-                            className="ml-3 text-sm text-brand-700 hover:underline"
+                            className="me-3 text-sm text-brand-700 hover:underline"
                           >
                             تعديل
                           </Link>

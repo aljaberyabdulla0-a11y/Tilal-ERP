@@ -159,7 +159,7 @@ export default function ActivityTimeline({
                   <button
                     onClick={() => remove(a)}
                     disabled={busyId === a.id}
-                    className="mr-auto text-sm text-red-600 hover:underline disabled:opacity-50"
+                    className="ms-auto text-sm text-red-600 hover:underline disabled:opacity-50"
                   >
                     حذف السجلّ
                   </button>
@@ -173,7 +173,7 @@ export default function ActivityTimeline({
           <li key={a.id} className="relative flex gap-3">
             {/* الخط الرأسي الواصل */}
             {i < activities.length - 1 && (
-              <span className="absolute right-[19px] top-11 h-[calc(100%-1rem)] w-px bg-gray-200" />
+              <span className="absolute start-[19px] top-11 h-[calc(100%-1rem)] w-px bg-gray-200" />
             )}
 
             {/* الأيقونة */}
@@ -221,7 +221,7 @@ export default function ActivityTimeline({
                   </Link>
                 )}
 
-                <span className="mr-auto whitespace-nowrap text-[11px] text-gray-400" dir="rtl">
+                <span className="ms-auto whitespace-nowrap text-[11px] text-gray-400" dir="rtl">
                   {baghdadDateLabel(a.occurred_at)} ·{" "}
                   <span dir="ltr">{baghdadTime(a.occurred_at)}</span>
                 </span>
@@ -237,7 +237,7 @@ export default function ActivityTimeline({
                   <span>
                     {a.next_action || "متابعة"}
                     {a.next_action_date && (
-                      <b className="mr-1" dir="ltr">
+                      <b className="ms-1" dir="ltr">
                         {a.next_action_date}
                       </b>
                     )}
@@ -252,7 +252,7 @@ export default function ActivityTimeline({
                     <button
                       onClick={() => startEdit(a)}
                       disabled={busyId === a.id}
-                      className="mr-auto font-medium text-brand-700 hover:underline disabled:opacity-50"
+                      className="ms-auto font-medium text-brand-700 hover:underline disabled:opacity-50"
                     >
                       تعديل
                     </button>

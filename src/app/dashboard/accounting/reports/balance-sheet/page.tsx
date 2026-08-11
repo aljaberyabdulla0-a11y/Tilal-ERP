@@ -46,12 +46,12 @@ export default async function BalanceSheetPage() {
       <div className="border-b bg-gray-50 px-4 py-2 font-semibold text-gray-700">
         {title}
       </div>
-      <table className="w-full text-right text-sm">
+      <table className="w-full text-start text-sm">
         <tbody>
           {rows.map((a) => (
             <tr key={a.id} className="border-b last:border-0">
               <td className="px-4 py-2.5 text-gray-800">{a.name}</td>
-              <td className="w-40 px-4 py-2.5 text-left" dir="ltr">
+              <td className="w-40 px-4 py-2.5 text-end" dir="ltr">
                 {formatPrice(a.amount)}
               </td>
             </tr>
@@ -59,14 +59,14 @@ export default async function BalanceSheetPage() {
           {extraRow && (
             <tr className="border-b last:border-0">
               <td className="px-4 py-2.5 text-gray-800">{extraRow.label}</td>
-              <td className="px-4 py-2.5 text-left" dir="ltr">
+              <td className="px-4 py-2.5 text-end" dir="ltr">
                 {formatPrice(extraRow.amount)}
               </td>
             </tr>
           )}
           <tr className="border-t font-semibold text-gray-700">
             <td className="px-4 py-2.5">الإجمالي</td>
-            <td className="px-4 py-2.5 text-left" dir="ltr">
+            <td className="px-4 py-2.5 text-end" dir="ltr">
               {formatPrice(total)}
             </td>
           </tr>

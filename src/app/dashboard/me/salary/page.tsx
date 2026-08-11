@@ -95,7 +95,7 @@ export default async function MySalaryPage() {
             <p className="text-sm text-gray-400">لا توجد كشوف رواتب بعد.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-right text-sm">
+              <table className="w-full min-w-[820px] text-start text-sm">
                 <thead className="border-b text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">الشهر</th>
@@ -141,13 +141,13 @@ export default async function MySalaryPage() {
           {commissions.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد عمولات.</p>
           ) : (
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <tbody>
                 {commissions.map((c) => (
                   <tr key={c.id} className="border-b last:border-0">
                     <td className="py-2 text-gray-600" dir="ltr">{c.comm_date}</td>
                     <td className="py-2 text-gray-800">{c.description || "—"}</td>
-                    <td className="py-2 text-left font-medium text-green-700" dir="ltr">{formatPrice(c.amount)}</td>
+                    <td className="py-2 text-end font-medium text-green-700" dir="ltr">{formatPrice(c.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -161,13 +161,13 @@ export default async function MySalaryPage() {
           {deductions.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد استقطاعات.</p>
           ) : (
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <tbody>
                 {deductions.map((d) => (
                   <tr key={d.id} className="border-b last:border-0">
                     <td className="py-2 text-gray-600" dir="ltr">{d.ded_date}</td>
                     <td className="py-2 text-gray-800">{d.reason || "—"}</td>
-                    <td className="py-2 text-left font-medium text-red-700" dir="ltr">{formatPrice(d.amount)}</td>
+                    <td className="py-2 text-end font-medium text-red-700" dir="ltr">{formatPrice(d.amount)}</td>
                   </tr>
                 ))}
               </tbody>

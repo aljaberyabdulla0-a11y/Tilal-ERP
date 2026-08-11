@@ -97,7 +97,7 @@ export default function ResetPasswordPage() {
                   dir="ltr"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-transparent py-3 text-left focus:outline-none"
+                  className="w-full bg-transparent py-3 text-start focus:outline-none"
                   placeholder="••••••••"
                 />
                 <button
@@ -122,7 +122,7 @@ export default function ResetPasswordPage() {
                   dir="ltr"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full bg-transparent py-3 text-left focus:outline-none"
+                  className="w-full bg-transparent py-3 text-start focus:outline-none"
                   placeholder="••••••••"
                 />
               </div>

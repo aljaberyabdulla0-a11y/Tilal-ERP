@@ -176,7 +176,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
               dir="ltr"
               value={templateAmount}
               onChange={(e) => setTemplateAmount(e.target.value)}
-              className={inputClass + " bg-white text-left"}
+              className={inputClass + " bg-white text-start"}
               placeholder="0"
             />
           </div>
@@ -203,7 +203,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
               dir="ltr"
               value={entryDate}
               onChange={(e) => setEntryDate(e.target.value)}
-              className={inputClass + " text-left"}
+              className={inputClass + " text-start"}
             />
           </div>
           <div>
@@ -223,7 +223,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
 
         {/* سطور القيد */}
         <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[560px] text-right text-sm">
+          <table className="w-full min-w-[560px] text-start text-sm">
             <thead className="text-gray-500">
               <tr>
                 <th className="pb-2 font-medium">الحساب</th>
@@ -235,7 +235,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
             <tbody>
               {lines.map((l, i) => (
                 <tr key={i}>
-                  <td className="py-1.5 pl-2">
+                  <td className="py-1.5 pe-2">
                     <select
                       value={l.account_id}
                       onChange={(e) => updateLine(i, "account_id", e.target.value)}
@@ -249,7 +249,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
                       ))}
                     </select>
                   </td>
-                  <td className="py-1.5 pl-2">
+                  <td className="py-1.5 pe-2">
                     <input
                       type="number"
                       min="0"
@@ -257,11 +257,11 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
                       dir="ltr"
                       value={l.debit}
                       onChange={(e) => updateLine(i, "debit", e.target.value)}
-                      className={inputClass + " text-left"}
+                      className={inputClass + " text-start"}
                       placeholder="0"
                     />
                   </td>
-                  <td className="py-1.5 pl-2">
+                  <td className="py-1.5 pe-2">
                     <input
                       type="number"
                       min="0"
@@ -269,7 +269,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
                       dir="ltr"
                       value={l.credit}
                       onChange={(e) => updateLine(i, "credit", e.target.value)}
-                      className={inputClass + " text-left"}
+                      className={inputClass + " text-start"}
                       placeholder="0"
                     />
                   </td>
@@ -291,8 +291,8 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
             <tfoot>
               <tr className="border-t font-semibold">
                 <td className="py-2 text-gray-600">الإجمالي</td>
-                <td className="py-2 text-left" dir="ltr">{formatPrice(totalDebit)}</td>
-                <td className="py-2 text-left" dir="ltr">{formatPrice(totalCredit)}</td>
+                <td className="py-2 text-end" dir="ltr">{formatPrice(totalDebit)}</td>
+                <td className="py-2 text-end" dir="ltr">{formatPrice(totalCredit)}</td>
                 <td></td>
               </tr>
             </tfoot>

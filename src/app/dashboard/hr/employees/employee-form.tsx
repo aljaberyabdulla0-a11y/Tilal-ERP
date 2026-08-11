@@ -169,7 +169,7 @@ export default function EmployeeForm({
             dir="ltr"
             value={form.phone}
             onChange={(e) => update("phone", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
             placeholder="07xxxxxxxxx"
           />
         </div>
@@ -184,7 +184,7 @@ export default function EmployeeForm({
             dir="ltr"
             value={form.hire_date}
             onChange={(e) => update("hire_date", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
           />
           <p className="mt-1 text-xs text-gray-400">
             يوم بداية العمل الفعلي — منه تُحتسب الرواتب والحضور.
@@ -201,7 +201,7 @@ export default function EmployeeForm({
             dir="ltr"
             value={form.base_salary}
             onChange={(e) => update("base_salary", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
             placeholder="مثال: 1000000"
           />
         </div>
@@ -307,7 +307,7 @@ export default function EmployeeForm({
                     dir="ltr"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className={inputClass + " text-left"}
+                    className={inputClass + " text-start"}
                   />
                 </div>
                 <div>
@@ -317,7 +317,7 @@ export default function EmployeeForm({
                     dir="ltr"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className={inputClass + " text-left"}
+                    className={inputClass + " text-start"}
                   />
                 </div>
               </div>

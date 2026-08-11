@@ -306,7 +306,7 @@ export default function WorkLocations({
               dir="ltr"
               value={draft.lat}
               onChange={(e) => set("lat", e.target.value)}
-              className={input + " text-left"}
+              className={input + " text-start"}
               placeholder="33.312800"
             />
           </div>
@@ -317,7 +317,7 @@ export default function WorkLocations({
               dir="ltr"
               value={draft.lng}
               onChange={(e) => set("lng", e.target.value)}
-              className={input + " text-left"}
+              className={input + " text-start"}
               placeholder="44.361500"
             />
           </div>
@@ -330,7 +330,7 @@ export default function WorkLocations({
               dir="ltr"
               value={draft.radius_m}
               onChange={(e) => set("radius_m", e.target.value)}
-              className={input + " text-left"}
+              className={input + " text-start"}
             />
           </div>
           <div className="flex items-end">

@@ -59,7 +59,7 @@ export default function AddPayment({
             dir="ltr"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className={cls + " w-36 text-left"}
+            className={cls + " w-36 text-start"}
             placeholder="0"
           />
         </div>
@@ -70,7 +70,7 @@ export default function AddPayment({
             dir="ltr"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className={cls + " text-left"}
+            className={cls + " text-start"}
           />
         </div>
         <div>

@@ -132,7 +132,7 @@ export default function InvoiceForm({
             dir="ltr"
             value={form.issue_date}
             onChange={(e) => update("issue_date", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
           />
         </div>
         <div>
@@ -142,7 +142,7 @@ export default function InvoiceForm({
             dir="ltr"
             value={form.due_date}
             onChange={(e) => update("due_date", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
           />
         </div>
         <div className="sm:col-span-2">
@@ -155,7 +155,7 @@ export default function InvoiceForm({
             dir="ltr"
             value={form.total_amount}
             onChange={(e) => update("total_amount", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
             placeholder="مثال: 50000000"
           />
         </div>

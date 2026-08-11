@@ -884,9 +884,9 @@ export const TASK_PRIORITY_COLORS: Record<string, string> = {
 
 // شريط جانبي ملوّن للبطاقة حسب الأولوية
 export const TASK_PRIORITY_BORDER: Record<string, string> = {
-  "عاجلة": "border-r-red-500",
-  "متوسطة": "border-r-amber-500",
-  "عادية": "border-r-gray-300",
+  "عاجلة": "border-s-red-500",
+  "متوسطة": "border-s-amber-500",
+  "عادية": "border-s-gray-300",
 };
 
 // «من طلب المهمة» — أهم معلومة يريدها الموظف عند فتح مهمته

@@ -78,13 +78,13 @@ export default function AddPartnerSettlement({
             dir="ltr"
             value={form.amount}
             onChange={(e) => update("amount", e.target.value)}
-            className={cls + " w-32 text-left"}
+            className={cls + " w-32 text-start"}
             placeholder="0"
           />
         </div>
         <div>
           <label className="mb-1 block text-xs text-gray-500">التاريخ</label>
-          <input type="date" dir="ltr" value={form.settlement_date} onChange={(e) => update("settlement_date", e.target.value)} className={cls + " text-left"} />
+          <input type="date" dir="ltr" value={form.settlement_date} onChange={(e) => update("settlement_date", e.target.value)} className={cls + " text-start"} />
         </div>
         <button
           onClick={add}

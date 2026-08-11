@@ -95,7 +95,7 @@ export default function ChatShell({
       <aside
         className={`${
           activeId ? "hidden lg:flex" : "flex"
-        } w-full shrink-0 flex-col border-l border-gray-200 bg-white lg:w-[340px]`}
+        } w-full shrink-0 flex-col border-e border-gray-200 bg-white lg:w-[340px]`}
       >
         {/* الرأس: العنوان + زر محادثة جديدة */}
         <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
@@ -119,14 +119,14 @@ export default function ChatShell({
         {/* البحث */}
         <div className="px-4 pb-3">
           <div className="relative">
-            <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-gray-400">
+            <span className="material-symbols-outlined pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-[18px] text-gray-400">
               search
             </span>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ابحث في المحادثات"
-              className="w-full rounded-full bg-gray-100 py-2 pr-10 pl-3 text-sm text-gray-700 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
+              className="w-full rounded-full bg-gray-100 py-2 ps-10 pe-3 text-sm text-gray-700 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
             />
           </div>
         </div>

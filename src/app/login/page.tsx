@@ -5,11 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/logo";
+import LanguageSwitcher from "@/components/language-switcher";
+import { useI18n } from "@/lib/i18n/client";
 
 // شاشة تسجيل الدخول — تصميم فاخر (Emerald Executive)
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useI18n();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,7 +30,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+      setError(t.auth.invalidCredentials);
       return;
     }
 
@@ -41,21 +44,26 @@ export default function LoginPage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-brand-900 via-brand-700 to-brand-900 p-4">
       {/* دوائر زخرفية خلفية */}
-      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/5 blur-2xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-brand-500/20 blur-2xl" />
+      <div className="pointer-events-none absolute -end-24 -top-24 h-72 w-72 rounded-full bg-white/5 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-24 -start-24 h-72 w-72 rounded-full bg-brand-500/20 blur-2xl" />
 
       <div className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+        {/* اختيار اللغة متاح قبل الدخول أيضاً */}
+        <div className="mb-4 flex justify-center">
+          <LanguageSwitcher />
+        </div>
+
         {/* الشعار */}
         <div className="mb-8 text-center">
           <Logo width={210} className="mx-auto mb-3" />
-          <p className="mt-1 text-sm text-gray-400">نظام إدارة التسويق العقاري</p>
+          <p className="mt-1 text-sm text-gray-400">{t.auth.subtitle}</p>
         </div>
 
         {/* النموذج */}
         <form onSubmit={handleLogin} className="space-y-5">
           <div>
             <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-700">
-              البريد الإلكتروني
+              {t.auth.email}
             </label>
             <div className={inputWrap}>
               <span className="material-symbols-outlined text-gray-400">mail</span>
@@ -66,7 +74,7 @@ export default function LoginPage() {
                 dir="ltr"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-transparent py-3 text-left focus:outline-none"
+                className="w-full bg-transparent py-3 text-start focus:outline-none"
                 placeholder="name@company.com"
               />
             </div>
@@ -74,7 +82,7 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">
-              كلمة المرور
+              {t.auth.password}
             </label>
             <div className={inputWrap}>
               <span className="material-symbols-outlined text-gray-400">lock</span>
@@ -85,7 +93,7 @@ export default function LoginPage() {
                 dir="ltr"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-transparent py-3 text-left focus:outline-none"
+                className="w-full bg-transparent py-3 text-start focus:outline-none"
                 placeholder="••••••••"
               />
               {/* زر إظهار/إخفاء كلمة المرور */}
@@ -93,18 +101,18 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setShowPw((v) => !v)}
                 className="material-symbols-outlined text-gray-400 transition hover:text-brand-600"
-                title={showPw ? "إخفاء" : "إظهار"}
+                title={showPw ? t.auth.hide : t.auth.show}
               >
                 {showPw ? "visibility_off" : "visibility"}
               </button>
             </div>
             {/* رابط نسيان كلمة المرور */}
-            <div className="mt-1.5 text-left">
+            <div className="mt-1.5 text-end">
               <Link
                 href="/forgot-password"
                 className="text-xs font-medium text-brand-700 hover:underline"
               >
-                نسيت كلمة المرور؟
+                {t.auth.forgotPassword}
               </Link>
             </div>
           </div>
@@ -121,12 +129,12 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-xl bg-brand-600 py-3 font-bold text-white shadow-lg shadow-brand-600/20 transition hover:bg-brand-700 hover:shadow-brand-600/30 disabled:opacity-50"
           >
-            {loading ? "جاري الدخول..." : "تسجيل الدخول"}
+            {loading ? t.auth.signingIn : t.auth.signIn}
           </button>
         </form>
 
         <p className="mt-6 text-center text-xs text-gray-400">
-          © {new Date().getFullYear()} تلال العقارية — جميع الحقوق محفوظة
+          © {new Date().getFullYear()} {t.auth.rights}
         </p>
       </div>
     </main>

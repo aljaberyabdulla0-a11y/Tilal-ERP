@@ -83,7 +83,7 @@ export default async function UnitDetailsPage({
               label="المساحة (م²)"
               value={
                 u.space_m2 !== null ? (
-                  <span dir="ltr" className="inline-block text-left">
+                  <span dir="ltr" className="inline-block text-start">
                     {u.space_m2}
                   </span>
                 ) : null
@@ -94,7 +94,7 @@ export default async function UnitDetailsPage({
               label="السعر (دينار عراقي)"
               value={
                 u.price !== null ? (
-                  <span dir="ltr" className="inline-block text-left">
+                  <span dir="ltr" className="inline-block text-start">
                     {formatPrice(u.price)}
                   </span>
                 ) : null

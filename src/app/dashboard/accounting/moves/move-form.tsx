@@ -155,7 +155,7 @@ export default function MoveForm({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0"
-          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-left text-2xl font-bold text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-start text-2xl font-bold text-gray-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
         />
         {!!Number(amount) && (
           <p className="mt-1.5 text-sm text-gray-500" dir="ltr">
@@ -175,7 +175,7 @@ export default function MoveForm({
               key={c.label}
               type="button"
               onClick={() => changeCategory(c.label)}
-              className={`flex items-center gap-2 rounded-xl border p-3 text-right text-sm transition ${
+              className={`flex items-center gap-2 rounded-xl border p-3 text-start text-sm transition ${
                 category === c.label
                   ? "border-brand-500 bg-brand-50 font-semibold text-brand-700"
                   : "border-gray-200 text-gray-600 hover:border-gray-300"
@@ -308,7 +308,7 @@ export default function MoveForm({
             dir="ltr"
             value={moveDate}
             onChange={(e) => setMoveDate(e.target.value)}
-            className={input + " text-left"}
+            className={input + " text-start"}
           />
         </div>
         <div>

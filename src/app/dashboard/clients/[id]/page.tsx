@@ -103,7 +103,7 @@ export default async function ClientDetailsPage({
           {c.phone && (
             <a
               href={`tel:${toIntlPhone(c.phone)}`}
-              className="mr-auto flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+              className="ms-auto flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
             >
               <span className="material-symbols-outlined text-[18px]">call</span>
               اتصال
@@ -129,7 +129,7 @@ export default async function ClientDetailsPage({
               label="رقم الهاتف"
               value={
                 c.phone ? (
-                  <span dir="ltr" className="inline-block text-left">
+                  <span dir="ltr" className="inline-block text-start">
                     {phoneLocal}
                     <span className="block text-sm font-normal text-gray-400">
                       {phoneIntl}
@@ -148,7 +148,7 @@ export default async function ClientDetailsPage({
               label="التاريخ"
               value={
                 c.entry_date ? (
-                  <span dir="ltr" className="inline-block text-left">
+                  <span dir="ltr" className="inline-block text-start">
                     {c.entry_date}
                   </span>
                 ) : null

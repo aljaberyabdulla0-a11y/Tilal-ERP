@@ -61,7 +61,7 @@ export default function AccountForm() {
           dir="ltr"
           value={form.code}
           onChange={(e) => update("code", e.target.value)}
-          className={inputClass + " text-left"}
+          className={inputClass + " text-start"}
           placeholder="مثال: 5900"
         />
         <p className="mt-1 text-xs text-gray-400">

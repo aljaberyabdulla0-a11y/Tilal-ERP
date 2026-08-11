@@ -51,11 +51,11 @@ export default function RunFollowupScan() {
       </button>
 
       {msg && (
-        <p className="absolute left-0 top-11 z-20 w-72 rounded-xl border bg-white p-3 text-xs text-gray-700 shadow-lg">
+        <p className="absolute end-0 top-11 z-20 w-72 rounded-xl border bg-white p-3 text-xs text-gray-700 shadow-lg">
           {msg}
           <button
             onClick={() => setMsg(null)}
-            className="mr-2 font-medium text-brand-600 hover:underline"
+            className="ms-2 font-medium text-brand-600 hover:underline"
           >
             إغلاق
           </button>

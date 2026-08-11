@@ -138,7 +138,7 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
         {/* الموظفون — الفلتر الأساسي، بضغطة واحدة */}
         {employees.length > 1 && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="ml-1 text-xs font-medium text-gray-500">ليدات:</span>
+            <span className="me-1 text-xs font-medium text-gray-500">ليدات:</span>
             <button
               onClick={() => setEmployee("")}
               className={
@@ -227,7 +227,7 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
             </button>
           )}
 
-          <span className="mr-auto text-sm text-gray-500">
+          <span className="ms-auto text-sm text-gray-500">
             {hasFilters ? (
               <>
                 عرض <b className="text-gray-800">{filtered.length}</b> من {items.length}{" "}
@@ -296,7 +296,7 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
                       {c.name}
                     </Link>
                     <div className="mt-1 space-y-0.5 text-xs text-gray-500">
-                      {c.phone && <div dir="ltr" className="text-right">{c.phone}</div>}
+                      {c.phone && <div dir="ltr" className="text-end">{c.phone}</div>}
                       <div>
                         {c.governorate || "—"}
                         {c.area ? ` - ${c.area}` : ""}

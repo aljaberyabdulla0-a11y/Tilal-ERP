@@ -204,7 +204,7 @@ export default function CheckInOut({
               {geo.message}
               <button
                 onClick={locate}
-                className="mr-2 font-semibold underline hover:text-red-900"
+                className="ms-2 font-semibold underline hover:text-red-900"
               >
                 إعادة المحاولة
               </button>
@@ -263,7 +263,7 @@ export default function CheckInOut({
               {formatTime(todayRecord?.check_in ?? null)}
             </b>
             {todayRecord?.check_in_location && (
-              <span className="mr-1 text-xs text-gray-400">
+              <span className="ms-1 text-xs text-gray-400">
                 ({todayRecord.check_in_location})
               </span>
             )}
@@ -275,14 +275,14 @@ export default function CheckInOut({
             </b>
             {isAutoCheckout(todayRecord) ? (
               <span
-                className="mr-1 text-xs text-gray-400"
+                className="ms-1 text-xs text-gray-400"
                 title="لم تسجّل انصرافك، فسجّله النظام على نهاية دوامك"
               >
                 (تلقائي)
               </span>
             ) : (
               todayRecord?.check_out_location && (
-                <span className="mr-1 text-xs text-gray-400">
+                <span className="ms-1 text-xs text-gray-400">
                   ({todayRecord.check_out_location})
                 </span>
               )

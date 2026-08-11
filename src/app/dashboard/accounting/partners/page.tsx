@@ -73,7 +73,7 @@ export default async function PartnersPage() {
             دينار
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-right text-sm">
+            <table className="w-full min-w-[760px] text-start text-sm">
               <thead className="border-b text-gray-500">
                 <tr>
                   <th className="pb-2 font-medium">الشريك</th>
@@ -115,7 +115,7 @@ export default async function PartnersPage() {
                         {p.net >= 0 ? "+" : ""}
                         {formatPrice(p.net)}
                       </span>
-                      <span className="mr-2 text-xs text-gray-400">
+                      <span className="ms-2 text-xs text-gray-400">
                         {p.net > 0.009 ? "(له)" : p.net < -0.009 ? "(عليه)" : ""}
                       </span>
                     </td>
@@ -150,7 +150,7 @@ export default async function PartnersPage() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-right text-sm">
+              <table className="w-full min-w-[640px] text-start text-sm">
                 <thead className="border-b text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">التاريخ</th>
@@ -211,7 +211,7 @@ export default async function PartnersPage() {
             <p className="text-sm text-gray-400">لا توجد تسويات بعد.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-right text-sm">
+              <table className="w-full min-w-[560px] text-start text-sm">
                 <thead className="border-b text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">التاريخ</th>
@@ -232,7 +232,7 @@ export default async function PartnersPage() {
                       <td className="py-2.5 font-medium text-gray-800" dir="ltr">
                         {formatPrice(s.amount)}
                       </td>
-                      <td className="py-2.5 text-left">
+                      <td className="py-2.5 text-end">
                         <DeleteRowButton table="partner_settlements" id={s.id} />
                       </td>
                     </tr>

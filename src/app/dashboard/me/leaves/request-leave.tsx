@@ -161,7 +161,7 @@ export default function RequestLeave({ employeeId }: { employeeId: string }) {
                 dir="ltr"
                 value={form.start_date}
                 onChange={(e) => update("start_date", e.target.value)}
-                className={cls + " text-left"}
+                className={cls + " text-start"}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -173,7 +173,7 @@ export default function RequestLeave({ employeeId }: { employeeId: string }) {
                   dir="ltr"
                   value={form.start_time}
                   onChange={(e) => update("start_time", e.target.value)}
-                  className={cls + " text-left"}
+                  className={cls + " text-start"}
                 />
               </div>
               <div>
@@ -184,7 +184,7 @@ export default function RequestLeave({ employeeId }: { employeeId: string }) {
                   dir="ltr"
                   value={form.end_time}
                   onChange={(e) => update("end_time", e.target.value)}
-                  className={cls + " text-left"}
+                  className={cls + " text-start"}
                 />
               </div>
             </div>
@@ -199,7 +199,7 @@ export default function RequestLeave({ employeeId }: { employeeId: string }) {
                 dir="ltr"
                 value={form.start_date}
                 onChange={(e) => update("start_date", e.target.value)}
-                className={cls + " text-left"}
+                className={cls + " text-start"}
               />
             </div>
             <div>
@@ -210,7 +210,7 @@ export default function RequestLeave({ employeeId }: { employeeId: string }) {
                 dir="ltr"
                 value={form.end_date}
                 onChange={(e) => update("end_date", e.target.value)}
-                className={cls + " text-left"}
+                className={cls + " text-start"}
               />
             </div>
           </>

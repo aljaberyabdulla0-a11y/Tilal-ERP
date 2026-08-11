@@ -122,7 +122,7 @@ export default async function ActivitiesPage({
         {/* الفلاتر */}
         <div className="space-y-3 rounded-2xl border bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="ml-1 text-xs font-medium text-gray-500">الفترة</span>
+            <span className="me-1 text-xs font-medium text-gray-500">الفترة</span>
             {PERIODS.map((p) => (
               <Link key={p.key} href={linkWith({ period: p.key })} className={chip(period === p.key)}>
                 {p.label}
@@ -131,7 +131,7 @@ export default async function ActivitiesPage({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="ml-1 text-xs font-medium text-gray-500">النوع</span>
+            <span className="me-1 text-xs font-medium text-gray-500">النوع</span>
             <Link href={linkWith({ type: "" })} className={chip(!type)}>
               الكل
             </Link>
@@ -143,7 +143,7 @@ export default async function ActivitiesPage({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="ml-1 text-xs font-medium text-gray-500">النتيجة</span>
+            <span className="me-1 text-xs font-medium text-gray-500">النتيجة</span>
             <Link href={linkWith({ outcome: "" })} className={chip(!outcome)}>
               الكل
             </Link>

@@ -29,28 +29,28 @@ export default async function AccountingHome() {
       value: o.cash,
       icon: "account_balance_wallet",
       color: o.cash >= 0 ? "text-brand-700" : "text-red-700",
-      border: "border-r-brand-500",
+      border: "border-s-brand-500",
     },
     {
       label: "قبضنا هذا الشهر",
       value: o.monthIncome,
       icon: "trending_up",
       color: "text-green-700",
-      border: "border-r-green-500",
+      border: "border-s-green-500",
     },
     {
       label: "صرفنا هذا الشهر",
       value: o.monthExpense,
       icon: "trending_down",
       color: "text-red-700",
-      border: "border-r-red-500",
+      border: "border-s-red-500",
     },
     {
       label: "صافي الربح (الكلي)",
       value: o.net,
       icon: "savings",
       color: o.net >= 0 ? "text-green-700" : "text-red-700",
-      border: o.net >= 0 ? "border-r-green-500" : "border-r-red-500",
+      border: o.net >= 0 ? "border-s-green-500" : "border-s-red-500",
     },
   ];
 
@@ -85,7 +85,7 @@ export default async function AccountingHome() {
         {/* بطاقات الأرقام الأساسية */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {kpis.map((k) => (
-            <div key={k.label} className={`glass-card border-r-4 p-5 ${k.border}`}>
+            <div key={k.label} className={`glass-card border-s-4 p-5 ${k.border}`}>
               <div className="flex items-start justify-between">
                 <span className="text-sm text-gray-500">{k.label}</span>
                 <span className="material-symbols-outlined text-gray-300">{k.icon}</span>
@@ -103,7 +103,7 @@ export default async function AccountingHome() {
             {o.payrollDue > 0.009 && (
               <Link
                 href="/dashboard/hr/payroll"
-                className="glass-card flex items-center justify-between border-r-4 border-r-amber-500 p-5 transition hover:shadow-md"
+                className="glass-card flex items-center justify-between border-s-4 border-s-amber-500 p-5 transition hover:shadow-md"
               >
                 <div>
                   <span className="text-sm text-gray-500">
@@ -122,7 +122,7 @@ export default async function AccountingHome() {
             {o.partnerDue > 0.009 && (
               <Link
                 href="/dashboard/accounting/partners"
-                className="glass-card flex items-center justify-between border-r-4 border-r-blue-500 p-5 transition hover:shadow-md"
+                className="glass-card flex items-center justify-between border-s-4 border-s-blue-500 p-5 transition hover:shadow-md"
               >
                 <div>
                   <span className="text-sm text-gray-500">مستحق للشركاء (دفعوا من جيبهم)</span>
@@ -139,7 +139,7 @@ export default async function AccountingHome() {
             {o.externalDebtDue > 0.009 && (
               <Link
                 href="/dashboard/accounting/debts"
-                className="glass-card flex items-center justify-between border-r-4 border-r-purple-500 p-5 transition hover:shadow-md"
+                className="glass-card flex items-center justify-between border-s-4 border-s-purple-500 p-5 transition hover:shadow-md"
               >
                 <div>
                   <span className="text-sm text-gray-500">
@@ -181,7 +181,7 @@ export default async function AccountingHome() {
                       <span className="text-gray-700">{c.label}</span>
                       <span className="font-semibold text-gray-800" dir="ltr">
                         {formatPrice(c.amount)}
-                        <span className="mr-2 text-xs text-gray-400">
+                        <span className="ms-2 text-xs text-gray-400">
                           {o.expense > 0
                             ? Math.round((c.amount / o.expense) * 100)
                             : 0}
@@ -318,7 +318,7 @@ export default async function AccountingHome() {
                 >
                   {p.net >= 0 ? "+" : ""}
                   {formatPrice(p.net)}
-                  <span className="mr-2 text-xs font-normal text-gray-500">
+                  <span className="ms-2 text-xs font-normal text-gray-500">
                     {p.net > 0.009 ? "(له عند الشركة)" : p.net < -0.009 ? "(عليه)" : "(متوازن)"}
                   </span>
                 </p>

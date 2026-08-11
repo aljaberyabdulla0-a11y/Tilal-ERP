@@ -112,7 +112,7 @@ export default async function InvoiceDetailsPage({
           {payments.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد دفعات بعد.</p>
           ) : (
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <thead className="border-b text-gray-500">
                 <tr>
                   <th className="pb-2 font-medium">التاريخ</th>
@@ -128,12 +128,12 @@ export default async function InvoiceDetailsPage({
                     <td className="py-2.5 text-gray-600">
                       {p.method || "—"}
                       {p.journal_entry_id && (
-                        <span className="mr-2 text-xs text-green-600">✓ مُرحّل</span>
+                        <span className="ms-2 text-xs text-green-600">✓ مُرحّل</span>
                       )}
                     </td>
                     <td className="py-2.5 font-medium text-green-700" dir="ltr">{formatPrice(p.amount)}</td>
                     {admin && (
-                      <td className="py-2.5 text-left">
+                      <td className="py-2.5 text-end">
                         <DeletePaymentButton id={p.id} />
                       </td>
                     )}

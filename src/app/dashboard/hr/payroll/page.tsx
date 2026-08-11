@@ -66,7 +66,7 @@ export default async function HrPayrollPage() {
               {formatPrice(totalPaid)}
             </p>
           </div>
-          <div className={`${kpi} ${totalDue > 0 ? "border-r-4 border-r-red-500" : ""}`}>
+          <div className={`${kpi} ${totalDue > 0 ? "border-s-4 border-s-red-500" : ""}`}>
             <span className="text-sm text-gray-500">المتبقّي على الشركة</span>
             <p
               className={`mt-1 text-2xl font-bold ${
@@ -93,7 +93,7 @@ export default async function HrPayrollPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[900px] text-right text-sm">
+            <table className="w-full min-w-[900px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الموظف</th>
@@ -150,7 +150,7 @@ export default async function HrPayrollPage() {
                           {st.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-left">
+                      <td className="px-4 py-3 text-end">
                         <PayPayroll
                           payrollId={p.id}
                           employeeName={p.employees?.full_name ?? ""}

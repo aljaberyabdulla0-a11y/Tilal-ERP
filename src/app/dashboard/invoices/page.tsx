@@ -50,7 +50,7 @@ export default async function InvoicesPage() {
 
         {!error && invoices.length > 0 && (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[820px] text-right text-sm">
+            <table className="w-full min-w-[820px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">رقم الفاتورة</th>

@@ -56,7 +56,7 @@ export default async function EntriesPage() {
 
         {!error && entries.length > 0 && (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[600px] text-right text-sm">
+            <table className="w-full min-w-[600px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">التاريخ</th>

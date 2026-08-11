@@ -90,7 +90,7 @@ export default function WorkHours({ settings }: { settings: CompanySettings | nu
             dir="ltr"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className={input + " w-full text-left"}
+            className={input + " w-full text-start"}
           />
         </div>
         <div>
@@ -100,7 +100,7 @@ export default function WorkHours({ settings }: { settings: CompanySettings | nu
             dir="ltr"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
-            className={input + " w-full text-left"}
+            className={input + " w-full text-start"}
           />
         </div>
         <div>
@@ -112,7 +112,7 @@ export default function WorkHours({ settings }: { settings: CompanySettings | nu
             dir="ltr"
             value={grace}
             onChange={(e) => setGrace(e.target.value)}
-            className={input + " w-full text-left"}
+            className={input + " w-full text-start"}
           />
         </div>
       </div>

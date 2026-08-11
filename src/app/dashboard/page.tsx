@@ -92,11 +92,11 @@ export default async function DashboardPage() {
   const pipeMax = Math.max(1, ...pipeline.map((p) => p.value));
 
   const kpis = [
-    { icon: "payments", label: "إجمالي المبيعات", value: formatPrice(totalSales), accent: "border-r-brand-600", iconColor: "text-brand-700 bg-brand-50" },
-    { icon: "trending_up", label: "الإيرادات المحصّلة", value: formatPrice(totalRevenue), accent: "border-r-emerald-500", iconColor: "text-emerald-700 bg-emerald-50" },
-    { icon: "apartment", label: "الوحدات المتاحة", value: String(unitsAvailable), accent: "border-r-blue-500", iconColor: "text-blue-700 bg-blue-50" },
-    { icon: "check_circle", label: "الوحدات المباعة", value: String(unitsSold), accent: "border-r-brand-500", iconColor: "text-brand-700 bg-brand-50" },
-    { icon: "groups", label: "العملاء", value: String(clientsCount), accent: "border-r-amber-500", iconColor: "text-amber-700 bg-amber-50" },
+    { icon: "payments", label: "إجمالي المبيعات", value: formatPrice(totalSales), accent: "border-s-brand-600", iconColor: "text-brand-700 bg-brand-50" },
+    { icon: "trending_up", label: "الإيرادات المحصّلة", value: formatPrice(totalRevenue), accent: "border-s-emerald-500", iconColor: "text-emerald-700 bg-emerald-50" },
+    { icon: "apartment", label: "الوحدات المتاحة", value: String(unitsAvailable), accent: "border-s-blue-500", iconColor: "text-blue-700 bg-blue-50" },
+    { icon: "check_circle", label: "الوحدات المباعة", value: String(unitsSold), accent: "border-s-brand-500", iconColor: "text-brand-700 bg-brand-50" },
+    { icon: "groups", label: "العملاء", value: String(clientsCount), accent: "border-s-amber-500", iconColor: "text-amber-700 bg-amber-50" },
   ];
 
   return (
@@ -115,7 +115,7 @@ export default async function DashboardPage() {
       {/* بطاقات المؤشرات KPI */}
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {kpis.map((k) => (
-          <div key={k.label} className={`glass-card border-r-4 ${k.accent} p-5`}>
+          <div key={k.label} className={`glass-card border-s-4 ${k.accent} p-5`}>
             <span
               className={`material-symbols-outlined rounded-lg p-2 ${k.iconColor}`}
             >
@@ -201,10 +201,10 @@ export default async function DashboardPage() {
             <p className="text-sm text-gray-400">لا توجد نشاطات بعد.</p>
           ) : (
             <div className="relative space-y-6">
-              <div className="absolute bottom-4 right-[11px] top-2 w-[2px] bg-gray-200/70" />
+              <div className="absolute bottom-4 start-[11px] top-2 w-[2px] bg-gray-200/70" />
               {recent.map((r) => (
-                <div key={r.id} className="relative pr-10">
-                  <div className="absolute right-0 top-1 flex h-6 w-6 items-center justify-center rounded-full border-4 border-white bg-brand-600 shadow-sm">
+                <div key={r.id} className="relative ps-10">
+                  <div className="absolute start-0 top-1 flex h-6 w-6 items-center justify-center rounded-full border-4 border-white bg-brand-600 shadow-sm">
                     <span className="material-symbols-outlined text-[12px] text-white">key</span>
                   </div>
                   <h5 className="font-bold text-gray-800">

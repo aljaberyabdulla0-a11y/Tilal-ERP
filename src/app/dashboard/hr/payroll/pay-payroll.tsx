@@ -100,7 +100,7 @@ export default function PayPayroll({
               dir="ltr"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className={cls + " w-full text-left text-lg font-bold"}
+              className={cls + " w-full text-start text-lg font-bold"}
             />
             <div className="mt-2 flex gap-2">
               <button
@@ -128,7 +128,7 @@ export default function PayPayroll({
                 dir="ltr"
                 value={payDate}
                 onChange={(e) => setPayDate(e.target.value)}
-                className={cls + " w-full text-left"}
+                className={cls + " w-full text-start"}
               />
             </div>
             <div>

@@ -38,7 +38,7 @@ export default async function IncomeStatementPage() {
       <div className="border-b bg-gray-50 px-4 py-2 font-semibold text-gray-700">
         {title}
       </div>
-      <table className="w-full text-right text-sm">
+      <table className="w-full text-start text-sm">
         <tbody>
           {rows.length === 0 ? (
             <tr>
@@ -48,7 +48,7 @@ export default async function IncomeStatementPage() {
             rows.map((a) => (
               <tr key={a.id} className="border-b last:border-0">
                 <td className="px-4 py-2.5 text-gray-800">{a.name}</td>
-                <td className="w-40 px-4 py-2.5 text-left" dir="ltr">
+                <td className="w-40 px-4 py-2.5 text-end" dir="ltr">
                   {formatPrice(a.amount)}
                 </td>
               </tr>
@@ -56,7 +56,7 @@ export default async function IncomeStatementPage() {
           )}
           <tr className="border-t font-semibold text-gray-700">
             <td className="px-4 py-2.5">{totalLabel}</td>
-            <td className="px-4 py-2.5 text-left" dir="ltr">
+            <td className="px-4 py-2.5 text-end" dir="ltr">
               {formatPrice(total)}
             </td>
           </tr>

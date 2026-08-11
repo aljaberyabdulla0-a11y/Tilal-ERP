@@ -116,7 +116,7 @@ export default async function AttendanceTodayPage({
               name="date"
               dir="ltr"
               defaultValue={date}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-left text-sm focus:border-brand-500 focus:outline-none"
+              className="rounded-lg border border-gray-300 px-3 py-2 text-start text-sm focus:border-brand-500 focus:outline-none"
             />
             <button className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
               عرض
@@ -217,7 +217,7 @@ export default async function AttendanceTodayPage({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-            <table className="w-full min-w-[1000px] text-right text-sm">
+            <table className="w-full min-w-[1000px] text-start text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الموظف</th>
@@ -246,7 +246,7 @@ export default async function AttendanceTodayPage({
                         <span className="block text-xs text-gray-400">
                           {e.job_title || "—"}
                           {schedule.custom && !e.exempt_from_attendance && (
-                            <span className="mr-1 text-brand-600" dir="ltr">
+                            <span className="ms-1 text-brand-600" dir="ltr">
                               ({schedule.start}–{schedule.end})
                             </span>
                           )}
@@ -343,7 +343,7 @@ export default async function AttendanceTodayPage({
                           <span className="text-gray-300">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-left">
+                      <td className="px-4 py-3 text-end">
                         <ManualStamp
                           employeeId={e.id}
                           workDate={date}

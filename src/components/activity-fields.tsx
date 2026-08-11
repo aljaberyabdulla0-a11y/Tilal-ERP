@@ -64,7 +64,7 @@ export default function ActivityFields({
             dir="ltr"
             value={value.date}
             onChange={(e) => set("date", e.target.value)}
-            className={input + " text-left"}
+            className={input + " text-start"}
           />
         </div>
 
@@ -75,7 +75,7 @@ export default function ActivityFields({
             dir="ltr"
             value={value.time}
             onChange={(e) => set("time", e.target.value)}
-            className={input + " text-left"}
+            className={input + " text-start"}
           />
         </div>
 
@@ -106,7 +106,7 @@ export default function ActivityFields({
               dir="ltr"
               value={value.duration}
               onChange={(e) => set("duration", e.target.value)}
-              className={input + " text-left"}
+              className={input + " text-start"}
               placeholder="مثال: 10"
             />
           </div>
@@ -176,7 +176,7 @@ export default function ActivityFields({
               onChange={(e) => set("next_date", e.target.value)}
               className={
                 input +
-                " text-left " +
+                " text-start " +
                 (value.next_date ? "" : "border-amber-400 bg-white")
               }
             />

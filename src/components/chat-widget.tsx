@@ -151,7 +151,7 @@ export default function ChatWidget({
     <>
       {/* ===== النافذة ===== */}
       {open && (
-        <div className="fixed bottom-24 left-4 z-40 flex h-[460px] w-[min(92vw,360px)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:left-6">
+        <div className="fixed bottom-24 end-4 z-40 flex h-[460px] w-[min(92vw,360px)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:end-6">
           {/* الرأس */}
           <div className="flex items-center gap-2 border-b border-gray-200 bg-brand-600 px-3 py-2.5 text-white">
             {activeId && (
@@ -220,7 +220,7 @@ export default function ChatWidget({
                     <li key={c.id}>
                       <button
                         onClick={() => openConversation(c.id)}
-                        className="flex w-full items-center gap-2.5 rounded-xl p-2 text-right transition hover:bg-gray-100"
+                        className="flex w-full items-center gap-2.5 rounded-xl p-2 text-start transition hover:bg-gray-100"
                       >
                         <span
                           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
@@ -314,7 +314,7 @@ export default function ChatWidget({
                           </div>
                           <span
                             className={`mt-0.5 px-1 text-[9px] text-gray-400 ${
-                              mine ? "text-left" : "text-right"
+                              mine ? "text-end" : "text-start"
                             }`}
                             dir="ltr"
                           >
@@ -375,13 +375,13 @@ export default function ChatWidget({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="المحادثات"
-        className="fixed bottom-6 left-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg transition hover:bg-brand-700 sm:left-6"
+        className="fixed bottom-6 end-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg transition hover:bg-brand-700 sm:end-6"
       >
         <span className="material-symbols-outlined text-[26px]">
           {open ? "close" : "forum"}
         </span>
         {!open && unreadTotal > 0 && (
-          <span className="absolute -top-1 right-0 flex h-6 min-w-[24px] items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[11px] font-bold">
+          <span className="absolute -top-1 start-0 flex h-6 min-w-[24px] items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[11px] font-bold">
             {unreadTotal > 99 ? "99+" : unreadTotal}
           </span>
         )}

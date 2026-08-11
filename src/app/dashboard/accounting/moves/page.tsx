@@ -168,7 +168,7 @@ export default async function MovesPage({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-right text-sm">
+              <table className="w-full min-w-[820px] text-start text-sm">
                 <thead className="border-b text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">التاريخ</th>
@@ -227,7 +227,7 @@ export default async function MovesPage({
                           {m.direction === "قبض" ? "+" : "−"}
                           {formatPrice(Number(m.amount))}
                         </td>
-                        <td className="py-3 text-left">
+                        <td className="py-3 text-end">
                           <DeleteMoveButton id={m.id} />
                         </td>
                       </tr>

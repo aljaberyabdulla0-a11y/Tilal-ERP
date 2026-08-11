@@ -55,7 +55,7 @@ export default async function MyLeavesPage() {
             <p className="text-sm text-gray-400">لا توجد طلبات إجازة.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-right text-sm">
+              <table className="w-full min-w-[560px] text-start text-sm">
                 <thead className="border-b text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">النوع</th>

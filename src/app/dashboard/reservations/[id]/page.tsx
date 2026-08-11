@@ -93,7 +93,7 @@ export default async function ReservationDetailsPage({
               label="تاريخ الحجز"
               value={
                 r.reservation_date ? (
-                  <span dir="ltr" className="inline-block text-left">
+                  <span dir="ltr" className="inline-block text-start">
                     {r.reservation_date}
                   </span>
                 ) : null
@@ -116,7 +116,7 @@ export default async function ReservationDetailsPage({
               label="المبلغ المدفوع (د.ع)"
               value={
                 r.amount !== null ? (
-                  <span dir="ltr" className="inline-block text-left">
+                  <span dir="ltr" className="inline-block text-start">
                     {formatPrice(r.amount)}
                   </span>
                 ) : null

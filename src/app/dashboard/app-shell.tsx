@@ -7,6 +7,8 @@ import LogoutButton from "./logout-button";
 import Logo from "@/components/logo";
 import NotificationBell from "@/components/notification-bell";
 import ChatUnreadBadge from "@/components/chat-unread-badge";
+import LanguageSwitcher from "@/components/language-switcher";
+import { useI18n } from "@/lib/i18n/client";
 
 export type NavItem = {
   href: string;
@@ -17,7 +19,12 @@ export type NavItem = {
   badge?: "chat"; // شارة عدّاد بجانب الرابط
 };
 
-// الهيكل العام: شريط جانبي زجاجي فاتح (نظام تصميم Stitch "Emerald Executive")
+// ============================================================
+// الهيكل العام: شريط جانبي زجاجي فاتح (نظام تصميم Stitch).
+//
+// ⚠️ كل الأصناف الاتجاهية هنا **منطقية** (start/end وليس right/left)
+// حتى ينقلب الشريط تلقائياً إلى اليسار عند التبديل للإنجليزية.
+// ============================================================
 export default function AppShell({
   nav,
   userEmail,
@@ -31,6 +38,7 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { t } = useI18n();
 
   function isActive(item: NavItem): boolean {
     if (item.exact) return pathname === item.href;
@@ -38,7 +46,7 @@ export default function AppShell({
   }
 
   const sidebar = (
-    <aside className="flex h-full w-64 flex-col border-l border-gray-200/70 bg-white/80 backdrop-blur-xl">
+    <aside className="flex h-full w-64 flex-col border-e border-gray-200/70 bg-white/80 backdrop-blur-xl">
       {/* الشعار + جرس الإشعارات */}
       <div className="flex items-center justify-between gap-2 border-b border-gray-200/60 px-4 py-4">
         <NotificationBell />
@@ -65,9 +73,9 @@ export default function AppShell({
         ))}
       </nav>
 
-      {/* المستخدم + الخروج */}
+      {/* المستخدم + اللغة + الخروج */}
       <div className="border-t border-gray-200/60 p-4">
-        <div className="mb-2 flex items-center gap-2">
+        <div className="mb-3 flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-700">
             <span className="material-symbols-outlined text-lg">person</span>
           </span>
@@ -80,6 +88,11 @@ export default function AppShell({
             </div>
           </div>
         </div>
+
+        <div className="mb-2">
+          <LanguageSwitcher />
+        </div>
+
         <LogoutButton className="w-full rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100" />
       </div>
     </aside>
@@ -87,7 +100,7 @@ export default function AppShell({
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* الشريط الجانبي — سطح المكتب (يمين في RTL) */}
+      {/* الشريط الجانبي — سطح المكتب (يمين في العربية، يسار في الإنجليزية) */}
       <div className="sticky top-0 hidden h-screen shrink-0 lg:block">{sidebar}</div>
 
       {/* الشريط الجانبي — الجوّال */}
@@ -97,7 +110,7 @@ export default function AppShell({
             className="absolute inset-0 bg-black/40"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 top-0 h-full">{sidebar}</div>
+          <div className="absolute start-0 top-0 h-full">{sidebar}</div>
         </div>
       )}
 
@@ -108,13 +121,14 @@ export default function AppShell({
           <button
             onClick={() => setOpen(true)}
             className="material-symbols-outlined text-gray-700"
-            aria-label="القائمة"
+            aria-label={t.nav.menu}
           >
             menu
           </button>
-          <span className="font-bold text-brand-700">تلال ERP</span>
-          <div className="mr-auto">
-            <NotificationBell pin="left" />
+          <span className="font-bold text-brand-700">{t.common.appName}</span>
+          <div className="ms-auto flex items-center gap-2">
+            <LanguageSwitcher compact />
+            <NotificationBell pin="end" />
           </div>
         </div>
 

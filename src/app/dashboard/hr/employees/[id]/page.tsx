@@ -131,7 +131,7 @@ export default async function EmployeeDetailsPage({
           {commissions.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد عمولات.</p>
           ) : (
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <tbody>
                 {commissions.map((c) => (
                   <tr key={c.id} className="border-b last:border-0">
@@ -150,7 +150,7 @@ export default async function EmployeeDetailsPage({
                         <span className="text-xs text-gray-400">غير مُرحّلة</span>
                       )}
                     </td>
-                    <td className="py-2 text-left font-medium" dir="ltr">{formatPrice(c.amount)}</td>
+                    <td className="py-2 text-end font-medium" dir="ltr">{formatPrice(c.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -170,7 +170,7 @@ export default async function EmployeeDetailsPage({
           {deductions.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد استقطاعات.</p>
           ) : (
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <tbody>
                 {deductions.map((d) => (
                   <tr key={d.id} className="border-b last:border-0">
@@ -183,7 +183,7 @@ export default async function EmployeeDetailsPage({
                         </span>
                       )}
                     </td>
-                    <td className="py-2 text-left font-medium" dir="ltr">{formatPrice(d.amount)}</td>
+                    <td className="py-2 text-end font-medium" dir="ltr">{formatPrice(d.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -210,7 +210,7 @@ export default async function EmployeeDetailsPage({
             <p className="text-sm text-gray-400">لا توجد كشوف رواتب.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[680px] text-right text-sm">
+              <table className="w-full min-w-[680px] text-start text-sm">
                 <thead className="text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">الشهر</th>
@@ -242,7 +242,7 @@ export default async function EmployeeDetailsPage({
                             {st.label}
                           </span>
                         </td>
-                        <td className="py-2 text-left">
+                        <td className="py-2 text-end">
                           <PayPayroll
                             payrollId={p.id}
                             employeeName={emp.full_name}
@@ -265,7 +265,7 @@ export default async function EmployeeDetailsPage({
           {leaves.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد إجازات.</p>
           ) : (
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <thead className="text-gray-500">
                 <tr>
                   <th className="pb-2 font-medium">النوع</th>
@@ -309,7 +309,7 @@ export default async function EmployeeDetailsPage({
           {attendance.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد سجلات حضور.</p>
           ) : (
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <thead className="text-gray-500">
                 <tr>
                   <th className="pb-2 font-medium">التاريخ</th>

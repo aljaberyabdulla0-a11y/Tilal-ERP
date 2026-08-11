@@ -1,0 +1,97 @@
+// ============================================================
+// English dictionary.
+// Typed as `Dictionary` (derived from ar.ts), so a missing or
+// misspelled key fails the build instead of silently showing Arabic.
+// ============================================================
+
+import type { Dictionary } from "./ar";
+
+const en: Dictionary = {
+  common: {
+    appName: "Tilal ERP",
+    save: "Save",
+    saving: "Saving...",
+    cancel: "Cancel",
+    delete: "Delete",
+    edit: "Edit",
+    add: "Add",
+    close: "Close",
+    search: "Search",
+    loading: "Loading...",
+    none: "—",
+    back: "Back",
+    backToDashboard: "← Dashboard",
+    details: "Details",
+    date: "Date",
+    amount: "Amount",
+    total: "Total",
+    status: "Status",
+    notes: "Notes",
+    name: "Name",
+    phone: "Phone",
+    show: "Show",
+    all: "All",
+    of: "of",
+    day: "day",
+    days: "days",
+    minute: "minute",
+    minutes: "minutes",
+    dinar: "IQD",
+    required: "required",
+    optional: "optional",
+    noData: "No data yet.",
+    errorPrefix: "Something went wrong: ",
+  },
+
+  nav: {
+    dashboard: "Dashboard",
+    tasks: "Tasks",
+    chat: "Chat",
+    crm: "CRM",
+    invoices: "Invoices",
+    accounting: "Accounting",
+    hr: "HR",
+    attendance: "Attendance",
+    settings: "Settings",
+    logout: "Sign out",
+    menu: "Menu",
+    roleAdmin: "Manager",
+    roleEmployee: "Employee",
+    language: "Language",
+  },
+
+  auth: {
+    signIn: "Sign in",
+    signingIn: "Signing in...",
+    email: "Email",
+    password: "Password",
+    forgotPassword: "Forgot your password?",
+    resetPassword: "Reset password",
+    newPassword: "New password",
+    confirmPassword: "Confirm password",
+    sendResetLink: "Send reset link",
+    backToLogin: "← Back to sign in",
+    welcome: "Tilal Real Estate Marketing — management system",
+    subtitle: "Real estate marketing management",
+    show: "Show",
+    hide: "Hide",
+    rights: "Tilal Real Estate — all rights reserved",
+    invalidCredentials: "Incorrect email or password.",
+    passwordsMismatch: "The two passwords do not match.",
+    resetLinkSent: "We sent a reset link to your email. Open it on this device.",
+    passwordChanged: "Password changed. Redirecting...",
+  },
+
+  home: {
+    greeting: "Welcome",
+    quickAccess: "Quick access",
+    myFollowUps: "My client follow-ups",
+    myTasksToday: "My tasks today",
+    recentActivity: "Recent activity",
+    monthlyRevenue: "Monthly revenue",
+    salesFunnel: "Sales funnel",
+    noActivity: "No activity yet.",
+  },
+};
+
+export default en;

@@ -42,7 +42,7 @@ export default function ChatUnreadBadge() {
   if (count <= 0) return null;
 
   return (
-    <span className="mr-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">
+    <span className="ms-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-bold text-white">
       {count > 99 ? "99+" : count}
     </span>
   );

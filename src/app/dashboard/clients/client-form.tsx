@@ -150,7 +150,7 @@ export default function ClientForm({
               dir="ltr"
               value={form.phone}
               onChange={(e) => update("phone", e.target.value)}
-              className={inputClass + " text-left"}
+              className={inputClass + " text-start"}
               placeholder={isIntl ? "+9647701234567" : "07701234567"}
             />
             <button
@@ -292,7 +292,7 @@ export default function ClientForm({
             dir="ltr"
             value={form.entry_date}
             onChange={(e) => update("entry_date", e.target.value)}
-            className={inputClass + " text-left"}
+            className={inputClass + " text-start"}
           />
         </div>
 

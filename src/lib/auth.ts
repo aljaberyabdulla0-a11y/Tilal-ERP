@@ -8,9 +8,15 @@ import { createClient } from "@/lib/supabase/server";
 // تسأل عن الدور من أماكن متعددة (التخطيط + الصفحة + شريط التبويبات)،
 // وكل سؤال كان يعني رحلة شبكة لخادم المصادقة ثم رحلة لجدول الأدوار.
 // مع cache() تُحسب مرة واحدة لكل طلب وتُعاد بقية المرات فوراً.
+//
+// ⚠️ هذه للواجهة فقط — لإخفاء الأزرار والأقسام. الحماية الحقيقية في
+// سياسات RLS داخل القاعدة (sql/036 و sql/037)، فلو تحايل أحد على
+// الواجهة لم يحصل على بيانات ليست له.
 // ============================================================
 
-export type UserRole = "admin" | "employee";
+export type UserRole = "admin" | "supervisor" | "employee";
+
+const ROLES: UserRole[] = ["admin", "supervisor", "employee"];
 
 // المستخدم الحالي — استدعاء واحد لخادم المصادقة لكل طلب
 export const getCurrentUser = cache(async () => {
@@ -33,10 +39,23 @@ export const getUserRole = cache(async (): Promise<UserRole> => {
     .eq("id", user.id)
     .single();
 
-  return data?.role === "admin" ? "admin" : "employee";
+  const role = data?.role as UserRole | undefined;
+  // أي قيمة غير معروفة تُعامل كموظف — الأقل صلاحية هو الافتراض الآمن
+  return role && ROLES.includes(role) ? role : "employee";
 });
 
 // اختصار: هل المستخدم الحالي مدير؟
 export const isAdmin = cache(async (): Promise<boolean> => {
   return (await getUserRole()) === "admin";
+});
+
+// هل هو مشرف؟ (المدير ليس مشرفاً — له صلاحياته الكاملة أصلاً)
+export const isSupervisor = cache(async (): Promise<boolean> => {
+  return (await getUserRole()) === "supervisor";
+});
+
+// من يرى أكثر من نفسه: المدير أو المشرف
+export const canSeeTeam = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  return role === "admin" || role === "supervisor";
 });

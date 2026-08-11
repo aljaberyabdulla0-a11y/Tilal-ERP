@@ -5,27 +5,36 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
+  Project,
   Unit,
   UNIT_TYPES,
   UNIT_STATUSES,
   IRAQ_GOVERNORATES,
 } from "@/lib/types";
 
-// نموذج مشترك لإضافة/تعديل وحدة عقارية
-// - بدون unitId → إضافة | مع unitId → تعديل
+// ============================================================
+// نموذج مشترك لإضافة/تعديل وحدة عقارية.
+// بدون unitId → إضافة | مع unitId → تعديل.
+//
+// المشروع صار اختياراً من جدول المشاريع لا نصّاً حرّاً: عليه يُبنى
+// من يرى الوحدة (المشروع له مشرف وفريق). العمود النصّي القديم
+// units.project يملؤه محفّز في القاعدة تلقائياً من اسم المشروع.
+// ============================================================
 export default function UnitForm({
   initial,
   unitId,
+  projects,
 }: {
   initial?: Partial<Unit>;
   unitId?: string;
+  projects: Project[];
 }) {
   const router = useRouter();
   const supabase = createClient();
   const isEdit = Boolean(unitId);
 
   const [form, setForm] = useState({
-    project: initial?.project ?? "",
+    project_id: initial?.project_id ?? "",
     unit_code: initial?.unit_code ?? "",
     unit_type: initial?.unit_type ?? "شقة",
     governorate: initial?.governorate ?? "",
@@ -47,8 +56,14 @@ export default function UnitForm({
     e.preventDefault();
     setError(null);
 
+    if (!form.project_id) {
+      setError("اختر المشروع الذي تتبعه الوحدة.");
+      return;
+    }
+
     const payload = {
-      project: form.project.trim(),
+      // العمود النصّي project يملؤه محفّز القاعدة من اسم المشروع
+      project_id: form.project_id,
       unit_code: form.unit_code.trim() || null,
       unit_type: form.unit_type,
       governorate: form.governorate || null,
@@ -92,15 +107,29 @@ export default function UnitForm({
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {/* المشروع */}
         <div>
-          <label className={labelClass}>المشروع / المجمّع {req}</label>
-          <input
-            type="text"
+          <label className={labelClass}>المشروع {req}</label>
+          <select
             required
-            value={form.project}
-            onChange={(e) => update("project", e.target.value)}
+            value={form.project_id}
+            onChange={(e) => update("project_id", e.target.value)}
             className={inputClass}
-            placeholder="مثال: مجمّع تلال السكني"
-          />
+          >
+            <option value="">— اختر المشروع —</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          {projects.length === 0 && (
+            <p className="mt-1 text-xs text-amber-700">
+              لا توجد مشاريع بعد.{" "}
+              <Link href="/dashboard/projects" className="underline">
+                أنشئ مشروعاً أولاً
+              </Link>
+              .
+            </p>
+          )}
         </div>
 
         {/* كود الوحدة */}

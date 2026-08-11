@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { CompanySettings } from "@/lib/types";
+import { getProjects } from "@/lib/projects";
 import EmployeeForm from "../employee-form";
 
 // حسابات غير مرتبطة بموظف بعد (لخيار الربط)
@@ -42,6 +43,7 @@ export default async function NewEmployeePage() {
         <EmployeeForm
           accounts={accounts}
           settings={(cfg as CompanySettings) ?? null}
+          projects={await getProjects()}
         />
       </section>
     </main>

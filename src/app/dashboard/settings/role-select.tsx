@@ -54,6 +54,7 @@ export default function RoleSelect({
         className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50"
       >
         <option value="employee">موظف</option>
+        <option value="supervisor">مشرف</option>
         <option value="admin">مدير</option>
       </select>
       {saving && <span className="text-xs text-gray-400">جاري الحفظ...</span>}

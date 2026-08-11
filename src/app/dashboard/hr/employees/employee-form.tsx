@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { CompanySettings, Employee } from "@/lib/types";
+import { CompanySettings, Employee, Project } from "@/lib/types";
 import { WEEKDAYS } from "@/lib/attendance";
 
 type AccountOption = { id: string; email: string | null };
@@ -15,11 +15,13 @@ export default function EmployeeForm({
   initial,
   employeeId,
   settings,
+  projects = [],
 }: {
   accounts: AccountOption[];
   initial?: Partial<Employee>;
   employeeId?: string;
   settings?: CompanySettings | null;
+  projects?: Project[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -34,6 +36,7 @@ export default function EmployeeForm({
     base_salary: initial?.base_salary?.toString() ?? "",
     status: initial?.status ?? "active",
     user_id: initial?.user_id ?? "",
+    project_id: initial?.project_id ?? "",
     notes: initial?.notes ?? "",
   });
 
@@ -90,6 +93,7 @@ export default function EmployeeForm({
       base_salary: form.base_salary ? Number(form.base_salary) : 0,
       status: form.status,
       user_id: form.user_id || null,
+      project_id: form.project_id || null,
       notes: form.notes.trim() || null,
       exempt_from_attendance: exempt,
       // فارغ = يتبع دوام الشركة العام
@@ -160,6 +164,25 @@ export default function EmployeeForm({
             className={inputClass}
             placeholder="مثال: المبيعات"
           />
+        </div>
+
+        <div>
+          <label className={labelClass}>المشروع</label>
+          <select
+            value={form.project_id}
+            onChange={(e) => update("project_id", e.target.value)}
+            className={inputClass}
+          >
+            <option value="">— بلا مشروع —</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-400">
+            مشرف هذا المشروع سيرى ليدات الموظف ومتابعاته وحضوره.
+          </p>
         </div>
 
         <div>

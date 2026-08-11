@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { Unit } from "@/lib/types";
+import { getProjects } from "@/lib/projects";
 import UnitForm from "../../unit-form";
 
 // صفحة تعديل وحدة عقارية — للمدير فقط
@@ -39,7 +40,7 @@ export default async function EditUnitPage({
       </header>
 
       <section className="p-6">
-        <UnitForm initial={unit} unitId={unit.id} />
+        <UnitForm initial={unit} unitId={unit.id} projects={await getProjects()} />
       </section>
     </main>
   );

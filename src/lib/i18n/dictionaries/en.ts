@@ -56,8 +56,12 @@ const en: Dictionary = {
     logout: "Sign out",
     menu: "Menu",
     roleAdmin: "Manager",
+    roleSupervisor: "Supervisor",
     roleEmployee: "Employee",
     language: "Language",
+    myTeam: "My team",
+    projects: "Projects",
+    account: "My settings",
   },
 
   auth: {

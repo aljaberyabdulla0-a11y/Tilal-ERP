@@ -1,12 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canSeeTeam, isAdmin } from "@/lib/auth";
 import { Invoice, invoiceStatus, formatPrice } from "@/lib/types";
 
-// قائمة الفواتير مع المدفوع والمتبقي والحالة — للمدير فقط
+// ============================================================
+// قائمة الفواتير.
+//   المدير : كل الفواتير، وينشئ ويعدّل.
+//   المشرف : فواتير عملاء مشروعه — **قراءة فقط**.
+// الفلترة نفسها في القاعدة (سياسة read invoices in scope)، فهذه
+// الصفحة تعرض ما تُرجعه له لا أكثر.
+// ============================================================
 export default async function InvoicesPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canSeeTeam())) redirect("/dashboard");
+  const admin = await isAdmin();
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -25,12 +32,18 @@ export default async function InvoicesPage() {
           </Link>
           <h1 className="text-xl font-bold text-brand-700">الفواتير</h1>
         </div>
-        <Link
-          href="/dashboard/invoices/new"
-          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
-        >
-          + فاتورة جديدة
-        </Link>
+        {admin ? (
+          <Link
+            href="/dashboard/invoices/new"
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+          >
+            + فاتورة جديدة
+          </Link>
+        ) : (
+          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-500">
+            فواتير عملاء مشروعك — للاطّلاع فقط
+          </span>
+        )}
       </header>
 
       <section className="p-6">

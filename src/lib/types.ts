@@ -141,6 +141,13 @@ export function isClosedStage(stage: string | null | undefined): boolean {
 }
 
 // ألوان رأس كل مرحلة (Tailwind)
+// مفتاح مقارنة الأسماء — يطابق `public.name_key` في القاعدة (sql/032).
+// ⚠️ لا تغيّر أحدهما بلا الآخر: القاعدة تقرّر من يرى العميل، وهذه
+// تقرّر تحت أي موظف تُعرض ليداته. اختلافهما يعني شاشة تكذب.
+export function nameKey(txt: string | null | undefined): string {
+  return (txt ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 export const PIPELINE_STAGE_COLORS: Record<string, string> = {
   "ليد": "bg-gray-100 text-gray-700",
   "اتصال": "bg-blue-100 text-blue-700",
@@ -200,7 +207,8 @@ export type Unit = {
   id: string;
   created_at: string;
   created_by: string | null;
-  project: string;         // المشروع / المجمّع
+  project: string;          // اسم المشروع — يملؤه محفّز القاعدة من project_id
+  project_id: string | null; // المشروع الحقيقي، وعليه تُبنى الرؤية (sql/037)
   unit_code: string | null; // رقم/كود الوحدة
   unit_type: string;        // نوع الوحدة
   governorate: string | null; // المحافظة
@@ -361,6 +369,8 @@ export type Employee = {
   status: string; // active | inactive
   notes: string | null;
   created_at: string;
+  // المشروع الذي يعمل عليه — عليه يُبنى نطاق المشرف (sql/037)
+  project_id: string | null;
   // الإدارة معفاة من البصمة — لا يُحتسب عليها غياب
   exempt_from_attendance: boolean;
   // دوام خاص بهذا الموظف (فارغ = يتبع دوام الشركة العام)
@@ -726,6 +736,62 @@ export function isDebtOverdue(
 ): boolean {
   return remaining > 0.009 && !!debt.due_date && debt.due_date < today;
 }
+
+// ===== المشاريع والفرق =====
+// المشروع هو وحدة التقسيم: له مشرف مسؤول، وموظفون يعملون عليه.
+// مشروع بلا مشرف = مشترك يراه الجميع. انظر sql/037.
+
+export const PROJECT_STATUSES = ["نشط", "مكتمل", "متوقف"] as const;
+
+export const PROJECT_STATUS_COLORS: Record<string, string> = {
+  "نشط": "bg-green-100 text-green-700",
+  "مكتمل": "bg-blue-100 text-blue-700",
+  "متوقف": "bg-gray-100 text-gray-600",
+};
+
+export type Project = {
+  id: string;
+  created_at: string;
+  name: string;
+  governorate: string | null;
+  area: string | null;
+  status: string;
+  supervisor_id: string | null;
+  description: string | null;
+};
+
+// عضو فريق كما يأتي من منظور team_members الآمن.
+// ⚠️ لا يحتوي الراتب ولا العمولات — وهذا مقصود: صلاحيات القاعدة
+// تعمل على الصف لا العمود، فالمنظور هو ما يحمي أعمدة الرواتب.
+export type TeamMember = {
+  id: string;
+  user_id: string | null;
+  full_name: string;
+  job_title: string | null;
+  department: string | null;
+  phone: string | null;
+  hire_date: string | null;
+  status: string;
+  project_id: string | null;
+  exempt_from_attendance: boolean;
+  work_start_time: string | null;
+  work_end_time: string | null;
+  work_days: number[] | null;
+};
+
+export const USER_ROLES = ["admin", "supervisor", "employee"] as const;
+
+export const ROLE_LABELS: Record<string, string> = {
+  admin: "مدير",
+  supervisor: "مشرف",
+  employee: "موظف",
+};
+
+export const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-green-100 text-green-700",
+  supervisor: "bg-blue-100 text-blue-700",
+  employee: "bg-gray-100 text-gray-600",
+};
 
 // ===== الشركاء والتصفية =====
 

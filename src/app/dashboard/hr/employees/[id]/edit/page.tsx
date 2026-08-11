@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { CompanySettings, Employee } from "@/lib/types";
+import { getProjects } from "@/lib/projects";
 import EmployeeForm from "../../employee-form";
 
 export default async function EditEmployeePage({
@@ -52,6 +53,7 @@ export default async function EditEmployeePage({
           initial={emp}
           employeeId={emp.id}
           settings={(cfg as CompanySettings) ?? null}
+          projects={await getProjects()}
         />
       </section>
     </main>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
-import { CompanySettings, WorkLocation } from "@/lib/types";
+import { CompanySettings, ROLE_COLORS, ROLE_LABELS, WorkLocation } from "@/lib/types";
 import RoleSelect from "./role-select";
 import WorkLocations from "./work-locations";
 import WorkHours from "./work-hours";
@@ -58,8 +58,14 @@ export default async function SettingsPage() {
 
         <h2 className="text-lg font-bold text-gray-800">المستخدمون والصلاحيات</h2>
         <p className="-mt-4 mb-4 text-sm text-gray-500">
-          هنا تتحكّم بأدوار المستخدمين. <b>المدير</b> يقدر يضيف ويعدّل ويحذف،
-          و<b>الموظف</b> يقدر يضيف ويشاهد فقط.
+          هنا تتحكّم بأدوار المستخدمين. <b>المدير</b> يرى كل شيء ويعدّل ويحذف.
+          و<b>المشرف</b> موظف نطاقه مشروعه: يرى ليدات فريقه ومتابعاتهم وحضورهم
+          ويوافق على إجازاتهم — بلا محاسبة ولا رواتب. و<b>الموظف</b> يرى عملاءه
+          هو فقط. إسناد الموظفين للمشاريع من{" "}
+          <Link href="/dashboard/projects" className="font-semibold underline">
+            صفحة المشاريع
+          </Link>
+          .
         </p>
 
         <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
@@ -80,12 +86,10 @@ export default async function SettingsPage() {
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        p.role === "admin"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
+                        ROLE_COLORS[p.role] ?? "bg-gray-100 text-gray-600"
                       }`}
                     >
-                      {p.role === "admin" ? "مدير" : "موظف"}
+                      {ROLE_LABELS[p.role] ?? p.role}
                     </span>
                   </td>
                   <td className="px-4 py-3">

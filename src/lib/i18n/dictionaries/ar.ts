@@ -54,8 +54,12 @@ const ar = {
     logout: "تسجيل الخروج",
     menu: "القائمة",
     roleAdmin: "مدير",
+    roleSupervisor: "مشرف",
     roleEmployee: "موظف",
     language: "اللغة",
+    myTeam: "فريقي",
+    projects: "المشاريع",
+    account: "إعداداتي",
   },
 
   auth: {

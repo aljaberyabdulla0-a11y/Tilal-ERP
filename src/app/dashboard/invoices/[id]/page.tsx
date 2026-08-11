@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canSeeTeam, isAdmin } from "@/lib/auth";
 import { Invoice, Payment, invoiceStatus, formatPrice } from "@/lib/types";
 import AddPayment from "../add-payment";
 import DeleteInvoiceButton from "../delete-invoice-button";
@@ -12,7 +12,9 @@ export default async function InvoiceDetailsPage({
 }: {
   params: { id: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  // المشرف يطّلع على فواتير عملاء مشروعه؛ والقاعدة تمنع ما عداها.
+  // أزرار الدفع والتعديل والحذف تبقى للمدير وحده (متغيّر admin أدناه).
+  if (!(await canSeeTeam())) redirect("/dashboard");
 
   const supabase = await createClient();
   const { data } = await supabase

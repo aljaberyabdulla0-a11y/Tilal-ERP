@@ -120,6 +120,12 @@ const EN: Record<string, string> = {
 
   // الأدوار
   "مدير": "Manager",
+  "مشرف": "Supervisor",
+
+  // حالات المشروع
+  "نشط": "Active",
+  "مكتمل": "Completed",
+  "متوقف": "On hold",
 
   // أنواع الحسابات المحاسبية
   "أصول": "Assets",

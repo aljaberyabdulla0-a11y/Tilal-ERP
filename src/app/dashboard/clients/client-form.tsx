@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
+  ALT_CONTACT_RELATIONS,
   Client,
   IRAQ_GOVERNORATES,
   PURCHASE_PURPOSES,
@@ -49,7 +50,16 @@ export default function ClientForm({
     sales_employee: initial?.sales_employee ?? "",
     entry_date: initial?.entry_date ?? today(),
     notes: initial?.notes ?? "",
+    // جهة اتصال بديلة — اختيارية بالكامل، تُضاف الآن أو لاحقاً
+    alt_contact_name: initial?.alt_contact_name ?? "",
+    alt_contact_phone: initial?.alt_contact_phone ?? "",
+    alt_contact_relation: initial?.alt_contact_relation ?? "",
   });
+
+  // القسم مفتوح تلقائياً لو للعميل جهة بديلة محفوظة أصلاً
+  const [showAlt, setShowAlt] = useState(
+    Boolean(initial?.alt_contact_name || initial?.alt_contact_phone)
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -65,11 +75,21 @@ export default function ClientForm({
 
   // هل الرقم الحالي بالصيغة الدولية؟
   const isIntl = form.phone.startsWith("+964");
+  const isAltIntl = form.alt_contact_phone.startsWith("+964");
 
   function togglePhoneFormat() {
     setForm((prev) => ({
       ...prev,
       phone: isIntl ? toLocalPhone(prev.phone) : toIntlPhone(prev.phone),
+    }));
+  }
+
+  function toggleAltPhoneFormat() {
+    setForm((prev) => ({
+      ...prev,
+      alt_contact_phone: isAltIntl
+        ? toLocalPhone(prev.alt_contact_phone)
+        : toIntlPhone(prev.alt_contact_phone),
     }));
   }
 
@@ -84,9 +104,21 @@ export default function ClientForm({
       return;
     }
 
+    // رقم البديل اختياري، لكن إن كُتب فيجب أن يكون صحيحاً — رقم خاطئ
+    // محفوظ أسوأ من لا رقم: الموظف سيتصل به ويظنّ العميل لا يردّ.
+    if (form.alt_contact_phone && !isValidIraqPhone(form.alt_contact_phone)) {
+      setError(
+        "رقم جهة الاتصال البديلة غير صحيح. اتركه فارغاً أو اكتب 11 رقماً يبدأ بـ 07."
+      );
+      return;
+    }
+
     const payload = {
       name: form.name.trim(),
       phone: form.phone.trim() || null,
+      alt_contact_name: form.alt_contact_name.trim() || null,
+      alt_contact_phone: form.alt_contact_phone.trim() || null,
+      alt_contact_relation: form.alt_contact_relation || null,
       governorate: form.governorate || null,
       area: form.area.trim() || null,
       purchase_purpose: form.purchase_purpose || null,
@@ -124,7 +156,9 @@ export default function ClientForm({
       onSubmit={handleSubmit}
       className="max-w-3xl space-y-5 rounded-2xl bg-white p-8 shadow-sm"
     >
-      <p className="text-sm text-gray-500">جميع الحقول إلزامية {req}</p>
+      <p className="text-sm text-gray-500">
+        الحقول المعلّمة بـ {req} إلزامية، والباقي اختياري.
+      </p>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         {/* الاسم */}
@@ -165,6 +199,100 @@ export default function ClientForm({
           <p className="mt-1 text-xs text-gray-400">
             11 رقماً يبدأ بـ 07، أو اضغط الزر للتحويل إلى الصيغة الدولية.
           </p>
+        </div>
+
+        {/* ===== جهة اتصال بديلة — اختيارية بالكامل ===== */}
+        <div className="sm:col-span-2">
+          {!showAlt ? (
+            <button
+              type="button"
+              onClick={() => setShowAlt(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-4 py-2.5 text-sm text-gray-600 transition hover:border-brand-400 hover:bg-brand-50 hover:text-brand-700"
+            >
+              <span className="material-symbols-outlined text-[18px]">person_add</span>
+              + إضافة شخص ينوب عن العميل في التواصل (اختياري)
+            </button>
+          ) : (
+            <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700">
+                    شخص ينوب عن العميل في التواصل
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    قريب، زوج/زوجة، مدير أعمال… <b>كله اختياري</b> — تقدر تضيفه
+                    لاحقاً متى أعطاك العميل الرقم.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAlt(false);
+                    setForm((p) => ({
+                      ...p,
+                      alt_contact_name: "",
+                      alt_contact_phone: "",
+                      alt_contact_relation: "",
+                    }));
+                  }}
+                  className="whitespace-nowrap text-xs text-gray-500 hover:text-red-600"
+                >
+                  إزالة
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={labelClass}>الاسم</label>
+                  <input
+                    type="text"
+                    value={form.alt_contact_name}
+                    onChange={(e) => update("alt_contact_name", e.target.value)}
+                    className={inputClass}
+                    placeholder="اسم الشخص البديل"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>صفته</label>
+                  <select
+                    value={form.alt_contact_relation}
+                    onChange={(e) => update("alt_contact_relation", e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">— اختر الصفة —</option>
+                    {ALT_CONTACT_RELATIONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className={labelClass}>رقم هاتفه</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="tel"
+                      dir="ltr"
+                      value={form.alt_contact_phone}
+                      onChange={(e) => update("alt_contact_phone", e.target.value)}
+                      className={inputClass + " text-start"}
+                      placeholder={isAltIntl ? "+9647701234567" : "07701234567"}
+                    />
+                    <button
+                      type="button"
+                      onClick={toggleAltPhoneFormat}
+                      className="whitespace-nowrap rounded-lg border border-brand-300 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 transition hover:bg-brand-100"
+                      title="التبديل بين الصيغة المحلية والدولية"
+                    >
+                      {isAltIntl ? "→ محلي 07" : "→ دولي +964"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* المحافظة */}

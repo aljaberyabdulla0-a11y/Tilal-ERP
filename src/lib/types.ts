@@ -12,6 +12,10 @@ export type Client = {
   governorate: string | null;   // المحافظة
   area: string | null;          // المنطقة
   purchase_purpose: string | null; // الغرض من الشراء
+  // جهة اتصال بديلة تنوب عن العميل (اختيارية بالكامل) — sql/038
+  alt_contact_name: string | null;
+  alt_contact_phone: string | null;
+  alt_contact_relation: string | null;
   source: string | null;        // مصدر العميل
   payment_method: string | null; // طريقة الدفع
   sales_employee: string | null; // موظف المبيعات
@@ -181,6 +185,23 @@ export const IRAQ_GOVERNORATES = [
 
 // الغرض من الشراء
 export const PURCHASE_PURPOSES = ["سكن", "استثمار"] as const;
+
+// صفة من ينوب عن العميل في التواصل
+export const ALT_CONTACT_RELATIONS = [
+  "قريب",
+  "زوج / زوجة",
+  "مدير أعمال",
+  "وكيل",
+  "صديق",
+  "أخرى",
+] as const;
+
+// هل لهذا العميل جهة اتصال بديلة أصلاً؟
+export function hasAltContact(
+  c: Pick<Client, "alt_contact_name" | "alt_contact_phone">
+): boolean {
+  return Boolean(c.alt_contact_name?.trim() || c.alt_contact_phone?.trim());
+}
 
 // مصدر العميل
 export const CLIENT_SOURCES = [

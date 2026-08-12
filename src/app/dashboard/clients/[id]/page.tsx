@@ -5,6 +5,7 @@ import { isAdmin } from "@/lib/auth";
 import {
   Client,
   ClientActivity,
+  hasAltContact,
   sinceColor,
   sinceLabel,
   toIntlPhone,
@@ -155,6 +156,54 @@ export default async function ClientDetailsPage({
               }
             />
           </dl>
+
+          {/* جهة الاتصال البديلة — تظهر فقط إن وُجدت */}
+          {hasAltContact(c) && (
+            <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+                    <span className="material-symbols-outlined text-[16px]">
+                      person_add
+                    </span>
+                    ينوب عنه في التواصل
+                  </span>
+                  <p className="mt-1 font-medium text-gray-800">
+                    {c.alt_contact_name || "—"}
+                    {c.alt_contact_relation && (
+                      <span className="ms-2 rounded-full bg-white px-2 py-0.5 text-xs font-normal text-gray-500">
+                        {c.alt_contact_relation}
+                      </span>
+                    )}
+                  </p>
+                  {c.alt_contact_phone && (
+                    <span dir="ltr" className="block text-sm text-gray-500">
+                      {toLocalPhone(c.alt_contact_phone)}
+                    </span>
+                  )}
+                </div>
+
+                {c.alt_contact_phone && (
+                  <div className="flex gap-2">
+                    <a
+                      href={`tel:${toIntlPhone(c.alt_contact_phone)}`}
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                    >
+                      اتصال
+                    </a>
+                    <a
+                      href={`https://wa.me/${toIntlPhone(c.alt_contact_phone).replace("+", "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 transition hover:bg-green-100"
+                    >
+                      واتساب
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* الملاحظات في مساحة عريضة */}
           <div className="mt-4">

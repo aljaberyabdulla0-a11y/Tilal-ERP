@@ -5,6 +5,7 @@
 // ============================================================
 
 import {
+  ALT_CONTACT_RELATIONS,
   IRAQ_GOVERNORATES,
   PURCHASE_PURPOSES,
   CLIENT_SOURCES,
@@ -31,6 +32,20 @@ export const CLIENT_COLUMNS: ClientColumn[] = [
     width: 18,
     text: true,
     hint: "11 رقماً يبدأ بـ 07 — مثال 07701234567",
+  },
+  { key: "alt_contact_name", header: "اسم من ينوب عنه", width: 22 },
+  {
+    key: "alt_contact_phone",
+    header: "هاتف من ينوب عنه",
+    width: 18,
+    text: true,
+    hint: "اختياري — 11 رقماً يبدأ بـ 07",
+  },
+  {
+    key: "alt_contact_relation",
+    header: "صفة من ينوب عنه",
+    width: 16,
+    list: ALT_CONTACT_RELATIONS,
   },
   { key: "governorate", header: "المحافظة", width: 18, list: IRAQ_GOVERNORATES },
   { key: "area", header: "المنطقة", width: 20 },
@@ -164,7 +179,9 @@ export function validateRow(
       continue;
     }
 
-    if (col.key === "phone") {
+    // هاتف العميل وهاتف من ينوب عنه: نفس التحقّق تماماً. الفرق أن
+    // الثاني اختياري — والفراغ عولج أعلاه فلا يصل إلى هنا أصلاً.
+    if (col.key === "phone" || col.key === "alt_contact_phone") {
       const phone = normalizePhone(text);
       if (!isValidIraqPhone(phone)) {
         errors.push(

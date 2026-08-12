@@ -28,9 +28,13 @@ export default async function ClientsPage({
     .select("*")
     .order("created_at", { ascending: false });
 
-  // إذا كتب المستخدم كلمة بحث، نفلتر بالاسم أو رقم الهاتف
+  // البحث يشمل جهة الاتصال البديلة أيضاً: حين يتصل القريب أو مدير
+  // الأعمال من رقمه هو، يجب أن يصل الموظف لملف العميل برقم المتصل.
   if (q) {
-    query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
+    query = query.or(
+      `name.ilike.%${q}%,phone.ilike.%${q}%,` +
+        `alt_contact_name.ilike.%${q}%,alt_contact_phone.ilike.%${q}%`
+    );
   }
 
   const { data, error } = await query;

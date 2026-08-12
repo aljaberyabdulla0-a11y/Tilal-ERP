@@ -11,10 +11,9 @@ import {
   PURCHASE_PURPOSES,
   CLIENT_SOURCES,
   PAYMENT_METHODS,
-  isValidIraqPhone,
-  toIntlPhone,
-  toLocalPhone,
+  isValidPhone,
 } from "@/lib/types";
+import PhoneInput from "@/components/phone-input";
 
 // تاريخ اليوم بصيغة YYYY-MM-DD (للقيمة الافتراضية لحقل التاريخ)
 function today(): string {
@@ -73,42 +72,22 @@ export default function ClientForm({
     new Set([...employeeNames, form.sales_employee].filter(Boolean))
   );
 
-  // هل الرقم الحالي بالصيغة الدولية؟
-  const isIntl = form.phone.startsWith("+964");
-  const isAltIntl = form.alt_contact_phone.startsWith("+964");
-
-  function togglePhoneFormat() {
-    setForm((prev) => ({
-      ...prev,
-      phone: isIntl ? toLocalPhone(prev.phone) : toIntlPhone(prev.phone),
-    }));
-  }
-
-  function toggleAltPhoneFormat() {
-    setForm((prev) => ({
-      ...prev,
-      alt_contact_phone: isAltIntl
-        ? toLocalPhone(prev.alt_contact_phone)
-        : toIntlPhone(prev.alt_contact_phone),
-    }));
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (form.phone && !isValidIraqPhone(form.phone)) {
+    if (form.phone && !isValidPhone(form.phone)) {
       setError(
-        "رقم الهاتف غير صحيح. يجب أن يكون 11 رقماً يبدأ بـ 07 (مثال: 07701234567) أو بالصيغة الدولية +964."
+        "رقم الهاتف غير مكتمل. تأكّد من مفتاح الدولة وعدد الأرقام — الافتراضي عراقي: 11 رقماً يبدأ بـ 07."
       );
       return;
     }
 
     // رقم البديل اختياري، لكن إن كُتب فيجب أن يكون صحيحاً — رقم خاطئ
     // محفوظ أسوأ من لا رقم: الموظف سيتصل به ويظنّ العميل لا يردّ.
-    if (form.alt_contact_phone && !isValidIraqPhone(form.alt_contact_phone)) {
+    if (form.alt_contact_phone && !isValidPhone(form.alt_contact_phone)) {
       setError(
-        "رقم جهة الاتصال البديلة غير صحيح. اتركه فارغاً أو اكتب 11 رقماً يبدأ بـ 07."
+        "رقم جهة الاتصال البديلة غير مكتمل. اتركه فارغاً، أو تأكّد من مفتاح الدولة وعدد الأرقام."
       );
       return;
     }
@@ -174,31 +153,14 @@ export default function ClientForm({
           />
         </div>
 
-        {/* رقم الهاتف + زر التحويل الدولي */}
+        {/* رقم الهاتف — العراق افتراضياً، وبقية الدول متاحة */}
         <div className="sm:col-span-2">
           <label className={labelClass}>رقم الهاتف {req}</label>
-          <div className="flex gap-2">
-            <input
-              type="tel"
-              required
-              dir="ltr"
-              value={form.phone}
-              onChange={(e) => update("phone", e.target.value)}
-              className={inputClass + " text-start"}
-              placeholder={isIntl ? "+9647701234567" : "07701234567"}
-            />
-            <button
-              type="button"
-              onClick={togglePhoneFormat}
-              className="whitespace-nowrap rounded-lg border border-brand-300 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 transition hover:bg-brand-100"
-              title="التبديل بين الصيغة المحلية والدولية"
-            >
-              {isIntl ? "→ محلي 07" : "→ دولي +964"}
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-gray-400">
-            11 رقماً يبدأ بـ 07، أو اضغط الزر للتحويل إلى الصيغة الدولية.
-          </p>
+          <PhoneInput
+            required
+            value={form.phone}
+            onChange={(v) => update("phone", v)}
+          />
         </div>
 
         {/* ===== جهة اتصال بديلة — اختيارية بالكامل ===== */}
@@ -271,24 +233,10 @@ export default function ClientForm({
 
                 <div className="sm:col-span-2">
                   <label className={labelClass}>رقم هاتفه</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="tel"
-                      dir="ltr"
-                      value={form.alt_contact_phone}
-                      onChange={(e) => update("alt_contact_phone", e.target.value)}
-                      className={inputClass + " text-start"}
-                      placeholder={isAltIntl ? "+9647701234567" : "07701234567"}
-                    />
-                    <button
-                      type="button"
-                      onClick={toggleAltPhoneFormat}
-                      className="whitespace-nowrap rounded-lg border border-brand-300 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 transition hover:bg-brand-100"
-                      title="التبديل بين الصيغة المحلية والدولية"
-                    >
-                      {isAltIntl ? "→ محلي 07" : "→ دولي +964"}
-                    </button>
-                  </div>
+                  <PhoneInput
+                    value={form.alt_contact_phone}
+                    onChange={(v) => update("alt_contact_phone", v)}
+                  />
                 </div>
               </div>
             </div>

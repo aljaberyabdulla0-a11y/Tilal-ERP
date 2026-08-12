@@ -11,7 +11,7 @@ import {
   CLIENT_SOURCES,
   PAYMENT_METHODS,
   PIPELINE_STAGES,
-  isValidIraqPhone,
+  isValidPhone,
 } from "@/lib/types";
 
 export type ClientColumn = {
@@ -31,7 +31,7 @@ export const CLIENT_COLUMNS: ClientColumn[] = [
     header: "رقم الهاتف",
     width: 18,
     text: true,
-    hint: "11 رقماً يبدأ بـ 07 — مثال 07701234567",
+    hint: "عراقي 07701234567 أو دولي +971501234567",
   },
   { key: "alt_contact_name", header: "اسم من ينوب عنه", width: 22 },
   {
@@ -39,7 +39,7 @@ export const CLIENT_COLUMNS: ClientColumn[] = [
     header: "هاتف من ينوب عنه",
     width: 18,
     text: true,
-    hint: "اختياري — 11 رقماً يبدأ بـ 07",
+    hint: "اختياري — عراقي 07… أو دولي +…",
   },
   {
     key: "alt_contact_relation",
@@ -120,9 +120,10 @@ function dateToISO(d: Date): string {
 export function normalizePhone(raw: string): string {
   let p = raw.replace(/[\s\-()]/g, "").trim();
   if (!p) return "";
-  if (p.startsWith("00964")) p = "+" + p.slice(2);
+  // 00 هي بادئة الاتصال الدولي في أغلب العالم — نحوّلها إلى +
+  if (p.startsWith("00")) p = "+" + p.slice(2);
   if (/^9647\d{9}$/.test(p)) p = "+" + p;
-  if (/^7\d{9}$/.test(p)) p = "0" + p; // الصفر المفقود
+  if (/^7\d{9}$/.test(p)) p = "0" + p; // الصفر الذي يبتلعه اكسل
   return p;
 }
 
@@ -183,9 +184,10 @@ export function validateRow(
     // الثاني اختياري — والفراغ عولج أعلاه فلا يصل إلى هنا أصلاً.
     if (col.key === "phone" || col.key === "alt_contact_phone") {
       const phone = normalizePhone(text);
-      if (!isValidIraqPhone(phone)) {
+      if (!isValidPhone(phone)) {
         errors.push(
-          `«${col.header}» غير صحيح (${text}) — المطلوب 11 رقماً يبدأ بـ 07 مثل 07701234567.`
+          `«${col.header}» غير صحيح (${text}) — عراقي: 11 رقماً يبدأ بـ 07 مثل 07701234567. ` +
+            `أو دولي بمفتاح الدولة مثل +971501234567.`
         );
         values[col.key] = null;
       } else {

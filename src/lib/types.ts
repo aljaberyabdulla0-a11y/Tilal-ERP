@@ -1072,10 +1072,129 @@ export function isValidIraqPhone(phone: string): boolean {
   return IRAQ_PHONE_LOCAL.test(phone) || IRAQ_PHONE_INTL.test(phone);
 }
 
-// تحويل محلي ← → دولي
+// تحويل محلي ← → دولي (يخصّ العراق؛ الأرقام الأجنبية محفوظة بـ + أصلاً)
 export function toIntlPhone(phone: string): string {
   return phone.startsWith("0") ? "+964" + phone.slice(1) : phone;
 }
 export function toLocalPhone(phone: string): string {
   return phone.startsWith("+964") ? "0" + phone.slice(4) : phone;
+}
+
+// ============================================================
+// أرقام الدول.
+//
+// **صيغة الحفظ:**
+//   العراق  → محلي كما هو معتاد: 07701234567
+//             (هكذا كل بياناتك السابقة، فلا نغيّرها)
+//   غيره    → دولي دائماً: +9715xxxxxxx
+//
+// الفرق مقصود: الموظف العراقي يكتب ويقرأ 07…، والرقم الأجنبي بلا
+// مفتاح دولة لا معنى له. `toIntlPhone` توحّدهما عند الاتصال وواتساب.
+// ============================================================
+
+export type CountryCode = {
+  iso: string;    // مفتاح داخلي فقط
+  name: string;
+  dial: string;   // مع علامة +
+  digits: number; // طول الرقم الوطني المتوقّع (0 = غير محدّد)
+};
+
+// العراق أولاً، ثم الجوار، ثم بلدان الاغتراب الشائعة
+export const COUNTRY_CODES: CountryCode[] = [
+  { iso: "IQ", name: "العراق", dial: "+964", digits: 10 },
+  { iso: "SA", name: "السعودية", dial: "+966", digits: 9 },
+  { iso: "AE", name: "الإمارات", dial: "+971", digits: 9 },
+  { iso: "KW", name: "الكويت", dial: "+965", digits: 8 },
+  { iso: "QA", name: "قطر", dial: "+974", digits: 8 },
+  { iso: "BH", name: "البحرين", dial: "+973", digits: 8 },
+  { iso: "OM", name: "عُمان", dial: "+968", digits: 8 },
+  { iso: "JO", name: "الأردن", dial: "+962", digits: 9 },
+  { iso: "LB", name: "لبنان", dial: "+961", digits: 0 },
+  { iso: "SY", name: "سوريا", dial: "+963", digits: 9 },
+  { iso: "EG", name: "مصر", dial: "+20", digits: 10 },
+  { iso: "TR", name: "تركيا", dial: "+90", digits: 10 },
+  { iso: "IR", name: "إيران", dial: "+98", digits: 10 },
+  { iso: "GB", name: "بريطانيا", dial: "+44", digits: 0 },
+  { iso: "DE", name: "ألمانيا", dial: "+49", digits: 0 },
+  { iso: "SE", name: "السويد", dial: "+46", digits: 0 },
+  { iso: "NL", name: "هولندا", dial: "+31", digits: 0 },
+  { iso: "FR", name: "فرنسا", dial: "+33", digits: 0 },
+  { iso: "US", name: "أمريكا / كندا", dial: "+1", digits: 10 },
+  { iso: "AU", name: "أستراليا", dial: "+61", digits: 0 },
+];
+
+export const DEFAULT_COUNTRY_ISO = "IQ";
+
+export function countryByIso(iso: string): CountryCode {
+  return (
+    COUNTRY_CODES.find((c) => c.iso === iso) ??
+    COUNTRY_CODES[0] // العراق
+  );
+}
+
+// الأطول أولاً: لولاه لالتقط +9 مفتاحاً خاطئاً لأرقام +964 و +966
+const DIALS_LONGEST_FIRST = [...COUNTRY_CODES].sort(
+  (a, b) => b.dial.length - a.dial.length
+);
+
+// الرقم المخزَّن → (الدولة + الجزء الوطني)، لملء النموذج
+export function splitPhone(phone: string | null | undefined): {
+  iso: string;
+  national: string;
+} {
+  const v = (phone ?? "").trim();
+  if (!v) return { iso: DEFAULT_COUNTRY_ISO, national: "" };
+
+  // محلي عراقي (07…)
+  if (!v.startsWith("+")) return { iso: "IQ", national: v };
+
+  const match = DIALS_LONGEST_FIRST.find((c) => v.startsWith(c.dial));
+  if (!match) return { iso: DEFAULT_COUNTRY_ISO, national: v };
+
+  const national = v.slice(match.dial.length);
+  // +964770… يُعرض للموظف بالصيغة المحلية التي اعتادها
+  if (match.iso === "IQ") return { iso: "IQ", national: "0" + national };
+  return { iso: match.iso, national };
+}
+
+// (الدولة + الجزء الوطني) → الرقم المخزَّن
+export function composePhone(iso: string, national: string): string {
+  const digits = national.replace(/[^\d]/g, "");
+  if (!digits) return "";
+
+  if (iso === "IQ") {
+    // نحفظ العراقي محلياً: نضيف الصفر إن كتبه الموظف بدونه
+    return digits.startsWith("0") ? digits : "0" + digits;
+  }
+
+  // الأجنبي بلا صفر وطني بادئ (07911… في بريطانيا تصير +447911…)
+  return countryByIso(iso).dial + digits.replace(/^0+/, "");
+}
+
+// تحقّق عام يقبل العراقي والأجنبي معاً
+export function isValidPhone(phone: string): boolean {
+  const v = (phone ?? "").trim();
+  if (!v) return false;
+
+  // العراق يبقى صارماً: 11 رقماً تبدأ بـ 07
+  if (!v.startsWith("+")) return IRAQ_PHONE_LOCAL.test(v);
+  if (v.startsWith("+964")) return IRAQ_PHONE_INTL.test(v);
+
+  const match = DIALS_LONGEST_FIRST.find((c) => v.startsWith(c.dial));
+  if (!match) return false; // مفتاح دولة غير معروف
+
+  const national = v.slice(match.dial.length);
+  if (!/^\d+$/.test(national)) return false;
+  if (match.digits > 0) return national.length === match.digits;
+  // بلا طول محدّد: نتبع المعيار الدولي E.164
+  return national.length >= 4 && national.length <= 14;
+}
+
+// نصّ إرشادي لكل دولة (يظهر تحت الحقل)
+export function phoneHint(iso: string): string {
+  if (iso === "IQ") return "11 رقماً تبدأ بـ 07 — مثال 07701234567";
+  const c = countryByIso(iso);
+  return c.digits > 0
+    ? `${c.digits} أرقام بعد ${c.dial} (بلا الصفر الأول)`
+    : `الرقم بعد ${c.dial} بلا الصفر الأول`;
 }

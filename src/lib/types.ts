@@ -1111,6 +1111,7 @@ export const COUNTRY_CODES: CountryCode[] = [
   { iso: "JO", name: "الأردن", dial: "+962", digits: 9 },
   { iso: "LB", name: "لبنان", dial: "+961", digits: 0 },
   { iso: "SY", name: "سوريا", dial: "+963", digits: 9 },
+  { iso: "PS", name: "فلسطين", dial: "+970", digits: 9 },
   { iso: "EG", name: "مصر", dial: "+20", digits: 10 },
   { iso: "TR", name: "تركيا", dial: "+90", digits: 10 },
   { iso: "IR", name: "إيران", dial: "+98", digits: 10 },

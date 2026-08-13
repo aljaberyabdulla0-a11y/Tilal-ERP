@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canSeeTeam, isAdmin } from "@/lib/auth";
 import {
   Reservation,
   RESERVATION_STATUS_COLORS,
@@ -21,6 +21,8 @@ export default async function ReservationsPage() {
 
   const reservations = (data ?? []) as Reservation[];
   const admin = await isAdmin();
+  // ما يراه المشرف من حجوزات هو نطاقه أصلاً (سياسة القاعدة تفلترها)
+  const canEdit = await canSeeTeam();
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -113,17 +115,16 @@ export default async function ReservationsPage() {
                       >
                         عرض
                       </Link>
-                      {admin && (
-                        <>
-                          <Link
-                            href={`/dashboard/reservations/${r.id}/edit`}
-                            className="me-3 text-sm text-brand-700 hover:underline"
-                          >
-                            تعديل
-                          </Link>
-                          <DeleteReservationButton id={r.id} />
-                        </>
+                      {canEdit && (
+                        <Link
+                          href={`/dashboard/reservations/${r.id}/edit`}
+                          className="me-3 text-sm text-brand-700 hover:underline"
+                        >
+                          تعديل
+                        </Link>
                       )}
+                      {/* الحذف للمدير وحده */}
+                      {admin && <DeleteReservationButton id={r.id} />}
                     </td>
                   </tr>
                 ))}

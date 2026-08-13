@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canSeeTeam, isAdmin } from "@/lib/auth";
 import { Reservation } from "@/lib/types";
 import ReservationForm from "../../reservation-form";
 
@@ -11,7 +11,7 @@ export default async function EditReservationPage({
 }: {
   params: { id: string };
 }) {
-  if (!(await isAdmin())) {
+  if (!(await canSeeTeam())) {
     redirect(`/dashboard/reservations/${params.id}`);
   }
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canSeeTeam, isAdmin } from "@/lib/auth";
 import {
   Reservation,
   RESERVATION_STATUS_COLORS,
@@ -25,6 +25,8 @@ export default async function ReservationDetailsPage({
   if (!data) notFound();
   const r = data as Reservation;
   const admin = await isAdmin();
+  // ما يراه المشرف من حجوزات هو نطاقه أصلاً (سياسة القاعدة تفلترها)
+  const canEdit = await canSeeTeam();
 
   const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="border-b border-gray-100 py-3">
@@ -47,7 +49,7 @@ export default async function ReservationDetailsPage({
             حجز — {r.clients?.name ?? ""}
           </h1>
         </div>
-        {admin && (
+        {canEdit && (
           <div className="flex items-center gap-3">
             <Link
               href={`/dashboard/reservations/${r.id}/edit`}
@@ -55,7 +57,8 @@ export default async function ReservationDetailsPage({
             >
               تعديل
             </Link>
-            <DeleteReservationButton id={r.id} />
+            {/* الحذف للمدير وحده */}
+            {admin && <DeleteReservationButton id={r.id} />}
           </div>
         )}
       </header>

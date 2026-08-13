@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
+import { getSupervisedProjectIds } from "@/lib/projects";
 import {
   Unit,
   UNIT_STATUSES,
@@ -36,6 +37,10 @@ export default async function UnitsPage({
   const { data, error } = await query;
   const units = (data ?? []) as Unit[];
   const admin = await isAdmin();
+  // المشرف يعدّل وحدات مشاريعه فقط، فنحسبها مرة ونستعملها لكل صف
+  const supervised = await getSupervisedProjectIds();
+  const canEdit = (u: Unit) =>
+    admin || (!!u.project_id && supervised.has(u.project_id));
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -168,19 +173,20 @@ export default async function UnitsPage({
                       >
                         عرض
                       </Link>
+                      {canEdit(u) && (
+                        <Link
+                          href={`/dashboard/units/${u.id}/edit`}
+                          className="me-3 text-sm text-brand-700 hover:underline"
+                        >
+                          تعديل
+                        </Link>
+                      )}
+                      {/* الحذف للمدير وحده */}
                       {admin && (
-                        <>
-                          <Link
-                            href={`/dashboard/units/${u.id}/edit`}
-                            className="me-3 text-sm text-brand-700 hover:underline"
-                          >
-                            تعديل
-                          </Link>
-                          <DeleteUnitButton
-                            id={u.id}
-                            label={`${u.project} ${u.unit_code ?? ""}`}
-                          />
-                        </>
+                        <DeleteUnitButton
+                          id={u.id}
+                          label={`${u.project} ${u.unit_code ?? ""}`}
+                        />
                       )}
                     </td>
                   </tr>

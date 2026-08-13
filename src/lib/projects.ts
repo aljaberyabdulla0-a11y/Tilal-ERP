@@ -58,6 +58,29 @@ export const getMySupervisedProjects = cache(async (): Promise<Project[]> => {
   return (data ?? []) as Project[];
 });
 
+// ============================================================
+// من يقدر يعدّل ماذا في الـ CRM.
+//
+// المشرف يعدّل **وحدات المشاريع التي يشرف عليها فقط** — لا كل ما
+// يراه. هذه الدوال تُبقي الأزرار المعروضة مطابقة لما تسمح به
+// سياسات القاعدة، فلا يضغط المشرف زراً ثم يصطدم برفض.
+// ============================================================
+
+export const getSupervisedProjectIds = cache(async (): Promise<Set<string>> => {
+  const projects = await getMySupervisedProjects();
+  return new Set(projects.map((p) => p.id));
+});
+
+// هل أقدر أعدّل هذه الوحدة؟ (المدير كل شيء، والمشرف مشاريعه)
+export async function canEditUnit(
+  projectId: string | null,
+  admin: boolean
+): Promise<boolean> {
+  if (admin) return true;
+  if (!projectId) return false; // وحدة بلا مشروع: للإدارة وحدها
+  return (await getSupervisedProjectIds()).has(projectId);
+}
+
 // أسماء أعضاء نطاقي — تُطابق clients.sales_employee لفلترة الليدات
 export const getTeamMemberNames = cache(async (): Promise<string[]> => {
   const members = await getTeamMembers();

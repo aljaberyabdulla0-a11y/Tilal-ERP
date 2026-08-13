@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
+import { canEditUnit } from "@/lib/projects";
 import { Unit, UNIT_STATUS_COLORS, formatPrice } from "@/lib/types";
 import DeleteUnitButton from "../delete-unit-button";
 
@@ -21,6 +22,8 @@ export default async function UnitDetailsPage({
   if (!data) notFound();
   const u = data as Unit;
   const admin = await isAdmin();
+  // المشرف يعدّل وحدات مشاريعه فقط
+  const canEdit = await canEditUnit(u.project_id, admin);
 
   const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="border-b border-gray-100 py-3">
@@ -43,18 +46,23 @@ export default async function UnitDetailsPage({
             {u.project} {u.unit_code ? `— ${u.unit_code}` : ""}
           </h1>
         </div>
-        {admin && (
+        {(canEdit || admin) && (
           <div className="flex items-center gap-3">
-            <Link
-              href={`/dashboard/units/${u.id}/edit`}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
-            >
-              تعديل
-            </Link>
-            <DeleteUnitButton
-              id={u.id}
-              label={`${u.project} ${u.unit_code ?? ""}`}
-            />
+            {canEdit && (
+              <Link
+                href={`/dashboard/units/${u.id}/edit`}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+              >
+                تعديل
+              </Link>
+            )}
+            {/* الحذف للمدير وحده — لا رجعة فيه */}
+            {admin && (
+              <DeleteUnitButton
+                id={u.id}
+                label={`${u.project} ${u.unit_code ?? ""}`}
+              />
+            )}
           </div>
         )}
       </header>

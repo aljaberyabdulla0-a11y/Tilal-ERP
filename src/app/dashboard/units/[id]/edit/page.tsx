@@ -3,20 +3,15 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { Unit } from "@/lib/types";
-import { getProjects } from "@/lib/projects";
+import { canEditUnit, getProjects } from "@/lib/projects";
 import UnitForm from "../../unit-form";
 
-// صفحة تعديل وحدة عقارية — للمدير فقط
+// صفحة تعديل وحدة عقارية — للمدير، وللمشرف على مشروع هذه الوحدة
 export default async function EditUnitPage({
   params,
 }: {
   params: { id: string };
 }) {
-  // حماية من جهة الخادم
-  if (!(await isAdmin())) {
-    redirect(`/dashboard/units/${params.id}`);
-  }
-
   const supabase = await createClient();
   const { data } = await supabase
     .from("units")
@@ -26,6 +21,13 @@ export default async function EditUnitPage({
 
   if (!data) notFound();
   const unit = data as Unit;
+
+  // الحماية بعد الجلب لأن الصلاحية تعتمد مشروع الوحدة نفسها.
+  // وهذه للواجهة فقط — سياسة «update units in scope» في القاعدة
+  // هي التي تمنع الحفظ فعلياً.
+  if (!(await canEditUnit(unit.project_id, await isAdmin()))) {
+    redirect(`/dashboard/units/${params.id}`);
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">

@@ -15,9 +15,13 @@ import { ChatPerson } from "@/lib/types";
 export const getPeople = cache(async (): Promise<ChatPerson[]> => {
   const supabase = await createClient();
 
+  // الأسماء من المنظور الآمن team_members لا من جدول employees:
+  // الجدول مقصور على المدير وصاحبه، فكان المشرف ومدير المتابعة يريان
+  // بقية الزملاء باسم البريد بدل اسمهم الحقيقي. المنظور يُرجع لكلٍّ
+  // نطاقه وبلا رواتب (sql/037 و sql/040).
   const [{ data: profiles }, { data: employees }] = await Promise.all([
     supabase.from("profiles").select("id, email, role").order("created_at"),
-    supabase.from("employees").select("user_id, full_name").not("user_id", "is", null),
+    supabase.from("team_members").select("user_id, full_name").not("user_id", "is", null),
   ]);
 
   const names = new Map<string, string>();

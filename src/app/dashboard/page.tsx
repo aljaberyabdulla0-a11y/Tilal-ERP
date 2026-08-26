@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { getUserRole } from "@/lib/auth";
 import { formatPrice } from "@/lib/types";
 import EmployeeDashboard from "./employee-dashboard";
+import FollowupDashboard from "./followup-dashboard";
 import TodayTasks from "@/components/today-tasks";
 import ClientFollowUps from "@/components/client-followups";
 
@@ -16,7 +17,11 @@ type RecentReservation = {
 
 // لوحة التحكم التنفيذية — تصميم Stitch "Emerald Executive" ببيانات حقيقية
 export default async function DashboardPage() {
-  const admin = await isAdmin();
+  const role = await getUserRole();
+  const admin = role === "admin";
+
+  // مدير المتابعة يرى لوحته التشغيلية (مخزون + موظفون + متابعات)
+  if (role === "followup_manager") return <FollowupDashboard />;
 
   // الموظف يرى لوحته الشخصية بدل اللوحة التنفيذية العامة
   if (!admin) return <EmployeeDashboard />;

@@ -55,11 +55,15 @@ const ar = {
     menu: "القائمة",
     roleAdmin: "مدير",
     roleSupervisor: "مشرف",
+    roleFollowup: "مدير المتابعة",
     roleEmployee: "موظف",
     language: "اللغة",
     myTeam: "فريقي",
     projects: "المشاريع",
     account: "إعداداتي",
+    inventory: "المخزون",
+    employees: "الموظفون",
+    contacts: "الاتصالات",
   },
 
   auth: {

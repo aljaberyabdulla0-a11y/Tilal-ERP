@@ -1,10 +1,16 @@
 import Link from "next/link";
-import { isAdmin } from "@/lib/auth";
+import { getUserRole } from "@/lib/auth";
 
-// شريط تبويبات CRM — يظهر أعلى أقسام العملاء والوحدات والحجوزات
+// شريط تبويبات CRM — يظهر أعلى أقسام العملاء والوحدات والحجوزات.
 // تبويب «التقارير» للإدارة فقط.
+//
+// مدير المتابعة يرى العملاء وسجلّ التواصل فقط: الوحدات والحجوزات
+// خارج نطاقه في القاعدة (sql/040)، فلا نعرض له تبويباً يفتح شاشة
+// فارغة.
 export default async function CrmTabs({ active }: { active: string }) {
-  const admin = await isAdmin();
+  const role = await getUserRole();
+  const admin = role === "admin";
+  const followup = role === "followup_manager";
 
   const tabs = [
     { key: "clients", label: "العملاء", href: "/dashboard/clients" },
@@ -12,8 +18,12 @@ export default async function CrmTabs({ active }: { active: string }) {
     ...(admin
       ? [{ key: "reports", label: "التقارير", href: "/dashboard/crm/reports" }]
       : []),
-    { key: "units", label: "الوحدات العقارية", href: "/dashboard/units" },
-    { key: "reservations", label: "الحجوزات", href: "/dashboard/reservations" },
+    ...(followup
+      ? []
+      : [
+          { key: "units", label: "الوحدات العقارية", href: "/dashboard/units" },
+          { key: "reservations", label: "الحجوزات", href: "/dashboard/reservations" },
+        ]),
   ];
 
   return (

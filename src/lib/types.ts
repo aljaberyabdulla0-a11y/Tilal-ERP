@@ -631,6 +631,7 @@ export const NOTIFICATION_ICONS: Record<string, string> = {
   "تصعيد": "priority_high",
   "رسالة": "chat_bubble",
   "مهمة": "task_alt",
+  "مخزون": "inventory_2",
   "عام": "notifications",
 };
 
@@ -800,17 +801,24 @@ export type TeamMember = {
   work_days: number[] | null;
 };
 
-export const USER_ROLES = ["admin", "supervisor", "employee"] as const;
+export const USER_ROLES = [
+  "admin",
+  "supervisor",
+  "followup_manager",
+  "employee",
+] as const;
 
 export const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
   supervisor: "مشرف",
+  followup_manager: "مدير المتابعة",
   employee: "موظف",
 };
 
 export const ROLE_COLORS: Record<string, string> = {
   admin: "bg-green-100 text-green-700",
   supervisor: "bg-blue-100 text-blue-700",
+  followup_manager: "bg-purple-100 text-purple-700",
   employee: "bg-gray-100 text-gray-600",
 };
 
@@ -1198,4 +1206,163 @@ export function phoneHint(iso: string): string {
   return c.digits > 0
     ? `${c.digits} أرقام بعد ${c.dial} (بلا الصفر الأول)`
     : `الرقم بعد ${c.dial} بلا الصفر الأول`;
+}
+
+// ============================================================
+// المخزون — مواد مركز المبيعات ومشترياتها وصرفها (sql/040)
+//
+// المبدأ: `quantity` **ناتج** جمع الحركات لا حقل يُكتب فيه. الواجهة
+// تعرضه ولا تحرّره؛ من أراد تغييره يسجّل حركة. لهذا لا يوجد حقل
+// كمية في نموذج المادة إلا «الرصيد الافتتاحي» عند الإنشاء، وهو
+// نفسه يُسجَّل كحركة تسوية.
+// ============================================================
+
+export type Supplier = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  name: string;
+  phone: string | null;
+  contact_person: string | null;
+  address: string | null;
+  is_active: boolean;
+  notes: string | null;
+};
+
+export type InventoryItem = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  name: string;
+  category: string;
+  unit: string;                 // وحدة القياس
+  quantity: number;             // الرصيد الحالي (محسوب من الحركات)
+  min_quantity: number;         // الحد الأدنى — تحته يصل تنبيه
+  supplier_id: string | null;   // المورد المعتاد
+  last_purchase_date: string | null;
+  last_purchase_price: number | null;
+  is_active: boolean;
+  notes: string | null;
+  // مرتبط (عند الجلب مع المورد)
+  suppliers?: { name: string } | null;
+};
+
+export type InventoryMove = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  actor_name: string | null;
+  item_id: string;
+  kind: string;                 // شراء | صرف | تسوية
+  quantity: number;
+  unit_price: number | null;
+  total_price: number | null;
+  supplier_id: string | null;
+  moved_at: string;             // YYYY-MM-DD
+  issued_to: string | null;     // صُرف إلى
+  notes: string | null;
+  // مرتبط
+  inventory_items?: { name: string; unit: string; category: string } | null;
+  suppliers?: { name: string } | null;
+};
+
+// التصنيفات — تطابق قيد inventory_items_category_chk في القاعدة حرفاً بحرف
+export const INVENTORY_CATEGORIES = [
+  "مطبوعات ومواد تسويقية",
+  "مياه شرب",
+  "مواد تنظيف",
+  "معطرات",
+  "مناديل",
+  "مستلزمات مكتبية",
+  "ضيافة",
+  "مستلزمات أخرى",
+] as const;
+
+export const INVENTORY_CATEGORY_ICONS: Record<string, string> = {
+  "مطبوعات ومواد تسويقية": "print",
+  "مياه شرب": "water_drop",
+  "مواد تنظيف": "cleaning_services",
+  "معطرات": "spa",
+  "مناديل": "inventory",
+  "مستلزمات مكتبية": "edit_note",
+  "ضيافة": "local_cafe",
+  "مستلزمات أخرى": "inventory_2",
+};
+
+export const INVENTORY_CATEGORY_COLORS: Record<string, string> = {
+  "مطبوعات ومواد تسويقية": "bg-indigo-100 text-indigo-700",
+  "مياه شرب": "bg-sky-100 text-sky-700",
+  "مواد تنظيف": "bg-teal-100 text-teal-700",
+  "معطرات": "bg-purple-100 text-purple-700",
+  "مناديل": "bg-pink-100 text-pink-700",
+  "مستلزمات مكتبية": "bg-amber-100 text-amber-700",
+  "ضيافة": "bg-orange-100 text-orange-700",
+  "مستلزمات أخرى": "bg-gray-100 text-gray-600",
+};
+
+// وحدات القياس المقترحة (الحقل يقبل غيرها كتابةً)
+export const INVENTORY_UNITS = [
+  "قطعة",
+  "كارتون",
+  "علبة",
+  "عبوة",
+  "كيس",
+  "رزمة",
+  "لتر",
+  "كيلو",
+  "متر",
+] as const;
+
+export const MOVE_KINDS = ["شراء", "صرف", "تسوية"] as const;
+
+export const MOVE_KIND_COLORS: Record<string, string> = {
+  "شراء": "bg-emerald-100 text-emerald-700",
+  "صرف": "bg-red-100 text-red-700",
+  "تسوية": "bg-gray-100 text-gray-600",
+};
+
+export const MOVE_KIND_ICONS: Record<string, string> = {
+  "شراء": "add_shopping_cart",
+  "صرف": "output",
+  "تسوية": "tune",
+};
+
+// أثر الحركة على الرصيد — نفس منطق recalc_inventory_item في القاعدة
+export function moveDelta(move: Pick<InventoryMove, "kind" | "quantity">): number {
+  if (move.kind === "صرف") return -move.quantity;
+  return move.quantity; // شراء موجب، وتسوية بإشارتها كما أُدخلت
+}
+
+// حالة المادة — عليها يُبنى لون البطاقة وترتيب التنبيهات
+export type StockState = "نفدت" | "منخفضة" | "قريبة" | "جيدة";
+
+export function stockState(item: InventoryItem): StockState {
+  if (item.quantity <= 0) return "نفدت";
+  if (item.min_quantity > 0 && item.quantity < item.min_quantity) return "منخفضة";
+  // «قريبة» = فوق الحد الأدنى بأقل من ٢٥٪ منه — تحذير مبكر قبل النفاد
+  if (item.min_quantity > 0 && item.quantity <= item.min_quantity * 1.25)
+    return "قريبة";
+  return "جيدة";
+}
+
+export const STOCK_STATE_COLORS: Record<StockState, string> = {
+  "نفدت": "bg-red-100 text-red-700",
+  "منخفضة": "bg-amber-100 text-amber-700",
+  "قريبة": "bg-yellow-100 text-yellow-700",
+  "جيدة": "bg-emerald-100 text-emerald-700",
+};
+
+export const STOCK_STATE_BORDER: Record<StockState, string> = {
+  "نفدت": "border-s-red-500",
+  "منخفضة": "border-s-amber-500",
+  "قريبة": "border-s-yellow-500",
+  "جيدة": "border-s-emerald-500",
+};
+
+// عرض الكمية بلا أصفار عشرية زائدة: 80 لا 80.00، و2.5 تبقى 2.5
+export function formatQty(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return (Math.round(n * 100) / 100).toLocaleString("en-US");
 }

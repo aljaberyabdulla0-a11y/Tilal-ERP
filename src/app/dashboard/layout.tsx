@@ -6,12 +6,15 @@ import ChatWidget from "@/components/chat-widget";
 // ============================================================
 // التخطيط العام لكل صفحات النظام — يبني قائمة التنقّل حسب الدور.
 //
-// الأدوار الثلاثة:
-//   المدير  : كل شيء.
-//   المشرف  : لوحة · مهام · محادثات · CRM · فواتير · HR · إعداداته.
-//             **بلا محاسبة وبلا قسم الدوام الإداري** — يرى نطاق
-//             مشروعه فقط، وسياسات القاعدة تفرض ذلك لا هذه القائمة.
-//   الموظف  : لوحة · مهام · محادثات · CRM · HR · إعداداته.
+// الأدوار الأربعة:
+//   المدير       : كل شيء.
+//   المشرف       : لوحة · مهام · محادثات · CRM · فواتير · HR · إعداداته.
+//                  **بلا محاسبة وبلا قسم الدوام الإداري** — يرى نطاق
+//                  مشروعه فقط، وسياسات القاعدة تفرض ذلك لا هذه القائمة.
+//   مدير المتابعة: لوحة · مهام · محادثات · المخزون · الموظفون ·
+//                  الاتصالات · إعداداته. **بلا محاسبة ولا فواتير ولا
+//                  رواتب** — متابعة تشغيلية لا مالية (sql/040).
+//   الموظف       : لوحة · مهام · محادثات · CRM · HR · إعداداته.
 // ============================================================
 export default async function DashboardLayout({
   children,
@@ -24,6 +27,7 @@ export default async function DashboardLayout({
 
   const admin = role === "admin";
   const supervisor = role === "supervisor";
+  const followup = role === "followup_manager";
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: t.nav.dashboard, icon: "dashboard", prefixes: ["/dashboard"], exact: true },
@@ -35,12 +39,31 @@ export default async function DashboardLayout({
       prefixes: ["/dashboard/chat"],
       badge: "chat",
     },
-    {
-      href: "/dashboard/crm",
-      label: t.nav.crm,
-      icon: "groups",
-      prefixes: ["/dashboard/crm", "/dashboard/clients", "/dashboard/units", "/dashboard/reservations"],
-    },
+
+    // المخزون: المدير ومدير المتابعة (نفس قاعدة can_manage_inventory)
+    ...(admin || followup
+      ? [{ href: "/dashboard/inventory", label: t.nav.inventory, icon: "inventory_2", prefixes: ["/dashboard/inventory"] }]
+      : []),
+
+    // مدير المتابعة: ملفّه التشغيلي — الموظفون والاتصالات.
+    // (لا يظهر له CRM كاملاً: لا وحدات ولا حجوزات ولا فواتير.)
+    ...(followup
+      ? [
+          { href: "/dashboard/followup/employees", label: t.nav.employees, icon: "supervisor_account", prefixes: ["/dashboard/followup/employees"] },
+          { href: "/dashboard/clients/activities", label: t.nav.contacts, icon: "call", prefixes: ["/dashboard/clients"] },
+        ]
+      : []),
+
+    ...(followup
+      ? []
+      : [
+          {
+            href: "/dashboard/crm",
+            label: t.nav.crm,
+            icon: "groups",
+            prefixes: ["/dashboard/crm", "/dashboard/clients", "/dashboard/units", "/dashboard/reservations"],
+          },
+        ]),
 
     // فريقي — للمشرف وحده (المدير عنده شاشات الإدارة الكاملة)
     ...(supervisor
@@ -57,6 +80,9 @@ export default async function DashboardLayout({
       ? [{ href: "/dashboard/accounting", label: t.nav.accounting, icon: "account_balance_wallet", prefixes: ["/dashboard/accounting"] }]
       : []),
 
+    // HR: للمدير إدارة كاملة، ولغيره بوابته الشخصية (بصمة وإجازات).
+    // مدير المتابعة يحتاجها كموظف مثل الجميع — ومتابعته لغيره في
+    // شاشة «الموظفون» أعلاه.
     { href: "/dashboard/hr", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me"] },
 
     ...(admin
@@ -76,6 +102,8 @@ export default async function DashboardLayout({
     ? t.nav.roleAdmin
     : supervisor
     ? t.nav.roleSupervisor
+    : followup
+    ? t.nav.roleFollowup
     : t.nav.roleEmployee;
 
   return (

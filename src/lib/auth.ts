@@ -14,9 +14,18 @@ import { createClient } from "@/lib/supabase/server";
 // الواجهة لم يحصل على بيانات ليست له.
 // ============================================================
 
-export type UserRole = "admin" | "supervisor" | "employee";
+export type UserRole =
+  | "admin"
+  | "supervisor"
+  | "followup_manager"
+  | "employee";
 
-const ROLES: UserRole[] = ["admin", "supervisor", "employee"];
+const ROLES: UserRole[] = [
+  "admin",
+  "supervisor",
+  "followup_manager",
+  "employee",
+];
 
 // المستخدم الحالي — استدعاء واحد لخادم المصادقة لكل طلب
 export const getCurrentUser = cache(async () => {
@@ -58,4 +67,16 @@ export const isSupervisor = cache(async (): Promise<boolean> => {
 export const canSeeTeam = cache(async (): Promise<boolean> => {
   const role = await getUserRole();
   return role === "admin" || role === "supervisor";
+});
+
+// هل هو مدير المتابعة؟ (المتابعة التشغيلية اليومية — sql/040)
+export const isFollowupManager = cache(async (): Promise<boolean> => {
+  return (await getUserRole()) === "followup_manager";
+});
+
+// من يدخل قسم المخزون ويعدّل فيه — يطابق can_manage_inventory() في القاعدة.
+// ⚠️ لو تغيّرت القاعدة هنا فغيّرها هناك أيضاً، وإلا ظهر زرّ لا يعمل.
+export const canManageInventory = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  return role === "admin" || role === "followup_manager";
 });

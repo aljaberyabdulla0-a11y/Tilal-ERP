@@ -55,6 +55,7 @@ export default function RoleSelect({
       >
         <option value="employee">موظف</option>
         <option value="supervisor">مشرف</option>
+        <option value="followup_manager">مدير المتابعة</option>
         <option value="admin">مدير</option>
       </select>
       {saving && <span className="text-xs text-gray-400">جاري الحفظ...</span>}

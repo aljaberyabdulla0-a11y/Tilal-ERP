@@ -57,11 +57,15 @@ const en: Dictionary = {
     menu: "Menu",
     roleAdmin: "Manager",
     roleSupervisor: "Supervisor",
+    roleFollowup: "Follow-up manager",
     roleEmployee: "Employee",
     language: "Language",
     myTeam: "My team",
     projects: "Projects",
     account: "My settings",
+    inventory: "Inventory",
+    employees: "Employees",
+    contacts: "Calls",
   },
 
   auth: {

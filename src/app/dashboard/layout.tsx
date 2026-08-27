@@ -16,6 +16,11 @@ import ChatWidget from "@/components/chat-widget";
 //                  رواتب** — متابعة تشغيلية لا مالية (sql/040).
 //                  يستثنى من ذلك الاستقطاعات: يسجّلها على الموظفين
 //                  وتُحتسب في كشف الراتب القادم (sql/041).
+//   مدير العلاقات: لوحة · الوساطة (شركاته وليداتها وعمولاتها) ·
+//                  مهام · محادثات · HR · إعداداته (sql/043).
+//   شركة وسيطة   : **حساب خارجي** — لوحتها · ليداتها · استحقاقاتها ·
+//                  إعداداتها. لا مهام ولا محادثات ولا CRM ولا HR،
+//                  لأنها ليست موظفاً في تلال.
 //   الموظف       : لوحة · مهام · محادثات · CRM · HR · إعداداته.
 // ============================================================
 export default async function DashboardLayout({
@@ -30,6 +35,30 @@ export default async function DashboardLayout({
   const admin = role === "admin";
   const supervisor = role === "supervisor";
   const followup = role === "followup_manager";
+  const broker = role === "broker";
+  const rm = role === "relationship_manager";
+
+  // ============================================================
+  // الشركة الوسيطة: قائمة مستقلة تماماً.
+  // بُنيت منفصلة لا بشروط داخل قائمة الموظفين، لأن كل بند في تلك
+  // القائمة تقريباً لا يخصّها — والاستثناءات المتراكمة تُخفي بنداً
+  // يوماً ما فيظهر لها ما ليس لها.
+  // ============================================================
+  if (broker) {
+    const brokerNav: NavItem[] = [
+      { href: "/dashboard", label: t.nav.dashboard, icon: "dashboard", prefixes: ["/dashboard"], exact: true },
+      { href: "/dashboard/broker/leads", label: t.nav.ourLeads, icon: "groups", prefixes: ["/dashboard/broker/leads"] },
+      { href: "/dashboard/broker/commissions", label: t.nav.ourCommissions, icon: "payments", prefixes: ["/dashboard/broker/commissions"] },
+      { href: "/dashboard/account", label: t.nav.settings, icon: "settings", prefixes: ["/dashboard/account"] },
+    ];
+
+    return (
+      <AppShell nav={brokerNav} userEmail={user?.email ?? ""} roleLabel={t.nav.roleBroker}>
+        {children}
+        {/* لا نافذة محادثات: المحادثات الداخلية بين موظفي تلال */}
+      </AppShell>
+    );
+  }
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: t.nav.dashboard, icon: "dashboard", prefixes: ["/dashboard"], exact: true },
@@ -45,6 +74,11 @@ export default async function DashboardLayout({
     // المخزون: المدير ومدير المتابعة (نفس قاعدة can_manage_inventory)
     ...(admin || followup
       ? [{ href: "/dashboard/inventory", label: t.nav.inventory, icon: "inventory_2", prefixes: ["/dashboard/inventory"] }]
+      : []),
+
+    // الوساطة: المدير يديرها، ومدير العلاقات يرى شركاته منها
+    ...(admin || rm
+      ? [{ href: "/dashboard/brokers", label: t.nav.brokers, icon: "handshake", prefixes: ["/dashboard/brokers"] }]
       : []),
 
     // مدير المتابعة: ملفّه التشغيلي — الموظفون والاتصالات.
@@ -106,6 +140,8 @@ export default async function DashboardLayout({
     ? t.nav.roleSupervisor
     : followup
     ? t.nav.roleFollowup
+    : rm
+    ? t.nav.roleRm
     : t.nav.roleEmployee;
 
   return (

@@ -56,6 +56,9 @@ export default function RoleSelect({
         <option value="employee">موظف</option>
         <option value="supervisor">مشرف</option>
         <option value="followup_manager">مدير المتابعة</option>
+        <option value="relationship_manager">مدير علاقات</option>
+        {/* «شركة وسيطة» لا تُختار من هنا: تُضبط تلقائياً عند ربط
+            الحساب بشركة من صفحة الشركة، فالدور بلا ربط لا يعمل. */}
         <option value="admin">مدير</option>
       </select>
       {saving && <span className="text-xs text-gray-400">جاري الحفظ...</span>}

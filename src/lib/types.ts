@@ -25,6 +25,16 @@ export type Client = {
   follow_up_date?: string | null; // تاريخ المتابعة
   last_contact_at?: string | null; // آخر تواصل (يُحدَّث تلقائياً من سجلّ الأنشطة)
   contact_count?: number;          // عدد مرات التواصل
+  // الوساطة (sql/043): الشركة صاحبة الليد ومهلتها ومشروعه
+  broker_company_id?: string | null;
+  project_id?: string | null;
+  broker_assigned_at?: string | null;
+  broker_deadline?: string | null;  // آخر يوم قبل العودة لتلال
+  returned_at?: string | null;      // متى عاد لتلال
+  returned_from?: string | null;    // من أي شركة عاد
+  // مرتبط
+  broker_companies?: { name: string } | null;
+  projects?: { name: string } | null;
 };
 
 // ===== سجلّ التواصل مع العميل =====
@@ -819,6 +829,8 @@ export const USER_ROLES = [
   "admin",
   "supervisor",
   "followup_manager",
+  "relationship_manager",
+  "broker",
   "employee",
 ] as const;
 
@@ -826,6 +838,8 @@ export const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
   supervisor: "مشرف",
   followup_manager: "مدير المتابعة",
+  relationship_manager: "مدير علاقات",
+  broker: "شركة وسيطة",
   employee: "موظف",
 };
 
@@ -833,6 +847,8 @@ export const ROLE_COLORS: Record<string, string> = {
   admin: "bg-green-100 text-green-700",
   supervisor: "bg-blue-100 text-blue-700",
   followup_manager: "bg-purple-100 text-purple-700",
+  relationship_manager: "bg-teal-100 text-teal-700",
+  broker: "bg-orange-100 text-orange-700",
   employee: "bg-gray-100 text-gray-600",
 };
 
@@ -1379,4 +1395,145 @@ export function formatQty(value: number | null | undefined): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
   return (Math.round(n * 100) / 100).toLocaleString("en-US");
+}
+
+// ============================================================
+// الماستر بروكر — شركات وساطة تُدخل ليداتها وتأخذ عمولتها (sql/043)
+//
+// ثلاث قواعد تحكم كل ما يلي:
+//   • العمولة = نسبة من سعر الوحدة، تُثبَّت على السجلّ وقت البيع
+//     (لا تُقرأ من ملف الشركة لاحقاً، فتغيير النسبة لا يعيد كتابة
+//      التاريخ).
+//   • الليد للشركة ٣٠ يوماً من إدخاله ثم يعود لتلال — والعدّاد لا
+//     يتجدد بالتواصل.
+//   • حالة العمولة تُحسب من مدفوعاتها لا تُخزَّن، كفواتير النظام.
+// ============================================================
+
+export type BrokerCompany = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  license_no: string | null;
+  commission_rate: number;   // ٪ من سعر الوحدة
+  is_active: boolean;
+  notes: string | null;
+};
+
+export type BrokerUser = {
+  user_id: string;
+  company_id: string;
+  full_name: string | null;
+  phone: string | null;
+  created_at: string;
+  broker_companies?: { name: string } | null;
+};
+
+// إسناد شركة لمشروع + مدير العلاقات المسؤول عنها فيه
+export type BrokerCompanyProject = {
+  company_id: string;
+  project_id: string;
+  rm_id: string | null;
+  created_at: string;
+  projects?: { name: string } | null;
+  broker_companies?: { name: string } | null;
+};
+
+export type BrokerCommission = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  company_id: string;
+  client_id: string | null;
+  unit_id: string | null;
+  reservation_id: string | null;
+  project_id: string | null;
+  deal_amount: number;
+  rate: number;
+  amount: number;
+  earned_at: string;
+  notes: string | null;
+  // مرتبط
+  broker_companies?: { name: string } | null;
+  clients?: { name: string } | null;
+  units?: { project: string | null; unit_code: string | null } | null;
+  projects?: { name: string } | null;
+};
+
+export type BrokerPayment = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  commission_id: string;
+  amount: number;
+  payment_date: string;
+  method: string | null;
+  notes: string | null;
+};
+
+export type LeadTransfer = {
+  id: string;
+  moved_at: string;
+  client_id: string;
+  from_company_id: string | null;
+  to_company_id: string | null;
+  reason: string | null;
+  moved_by: string | null;
+  actor_name: string | null;
+};
+
+export const BROKER_PAYMENT_METHODS = ["كاش", "تحويل بنكي", "صك"] as const;
+
+// ===== حالة العمولة =====
+
+export type CommissionStatus = "مستحقة" | "مدفوعة جزئياً" | "مدفوعة";
+
+export function commissionStatus(
+  amount: number,
+  paid: number
+): CommissionStatus {
+  if (paid <= 0) return "مستحقة";
+  if (paid >= amount - 0.01) return "مدفوعة";
+  return "مدفوعة جزئياً";
+}
+
+export const COMMISSION_STATUS_COLORS: Record<CommissionStatus, string> = {
+  "مستحقة": "bg-amber-100 text-amber-700",
+  "مدفوعة جزئياً": "bg-blue-100 text-blue-700",
+  "مدفوعة": "bg-emerald-100 text-emerald-700",
+};
+
+// ===== مهلة الليد =====
+
+// كم يوماً بقي للشركة على هذا الليد؟ (سالب = انتهت المهلة)
+export function leadDaysLeft(deadline: string | null | undefined): number | null {
+  if (!deadline) return null;
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Baghdad",
+  });
+  return Math.round(
+    (new Date(deadline + "T00:00:00Z").getTime() -
+      new Date(today + "T00:00:00Z").getTime()) /
+      86400000
+  );
+}
+
+// لون العدّاد: يشتدّ كلّما اقترب انتهاء المهلة
+export function leadDeadlineColor(daysLeft: number | null): string {
+  if (daysLeft === null) return "bg-gray-100 text-gray-500";
+  if (daysLeft < 0) return "bg-red-100 text-red-700";
+  if (daysLeft <= 3) return "bg-red-100 text-red-700";
+  if (daysLeft <= 7) return "bg-amber-100 text-amber-700";
+  return "bg-emerald-100 text-emerald-700";
+}
+
+export function leadDeadlineLabel(daysLeft: number | null): string {
+  if (daysLeft === null) return "بلا مهلة";
+  if (daysLeft < 0) return "انتهت المهلة";
+  if (daysLeft === 0) return "آخر يوم";
+  if (daysLeft === 1) return "باقٍ يوم";
+  if (daysLeft === 2) return "باقٍ يومان";
+  return `باقٍ ${daysLeft} يوماً`;
 }

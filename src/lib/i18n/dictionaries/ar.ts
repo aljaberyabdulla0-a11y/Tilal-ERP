@@ -56,6 +56,8 @@ const ar = {
     roleAdmin: "مدير",
     roleSupervisor: "مشرف",
     roleFollowup: "مدير المتابعة",
+    roleRm: "مدير علاقات",
+    roleBroker: "شركة وسيطة",
     roleEmployee: "موظف",
     language: "اللغة",
     myTeam: "فريقي",
@@ -64,6 +66,9 @@ const ar = {
     inventory: "المخزون",
     employees: "الموظفون",
     contacts: "الاتصالات",
+    brokers: "الوساطة",
+    ourLeads: "ليداتنا",
+    ourCommissions: "استحقاقاتنا",
   },
 
   auth: {

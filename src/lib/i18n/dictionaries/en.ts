@@ -58,6 +58,8 @@ const en: Dictionary = {
     roleAdmin: "Manager",
     roleSupervisor: "Supervisor",
     roleFollowup: "Follow-up manager",
+    roleRm: "Relationship manager",
+    roleBroker: "Broker company",
     roleEmployee: "Employee",
     language: "Language",
     myTeam: "My team",
@@ -66,6 +68,9 @@ const en: Dictionary = {
     inventory: "Inventory",
     employees: "Employees",
     contacts: "Calls",
+    brokers: "Brokers",
+    ourLeads: "Our leads",
+    ourCommissions: "Our commissions",
   },
 
   auth: {

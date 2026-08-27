@@ -4,6 +4,8 @@ import { getUserRole } from "@/lib/auth";
 import { formatPrice } from "@/lib/types";
 import EmployeeDashboard from "./employee-dashboard";
 import FollowupDashboard from "./followup-dashboard";
+import BrokerDashboard from "./broker-dashboard";
+import RmDashboard from "./rm-dashboard";
 import TodayTasks from "@/components/today-tasks";
 import ClientFollowUps from "@/components/client-followups";
 
@@ -22,6 +24,12 @@ export default async function DashboardPage() {
 
   // مدير المتابعة يرى لوحته التشغيلية (مخزون + موظفون + متابعات)
   if (role === "followup_manager") return <FollowupDashboard />;
+
+  // الشركة الوسيطة: مهل ليداتها وعمولاتها — لا شيء من داخل تلال
+  if (role === "broker") return <BrokerDashboard />;
+
+  // مدير العلاقات: الشركات التي تحت مظلته وليداتها
+  if (role === "relationship_manager") return <RmDashboard />;
 
   // الموظف يرى لوحته الشخصية بدل اللوحة التنفيذية العامة
   if (!admin) return <EmployeeDashboard />;

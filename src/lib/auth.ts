@@ -18,12 +18,16 @@ export type UserRole =
   | "admin"
   | "supervisor"
   | "followup_manager"
+  | "relationship_manager"
+  | "broker"
   | "employee";
 
 const ROLES: UserRole[] = [
   "admin",
   "supervisor",
   "followup_manager",
+  "relationship_manager",
+  "broker",
   "employee",
 ];
 
@@ -72,6 +76,23 @@ export const canSeeTeam = cache(async (): Promise<boolean> => {
 // هل هو مدير المتابعة؟ (المتابعة التشغيلية اليومية — sql/040)
 export const isFollowupManager = cache(async (): Promise<boolean> => {
   return (await getUserRole()) === "followup_manager";
+});
+
+// حساب شركة وسيطة خارجية (ليس موظفاً في تلال) — sql/043
+export const isBroker = cache(async (): Promise<boolean> => {
+  return (await getUserRole()) === "broker";
+});
+
+// مدير العلاقات: يتابع الشركات التي تحت مظلته في مشروعه
+export const isRelationshipManager = cache(async (): Promise<boolean> => {
+  return (await getUserRole()) === "relationship_manager";
+});
+
+// من يفتح شاشات الوساطة (الشركات والليدات والعمولات):
+// المدير يديرها، ومدير العلاقات يرى نطاقه منها — والقاعدة تفرض النطاق.
+export const canSeeBrokers = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  return role === "admin" || role === "relationship_manager";
 });
 
 // من يدخل قسم المخزون ويعدّل فيه — يطابق can_manage_inventory() في القاعدة.

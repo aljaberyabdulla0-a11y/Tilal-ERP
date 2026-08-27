@@ -44,6 +44,14 @@ returns boolean language sql stable security definer set search_path = public as
   select public.is_admin() or public.is_followup_manager();
 $fn$;
 
+-- رقم للعرض داخل الإشعارات: بلا أصفار عشرية زائدة ولا نقطة معلّقة
+-- (80 لا 80.00 ولا «80.»)، و2.5 تبقى 2.5.
+create or replace function public.fmt_qty(v numeric)
+returns text language sql immutable set search_path = public as \$
+  select rtrim(rtrim(trim(to_char(v, 'FM999999999990.99')), '0'), '.');
+\$;
+
+grant execute on function public.fmt_qty(numeric)       to authenticated;
 grant execute on function public.is_followup_manager()  to authenticated;
 grant execute on function public.can_manage_inventory() to authenticated;
 
@@ -237,8 +245,8 @@ begin
     insert into public.notifications (user_id, title, body, link, kind, entity_id)
     select p.id,
            'مخزون منخفض: ' || it.name,
-           'المتبقي ' || trim(to_char(new_qty, 'FM999999990.99')) || ' ' || it.unit
-             || ' — الحد الأدنى ' || trim(to_char(it.min_quantity, 'FM999999990.99')) || ' ' || it.unit,
+           'المتبقي ' || public.fmt_qty(new_qty) || ' ' || it.unit
+             || ' — الحد الأدنى ' || public.fmt_qty(it.min_quantity) || ' ' || it.unit,
            '/dashboard/inventory',
            'مخزون',
            p_item

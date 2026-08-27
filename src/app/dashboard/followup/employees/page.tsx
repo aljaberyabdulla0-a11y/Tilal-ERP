@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getUserRole } from "@/lib/auth";
+import { getCurrentUser, getUserRole } from "@/lib/auth";
 import { getProjects, getTeamMembers } from "@/lib/projects";
 import {
   Attendance,
   CompanySettings,
+  Deduction,
   Leave,
   Task,
+  formatPrice,
   formatTime,
   isOpenTask,
 } from "@/lib/types";
@@ -18,6 +20,7 @@ import {
   currentMonth,
   todayISO,
 } from "@/lib/attendance";
+import DeductionsManager from "./deductions-manager";
 
 // ============================================================
 // «الموظفون» — شاشة مدير المتابعة.
@@ -37,8 +40,18 @@ export default async function FollowupEmployeesPage() {
   const today = todayISO();
   const { start, end } = monthRange(currentMonth());
 
-  const [members, projects, { data: attData }, { data: leaveData }, { data: taskData }, { data: cfg }] =
+  const [
+    user,
+    members,
+    projects,
+    { data: attData },
+    { data: leaveData },
+    { data: taskData },
+    { data: cfg },
+    { data: dedData },
+  ] =
     await Promise.all([
+      getCurrentUser(),
       getTeamMembers(),
       getProjects(),
       supabase.from("attendance").select("*").eq("work_date", today),
@@ -54,12 +67,19 @@ export default async function FollowupEmployeesPage() {
         .in("status", ["جديدة", "قيد التنفيذ"])
         .limit(500),
       supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
+      supabase
+        .from("deductions")
+        .select("*")
+        .gte("ded_date", start)
+        .lte("ded_date", end)
+        .order("ded_date", { ascending: false }),
     ]);
 
   const attendance = (attData ?? []) as Attendance[];
   const leaves = (leaveData ?? []) as Leave[];
   const tasks = (taskData ?? []) as Task[];
   const settings = (cfg as CompanySettings) ?? null;
+  const deductions = (dedData ?? []) as Deduction[];
 
   const active = members.filter((m) => m.status === "active");
   const projectName = (id: string | null) =>
@@ -88,6 +108,9 @@ export default async function FollowupEmployeesPage() {
       openTasks: myTasks.length,
       lateTasks: myTasks.filter((t) => t.due_date < today).length,
       monthLeaves: myLeaves.filter((l) => l.status === "موافق عليها").length,
+      monthDeductions: deductions
+        .filter((d) => d.employee_id === m.id)
+        .reduce((s, d) => s + Number(d.amount), 0),
     };
   });
 
@@ -98,6 +121,13 @@ export default async function FollowupEmployeesPage() {
   const absent = rows.filter((r) => r.day.status === "absent").length;
   const pending = leaves.filter((l) => l.status === "معلقة");
   const totalLate = rows.reduce((s, r) => s + r.lateTasks, 0);
+
+  // ملفّي أنا — لأمنع الخصم على النفس في القائمة كما تمنعه القاعدة
+  const myEmployeeId = members.find((m) => m.user_id === user?.id)?.id ?? null;
+  const monthLabel = new Date().toLocaleDateString("ar", {
+    month: "long",
+    year: "numeric",
+  });
 
   const kpi = "glass-card border-s-4 p-5";
 
@@ -207,6 +237,7 @@ export default async function FollowupEmployeesPage() {
                   <th className="px-4 py-3 text-start font-medium">مهام مفتوحة</th>
                   <th className="px-4 py-3 text-start font-medium">متأخرة</th>
                   <th className="px-4 py-3 text-start font-medium">إجازات الشهر</th>
+                  <th className="px-4 py-3 text-start font-medium">خصومات الشهر</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,12 +282,31 @@ export default async function FollowupEmployeesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{r.monthLeaves}</td>
+                    <td className="px-4 py-3" dir="ltr">
+                      {r.monthDeductions ? (
+                        <span className="font-bold text-red-700">
+                          {formatPrice(r.monthDeductions)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+
+        {/* الاستقطاعات — تُحتسب في كشف الراتب القادم (sql/041) */}
+        <DeductionsManager
+          employees={members}
+          deductions={deductions}
+          myEmployeeId={myEmployeeId}
+          myUserId={user?.id ?? ""}
+          isAdmin={role === "admin"}
+          monthLabel={monthLabel}
+        />
       </section>
     </main>
   );

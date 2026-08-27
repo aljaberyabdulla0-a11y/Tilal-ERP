@@ -510,7 +510,20 @@ export type Deduction = {
   ded_date: string;
   reason: string | null;
   payroll_id: string | null; // الكشف الذي ضمّه
+  // من سجّل الخصم — يُختم داخل القاعدة فلا يُزوَّر (sql/041)
+  created_by: string | null;
+  created_by_name: string | null;
 };
+
+// أسباب الخصم الشائعة — قائمة مقترحة والحقل يقبل غيرها كتابةً
+export const DEDUCTION_REASONS = [
+  "تأخير",
+  "غياب",
+  "خروج مبكر",
+  "مخالفة إدارية",
+  "سلفة",
+  "أخرى",
+] as const;
 
 export type Payroll = {
   id: string;
@@ -632,6 +645,7 @@ export const NOTIFICATION_ICONS: Record<string, string> = {
   "رسالة": "chat_bubble",
   "مهمة": "task_alt",
   "مخزون": "inventory_2",
+  "راتب": "payments",
   "عام": "notifications",
 };
 

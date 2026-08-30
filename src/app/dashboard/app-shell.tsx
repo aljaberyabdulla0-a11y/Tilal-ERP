@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "./logout-button";
@@ -44,6 +44,17 @@ export default function AppShell({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { t } = useI18n();
+
+  // Esc يغلق القائمة — صارت تغطّي الشاشة، فلا بدّ من مخرج بالمفتاح
+  // لا بالفأرة وحدها.
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   function isActive(item: NavItem): boolean {
     if (item.exact) return pathname === item.href;
@@ -103,17 +114,20 @@ export default function AppShell({
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* الشريط الجانبي — سطح المكتب (يمين في العربية، يسار في الإنجليزية) */}
-      <div className="sticky top-0 hidden h-screen shrink-0 lg:block">{sidebar}</div>
-
-      {/* الشريط الجانبي — الجوّال */}
+      {/* ============================================================
+          الشريط الجانبي مخفيّ دائماً ويُفتح بزر القائمة — على كل
+          المقاسات لا الجوّال وحده. القوائم هنا طويلة (المدير يرى
+          اثني عشر بنداً)، فتثبيتها على الشاشة كان يزحم العرض ويجبر
+          القائمة على التمرير داخل عمود ضيّق. الآن تفتح بكامل الطول
+          فوق المحتوى ثم تنغلق فور اختيار وجهة.
+          ============================================================ */}
       {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className="fixed inset-0 z-40">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute start-0 top-0 h-full">{sidebar}</div>
+          <div className="absolute start-0 top-0 h-full shadow-2xl">{sidebar}</div>
         </div>
       )}
 
@@ -123,10 +137,10 @@ export default function AppShell({
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-6">
           <button
             onClick={() => setOpen(true)}
-            className="material-symbols-outlined text-gray-700 lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-700 transition hover:bg-gray-100 hover:text-brand-600"
             aria-label={t.nav.menu}
           >
-            menu
+            <span className="material-symbols-outlined">menu</span>
           </button>
           <span className="font-bold text-brand-600">{t.common.appName}</span>
           <div className="ms-auto flex items-center gap-2">

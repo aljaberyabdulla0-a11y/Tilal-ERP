@@ -2,7 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { canEditUnit } from "@/lib/projects";
-import { getProject, getProjectNodes, getUnitTypes } from "@/lib/estate";
+import {
+  getProject,
+  getProjectNodes,
+  getProjectUnits,
+  getUnitTypes,
+} from "@/lib/estate";
 import UnitsImporter from "./units-importer";
 
 // رفع الوحدات جماعياً من ملف CSV
@@ -19,10 +24,16 @@ export default async function ImportUnitsPage({
     redirect(`/dashboard/projects/${project.id}`);
   }
 
-  const [nodes, unitTypes] = await Promise.all([
+  const [nodes, unitTypes, units] = await Promise.all([
     getProjectNodes(params.id),
     getUnitTypes(),
+    getProjectUnits(params.id),
   ]);
+
+  // أرقام الوحدات القائمة — ليُكتشف التكرار قبل الرفع لا بعده
+  const existingCodes = units
+    .map((u) => u.unit_code)
+    .filter((c): c is string => Boolean(c));
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -45,7 +56,9 @@ export default async function ImportUnitsPage({
         <UnitsImporter
           projectId={project.id}
           nodes={nodes}
+          structureKinds={project.structure_kinds ?? []}
           unitTypes={unitTypes}
+          existingCodes={existingCodes}
           isAdmin={admin}
         />
       </section>

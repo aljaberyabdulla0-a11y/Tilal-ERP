@@ -21,6 +21,17 @@ body {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
 }
 
+/* إخفاء شريط التمرير مع إبقاء التمرير عاملاً.
+   يُستعمل في قائمة التنقّل: شريط ويندوز الرمادي العريض كان يشقّ
+   الشريط الجانبي الأخضر بخطّ فاتح قبيح. */
+.scrollbar-hide {
+  scrollbar-width: none; /* فايرفوكس */
+  -ms-overflow-style: none; /* إيدج القديم */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* كروم وسفاري */
+}
+
 /* أيقونات Material Symbols */
 .material-symbols-outlined {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;

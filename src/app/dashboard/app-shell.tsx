@@ -72,7 +72,7 @@ export default function AppShell({
       </div>
 
       {/* روابط التنقل */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+      <nav className="scrollbar-hide flex-1 space-y-1 overflow-y-auto px-3 pb-4">
         {nav.map((item) => (
           <Link
             key={item.href}
@@ -114,15 +114,12 @@ export default function AppShell({
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* ============================================================
-          الشريط الجانبي مخفيّ دائماً ويُفتح بزر القائمة — على كل
-          المقاسات لا الجوّال وحده. القوائم هنا طويلة (المدير يرى
-          اثني عشر بنداً)، فتثبيتها على الشاشة كان يزحم العرض ويجبر
-          القائمة على التمرير داخل عمود ضيّق. الآن تفتح بكامل الطول
-          فوق المحتوى ثم تنغلق فور اختيار وجهة.
-          ============================================================ */}
+      {/* الشريط الجانبي — سطح المكتب (يمين في العربية، يسار في الإنجليزية) */}
+      <div className="sticky top-0 hidden h-screen shrink-0 lg:block">{sidebar}</div>
+
+      {/* الشريط الجانبي — الجوّال */}
       {open && (
-        <div className="fixed inset-0 z-40">
+        <div className="fixed inset-0 z-40 lg:hidden">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setOpen(false)}
@@ -137,7 +134,7 @@ export default function AppShell({
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-6">
           <button
             onClick={() => setOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-700 transition hover:bg-gray-100 hover:text-brand-600"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-700 transition hover:bg-gray-100 hover:text-brand-600 lg:hidden"
             aria-label={t.nav.menu}
           >
             <span className="material-symbols-outlined">menu</span>

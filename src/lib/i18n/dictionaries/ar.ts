@@ -53,6 +53,7 @@ const ar = {
     settings: "الإعدادات",
     logout: "تسجيل الخروج",
     menu: "القائمة",
+    tagline: "نظام إدارة الموارد",
     roleAdmin: "مدير",
     roleSupervisor: "مشرف",
     roleFollowup: "مدير المتابعة",

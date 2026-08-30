@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
-import { Cairo } from "next/font/google";
+import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { dirOf } from "@/lib/i18n/config";
 import { getI18n } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 
-// خط عربي عصري (Cairo) — يدعم العربية والإنجليزية بمجموعة حروف واحدة،
-// فلا نحتاج خطاً ثانياً عند التبديل ولا رحلة شبكة إضافية.
-const cairo = Cairo({ subsets: ["arabic", "latin"], display: "swap" });
+// خط النظام (IBM Plex Sans Arabic) — يدعم العربية والإنجليزية بمجموعة
+// حروف واحدة، فلا نحتاج خطاً ثانياً عند التبديل ولا رحلة شبكة إضافية.
+// وأرقامه ثابتة العرض، فلا ترقص أعمدة المبالغ في الجداول المالية.
+const appFont = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
 
 // البيانات الوصفية للنظام — تظهر بعنوان المتصفح
 export const metadata: Metadata = {
@@ -26,7 +31,7 @@ export default function RootLayout({
   const { locale, t } = getI18n();
 
   return (
-    <html lang={locale} dir={dirOf(locale)} className={cairo.className}>
+    <html lang={locale} dir={dirOf(locale)} className={appFont.className}>
       <head>
         {/* نفتح الاتصال بخادم الخطوط مبكراً حتى لا يؤخّر تحميلُ الأيقونات
             أول رسم للصفحة (توفير جولة DNS/TLS كاملة) */}

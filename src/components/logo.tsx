@@ -8,9 +8,12 @@ import { useState } from "react";
 export default function Logo({
   width = 180,
   className = "",
+  onDark = false,
 }: {
   width?: number;
   className?: string;
+  /** فوق الشريط الجانبي الأخضر الغامق — يقلب ألوان الشعار النصّي */
+  onDark?: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
 
@@ -19,10 +22,22 @@ export default function Logo({
       {/* الشعار النصّي الافتراضي — يظهر حتى تُحمّل الصورة بنجاح */}
       {!loaded && (
         <span className="inline-flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
+          <span
+            className={
+              onDark
+                ? "flex h-9 w-9 items-center justify-center rounded-xl bg-white text-brand-600"
+                : "flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white"
+            }
+          >
             <span className="material-symbols-outlined text-xl">apartment</span>
           </span>
-          <span className="whitespace-nowrap text-lg font-extrabold text-brand-900">
+          <span
+            className={
+              onDark
+                ? "whitespace-nowrap text-lg font-extrabold text-white"
+                : "whitespace-nowrap text-lg font-extrabold text-brand-900"
+            }
+          >
             تلال العقارية
           </span>
         </span>

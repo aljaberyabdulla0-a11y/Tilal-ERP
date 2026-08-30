@@ -55,6 +55,7 @@ const en: Dictionary = {
     settings: "Settings",
     logout: "Sign out",
     menu: "Menu",
+    tagline: "Resource management system",
     roleAdmin: "Manager",
     roleSupervisor: "Supervisor",
     roleFollowup: "Follow-up manager",

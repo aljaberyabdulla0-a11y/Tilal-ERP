@@ -20,7 +20,12 @@ export type NavItem = {
 };
 
 // ============================================================
-// الهيكل العام: شريط جانبي زجاجي فاتح (نظام تصميم Stitch).
+// الهيكل العام — نظام تصميم "Emerald Executive".
+//
+// شريط جانبي أخضر غامق (#064E3B) بعرض 256px، البند النشط فيه حبّة
+// نعناعية، وشريط علوي زجاجي رفيع يحمل الإشعارات واللغة والمستخدم.
+// الشريط الجانبي عمود قائم بذاته (h-screen + sticky) فلا تظهر فجوة
+// بيضاء تحته مهما طالت الصفحة.
 //
 // ⚠️ كل الأصناف الاتجاهية هنا **منطقية** (start/end وليس right/left)
 // حتى ينقلب الشريط تلقائياً إلى اليسار عند التبديل للإنجليزية.
@@ -46,15 +51,17 @@ export default function AppShell({
   }
 
   const sidebar = (
-    <aside className="flex h-full w-64 flex-col border-e border-gray-200/70 bg-white/80 backdrop-blur-xl">
-      {/* الشعار + جرس الإشعارات */}
-      <div className="flex items-center justify-between gap-2 border-b border-gray-200/60 px-4 py-4">
-        <NotificationBell />
-        <Logo width={150} />
+    <aside className="flex h-full w-64 flex-col bg-brand-600 text-white">
+      {/* الشعار */}
+      <div className="px-5 pb-5 pt-6">
+        <Logo width={150} onDark />
+        <p className="mt-2 text-[11px] font-medium text-brand-200/80">
+          {t.nav.tagline}
+        </p>
       </div>
 
       {/* روابط التنقل */}
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
         {nav.map((item) => (
           <Link
             key={item.href}
@@ -62,8 +69,8 @@ export default function AppShell({
             onClick={() => setOpen(false)}
             className={
               isActive(item)
-                ? "flex items-center gap-3 rounded-xl bg-brand-50 px-3 py-2.5 font-bold text-brand-700"
-                : "flex items-center gap-3 rounded-xl px-3 py-2.5 text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
+                ? "flex items-center gap-3 rounded-full bg-brand-300 px-4 py-2.5 font-bold text-brand-700 shadow-sm"
+                : "flex items-center gap-3 rounded-full px-4 py-2.5 font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
             }
           >
             <span className="material-symbols-outlined text-xl">{item.icon}</span>
@@ -73,27 +80,23 @@ export default function AppShell({
         ))}
       </nav>
 
-      {/* المستخدم + اللغة + الخروج */}
-      <div className="border-t border-gray-200/60 p-4">
+      {/* المستخدم + الخروج */}
+      <div className="border-t border-white/10 p-4">
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">
             <span className="material-symbols-outlined text-lg">person</span>
           </span>
           <div className="min-w-0">
-            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+            <span className="rounded-full bg-brand-300 px-2 py-0.5 text-[11px] font-bold text-brand-700">
               {roleLabel}
             </span>
-            <div className="truncate text-[11px] text-gray-400" dir="ltr">
+            <div className="truncate text-[11px] text-white/50" dir="ltr">
               {userEmail}
             </div>
           </div>
         </div>
 
-        <div className="mb-2">
-          <LanguageSwitcher />
-        </div>
-
-        <LogoutButton className="w-full rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100" />
+        <LogoutButton className="w-full rounded-xl border border-white/20 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white" />
       </div>
     </aside>
   );
@@ -116,21 +119,21 @@ export default function AppShell({
 
       {/* منطقة المحتوى */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* شريط علوي للجوّال */}
-        <div className="flex items-center gap-3 border-b bg-white px-4 py-3 lg:hidden">
+        {/* الشريط العلوي — على كل المقاسات */}
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-6">
           <button
             onClick={() => setOpen(true)}
-            className="material-symbols-outlined text-gray-700"
+            className="material-symbols-outlined text-gray-700 lg:hidden"
             aria-label={t.nav.menu}
           >
             menu
           </button>
-          <span className="font-bold text-brand-700">{t.common.appName}</span>
+          <span className="font-bold text-brand-600">{t.common.appName}</span>
           <div className="ms-auto flex items-center gap-2">
             <LanguageSwitcher compact />
             <NotificationBell pin="end" />
           </div>
-        </div>
+        </header>
 
         <div className="min-w-0 flex-1">{children}</div>
       </div>

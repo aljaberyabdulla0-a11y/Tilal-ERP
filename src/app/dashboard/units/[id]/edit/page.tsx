@@ -1,33 +1,40 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
-import { Unit } from "@/lib/types";
 import { canEditUnit, getProjects } from "@/lib/projects";
+import { getUnit, getProjectNodes, getUnitTypes } from "@/lib/estate";
+import { buildNodeTree } from "@/lib/types";
 import UnitForm from "../../unit-form";
+import UnitEditor from "../../../projects/[id]/units/unit-editor";
 
-// صفحة تعديل وحدة عقارية — للمدير، وللمشرف على مشروع هذه الوحدة
+// ============================================================
+// تعديل وحدة — للمدير، وللمشرف على مشروع هذه الوحدة.
+//
+// الوحدة داخل مشروع تُحرَّر بمحرّر المخزون (هيكل + حقول حسب النوع).
+// والوحدات القديمة التي لا مشروع لها تبقى على النموذج البسيط، فلا
+// يُجبَر أحد على إسنادها لمشروع لمجرّد تصحيح ملاحظة.
+// ============================================================
 export default async function EditUnitPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("units")
-    .select("*")
-    .eq("id", params.id)
-    .single();
+  const unit = await getUnit(params.id);
+  if (!unit) notFound();
 
-  if (!data) notFound();
-  const unit = data as Unit;
-
+  const admin = await isAdmin();
   // الحماية بعد الجلب لأن الصلاحية تعتمد مشروع الوحدة نفسها.
   // وهذه للواجهة فقط — سياسة «update units in scope» في القاعدة
   // هي التي تمنع الحفظ فعلياً.
-  if (!(await canEditUnit(unit.project_id, await isAdmin()))) {
+  if (!(await canEditUnit(unit.project_id, admin))) {
     redirect(`/dashboard/units/${params.id}`);
   }
+
+  const [nodes, unitTypes, projects] = await Promise.all([
+    unit.project_id ? getProjectNodes(unit.project_id) : Promise.resolve([]),
+    getUnitTypes(),
+    unit.project_id ? Promise.resolve([]) : getProjects(),
+  ]);
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -38,11 +45,23 @@ export default async function EditUnitPage({
         >
           ← تفاصيل الوحدة
         </Link>
-        <h1 className="text-xl font-bold text-brand-700">تعديل الوحدة</h1>
+        <h1 className="text-xl font-bold text-brand-700">
+          تعديل {unit.unit_code || "الوحدة"}
+        </h1>
       </header>
 
       <section className="p-6">
-        <UnitForm initial={unit} unitId={unit.id} projects={await getProjects()} />
+        {unit.project_id ? (
+          <UnitEditor
+            projectId={unit.project_id}
+            unit={unit}
+            nodes={buildNodeTree(nodes)}
+            unitTypes={unitTypes}
+            isAdmin={admin}
+          />
+        ) : (
+          <UnitForm initial={unit} unitId={unit.id} projects={projects} />
+        )}
       </section>
     </main>
   );

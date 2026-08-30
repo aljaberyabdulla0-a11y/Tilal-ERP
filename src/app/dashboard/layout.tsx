@@ -121,7 +121,8 @@ export default async function DashboardLayout({
     // شاشة «الموظفون» أعلاه.
     { href: "/dashboard/hr", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me"] },
 
-    ...(admin
+    // المشاريع: المدير يديرها كلها، والمشرف يفتح مخزون مشروعه منها
+    ...(admin || supervisor
       ? [{ href: "/dashboard/projects", label: t.nav.projects, icon: "apartment", prefixes: ["/dashboard/projects"] }]
       : []),
     ...(admin

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin, isSupervisor } from "@/lib/auth";
 import { getProjects, getTeamMembers } from "@/lib/projects";
+import { PROJECT_STATUS_COLORS } from "@/lib/types";
 import ProjectsManager from "./projects-manager";
 
 // ============================================================
@@ -10,12 +11,61 @@ import ProjectsManager from "./projects-manager";
 // تُبنى رؤية الليدات والمتابعات والحضور.
 // ============================================================
 export default async function ProjectsPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  const admin = await isAdmin();
+  // المشرف يدخل ليدير مخزون مشروعه — لكنه لا يُنشئ مشاريع ولا يحذفها
+  const supervisor = admin ? false : await isSupervisor();
+  if (!admin && !supervisor) redirect("/dashboard");
 
   const [projects, employees] = await Promise.all([
     getProjects(),
     getTeamMembers(),
   ]);
+
+  if (supervisor) {
+    return (
+      <main className="min-h-screen bg-gray-50">
+        <header className="flex items-center gap-3 border-b bg-white px-6 py-4 shadow-sm">
+          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-brand-700">
+            ← لوحة التحكم
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-brand-700">مشاريعي</h1>
+            <p className="text-sm text-gray-500">
+              افتح المشروع لتدير وحداته وحجوزاته.
+            </p>
+          </div>
+        </header>
+
+        <section className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+          {projects.length === 0 ? (
+            <p className="text-sm text-gray-400">لا مشاريع في نطاقك.</p>
+          ) : (
+            projects.map((p) => (
+              <Link
+                key={p.id}
+                href={`/dashboard/projects/${p.id}`}
+                className="glass-card p-5 transition hover:shadow-md"
+              >
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-gray-800">{p.name}</h3>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      PROJECT_STATUS_COLORS[p.status] ?? "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {p.status}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  {[p.governorate, p.area].filter(Boolean).join(" — ") || "—"}
+                </p>
+              </Link>
+            ))
+          )}
+        </section>
+      </main>
+    );
+  }
 
   const active = employees.filter((e) => e.status === "active");
   const supervised = projects.filter((p) => p.supervisor_id).length;

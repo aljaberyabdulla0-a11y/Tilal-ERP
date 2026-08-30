@@ -249,19 +249,34 @@ export type Unit = {
   price: number | null;     // السعر
   status: string;           // الحالة
   notes: string | null;
+  // ===== مخزون المشاريع (sql/044) =====
+  node_id: string | null;        // موقعها في هيكل المشروع
+  node_path: string | null;      // «برج A / الطابق 01» — تحسبه القاعدة
+  bathrooms: number | null;
+  land_area_m2: number | null;
+  built_area_m2: number | null;
+  floors_count: number | null;
+  parking_spaces: number | null;
+  price_per_m2: number | null;   // محسوب في القاعدة
+  payment_plan: string | null;
+  blocked_reason: string | null; // سبب الإيقاف — يُمسح تلقائياً عند رفعه
+  sold_at: string | null;
+  attrs: Record<string, string | number | boolean | null>;
 };
 
-// أنواع الوحدات
+// أنواع الوحدات — القائمة الحيّة في جدول unit_types بالقاعدة.
+// هذه نسخة احتياطية للنماذج القديمة فقط.
 export const UNIT_TYPES = ["شقة", "أرض", "دار", "فيلا", "محل تجاري"] as const;
 
 // حالات الوحدة
-export const UNIT_STATUSES = ["متاحة", "محجوزة", "مباعة"] as const;
+export const UNIT_STATUSES = ["متاحة", "محجوزة", "مباعة", "موقوفة"] as const;
 
 // ألوان شارة الحالة (Tailwind)
 export const UNIT_STATUS_COLORS: Record<string, string> = {
   "متاحة": "bg-green-100 text-green-700",
   "محجوزة": "bg-amber-100 text-amber-700",
-  "مباعة": "bg-gray-200 text-gray-600",
+  "مباعة": "bg-red-100 text-red-700",
+  "موقوفة": "bg-gray-200 text-gray-600",
 };
 
 // تنسيق السعر بفواصل الآلاف (مثال: 150000 → 150,000)
@@ -282,10 +297,22 @@ export type Reservation = {
   status: string;                   // حالة الحجز
   amount: number | null;            // المبلغ المدفوع
   notes: string | null;
+  // ===== مخزون المشاريع (sql/044) =====
+  expiry_date: string | null;       // نهاية مهلة الحجز
+  agent_id: string | null;          // الموظف المسؤول عن الصفقة
+  agent_name: string | null;
+  created_by_name: string | null;   // من سجّل الحجز فعلاً
   // بيانات مرتبطة (تأتي من الربط مع الجداول الأخرى)
   clients?: { name: string } | null;
   units?: { project: string; unit_code: string | null } | null;
 };
+
+// الحجز انتهت مهلته ولم يُقفل — يحتاج قراراً: تمديد أو إلغاء
+export function reservationExpired(r: { status: string; expiry_date: string | null }): boolean {
+  if (r.status !== "حجز" || !r.expiry_date) return false;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
+  return r.expiry_date < today;
+}
 
 // حالات الحجز
 export const RESERVATION_STATUSES = ["حجز", "بيع مكتمل", "ملغى"] as const;
@@ -700,6 +727,9 @@ export type Invoice = {
   invoice_number: string;
   client_id: string;
   reservation_id: string | null;
+  // الوحدة عمود ثابت لا يُشتقّ من الحجز، فيبقى الأثر لو حُذف
+  // الحجز — تملؤه القاعدة من الحجز عند الإنشاء (sql/044).
+  unit_id: string | null;
   issue_date: string | null;
   due_date: string | null;
   total_amount: number;
@@ -804,6 +834,9 @@ export type Project = {
   status: string;
   supervisor_id: string | null;
   description: string | null;
+  // مستويات هيكل هذا المشروع بالترتيب، مثل ["برج","طابق"] (sql/044).
+  // فارغ = مشروع بلا هيكل، وحداته في قائمة واحدة.
+  structure_kinds: string[];
 };
 
 // عضو فريق كما يأتي من منظور team_members الآمن.
@@ -1536,4 +1569,297 @@ export function leadDeadlineLabel(daysLeft: number | null): string {
   if (daysLeft === 1) return "باقٍ يوم";
   if (daysLeft === 2) return "باقٍ يومان";
   return `باقٍ ${daysLeft} يوماً`;
+}
+
+// ============================================================
+// مخزون المشاريع العقارية (sql/044)
+//
+// المشروع صار مخزوناً: هيكل شجري ديناميكي، ووحدات حقولها تتبدّل
+// حسب نوعها، وسجل يروي تاريخ كل وحدة.
+// ============================================================
+
+// مستويات الهيكل الممكنة — لا تُضاف هنا فقط بل في check القاعدة أيضاً
+export const NODE_KINDS = ["برج", "مبنى", "طابق", "مرحلة", "مجمع", "منطقة"] as const;
+export type NodeKind = (typeof NODE_KINDS)[number];
+
+// قوالب جاهزة تُغني المستخدم عن تصميم هيكله من الصفر.
+// وهي اقتراح لا قيد: يستطيع تركيب أي تسلسل من NODE_KINDS.
+export const STRUCTURE_PRESETS: { label: string; hint: string; kinds: NodeKind[] }[] = [
+  { label: "أبراج وشقق", hint: "برج ← طابق ← شقة", kinds: ["برج", "طابق"] },
+  { label: "مبانٍ وشقق", hint: "مبنى ← طابق ← شقة", kinds: ["مبنى", "طابق"] },
+  { label: "دور وفلل", hint: "مرحلة ← دار", kinds: ["مرحلة"] },
+  { label: "مجمّعات", hint: "مرحلة ← مجمع ← وحدة", kinds: ["مرحلة", "مجمع"] },
+  { label: "مناطق", hint: "منطقة ← وحدة", kinds: ["منطقة"] },
+];
+
+export const NODE_KIND_ICONS: Record<string, string> = {
+  "برج": "apartment",
+  "مبنى": "domain",
+  "طابق": "layers",
+  "مرحلة": "flag",
+  "مجمع": "holiday_village",
+  "منطقة": "map",
+};
+
+export type ProjectNode = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  project_id: string;
+  parent_id: string | null;
+  kind: string;
+  name: string;
+  sort_order: number;
+  depth: number;
+  path: string;       // «برج A / الطابق 01» — تحسبه القاعدة
+  notes: string | null;
+};
+
+// عقدة الهيكل بعد بناء الشجرة في الذاكرة
+export type NodeTree = ProjectNode & { children: NodeTree[] };
+
+export function buildNodeTree(nodes: ProjectNode[]): NodeTree[] {
+  const byId = new Map<string, NodeTree>();
+  for (const n of nodes) byId.set(n.id, { ...n, children: [] });
+
+  const roots: NodeTree[] = [];
+  for (const n of Array.from(byId.values())) {
+    const parent = n.parent_id ? byId.get(n.parent_id) : null;
+    if (parent) parent.children.push(n);
+    else roots.push(n);
+  }
+
+  const sort = (list: NodeTree[]) => {
+    list.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "ar"));
+    list.forEach((n) => sort(n.children));
+  };
+  sort(roots);
+  return roots;
+}
+
+// ===== أنواع الوحدات =====
+
+export type UnitTypeRow = {
+  name: string;
+  category: string;  // عمودي · أفقي · تجاري · أرض · أخرى
+  sort_order: number;
+  active: boolean;
+};
+
+// أي حقول تظهر لأي فئة — هذا هو «النموذج الديناميكي»:
+// الفئة تأتي من القاعدة، والنموذج يسأل هذه الدالة لا شرطاً مكتوباً.
+export type UnitField =
+  | "space_m2"        // مساحة الوحدة
+  | "land_area_m2"    // مساحة الأرض
+  | "built_area_m2"   // مساحة البناء
+  | "rooms"
+  | "bathrooms"
+  | "floors_count"
+  | "parking_spaces"
+  | "view"
+  | "balcony"
+  | "garden_area"
+  | "roof"
+  | "model"
+  | "frontage";
+
+export function unitFieldsFor(category: string): UnitField[] {
+  switch (category) {
+    case "عمودي":
+      return ["space_m2", "rooms", "bathrooms", "parking_spaces", "view", "balcony"];
+    case "أفقي":
+      return [
+        "land_area_m2", "built_area_m2", "floors_count", "rooms", "bathrooms",
+        "parking_spaces", "garden_area", "roof", "model",
+      ];
+    case "تجاري":
+      return ["space_m2", "frontage", "bathrooms", "parking_spaces"];
+    case "أرض":
+      return ["land_area_m2", "frontage"];
+    default:
+      return ["space_m2", "rooms", "bathrooms"];
+  }
+}
+
+// الحقول التي تعيش داخل attrs (jsonb) لا في أعمدة
+export const JSON_UNIT_FIELDS: UnitField[] = [
+  "view", "balcony", "garden_area", "roof", "model", "frontage",
+];
+
+export const UNIT_FIELD_LABELS: Record<UnitField, string> = {
+  space_m2: "المساحة (م²)",
+  land_area_m2: "مساحة الأرض (م²)",
+  built_area_m2: "مساحة البناء (م²)",
+  rooms: "غرف النوم",
+  bathrooms: "الحمّامات",
+  floors_count: "عدد الطوابق",
+  parking_spaces: "مواقف السيارات",
+  view: "الإطلالة",
+  balcony: "شرفة",
+  garden_area: "مساحة الحديقة (م²)",
+  roof: "سطح / تراس",
+  model: "الموديل",
+  frontage: "الواجهة (م)",
+};
+
+// ===== حالة الوحدة =====
+
+export const UNIT_STATUS_LIST = ["متاحة", "محجوزة", "مباعة", "موقوفة"] as const;
+export type UnitStatus = (typeof UNIT_STATUS_LIST)[number];
+
+export const UNIT_STATUS_DOTS: Record<string, string> = {
+  "متاحة": "bg-green-500",
+  "محجوزة": "bg-amber-500",
+  "مباعة": "bg-red-500",
+  "موقوفة": "bg-gray-400",
+};
+
+// ما يجوز على الوحدة حسب حالتها — الشاشة تسأل هنا، والقاعدة تفرض
+// نفس القاعدة بمحفّز، فلا يكفي إخفاء الزر (sql/044).
+export function canReserve(status: string): boolean {
+  return status === "متاحة";
+}
+export function canSell(status: string): boolean {
+  return status === "محجوزة";
+}
+
+export type UnitEvent = {
+  id: string;
+  created_at: string;
+  unit_id: string;
+  kind: string;
+  detail: string | null;
+  actor: string | null;
+  actor_name: string | null;
+};
+
+export const UNIT_EVENT_ICONS: Record<string, string> = {
+  "إنشاء": "add_circle",
+  "تعديل سعر": "sell",
+  "تغيير حالة": "swap_horiz",
+  "نقل": "move_down",
+  "حجز": "event_available",
+  "إلغاء حجز": "event_busy",
+  "بيع": "handshake",
+  "فاتورة": "receipt_long",
+  "دفعة": "payments",
+};
+
+export type UnitFinance = {
+  unit_id: string;
+  unit_price: number | null;
+  invoiced: number;
+  paid: number;
+  remaining: number;
+};
+
+// ملخّص مخزون مشروع
+export type InventorySummary = {
+  total: number;
+  available: number;
+  reserved: number;
+  sold: number;
+  blocked: number;
+  value: number;      // قيمة كل الوحدات
+  soldValue: number;  // قيمة المباع
+};
+
+export function summarizeUnits(units: { status: string; price: number | null }[]): InventorySummary {
+  const s: InventorySummary = {
+    total: units.length, available: 0, reserved: 0, sold: 0, blocked: 0,
+    value: 0, soldValue: 0,
+  };
+  for (const u of units) {
+    const price = u.price ?? 0;
+    s.value += price;
+    if (u.status === "متاحة") s.available++;
+    else if (u.status === "محجوزة") s.reserved++;
+    else if (u.status === "مباعة") { s.sold++; s.soldValue += price; }
+    else if (u.status === "موقوفة") s.blocked++;
+  }
+  return s;
+}
+
+// ============================================================
+// أدوات المخزون في الذاكرة.
+//
+// تعيش هنا لا في estate.ts لأن استعراض المخزون مكوّن عميل، و
+// estate.ts يستورد عميل Supabase الخادمي — فاستيراده من العميل
+// يكسر البناء. القاعدة: ما لا يلمس الشبكة يبقى في types.
+// ============================================================
+
+/** وحدات كل عقدة، مفهرسة بمعرّف العقدة. الوحدات بلا هيكل تحت "" */
+export function unitsByNode(units: Unit[]): Map<string, Unit[]> {
+  const map = new Map<string, Unit[]>();
+  for (const u of units) {
+    const key = u.node_id ?? "";
+    const list = map.get(key);
+    if (list) list.push(u);
+    else map.set(key, [u]);
+  }
+  return map;
+}
+
+/**
+ * تصفية الوحدات. القيمة الفارغة تعني «لا تصفية بهذا الحقل»، فالمرشّح
+ * الفارغ لا يحذف شيئاً — وهذا ما يجعل تركيب المرشّحات آمناً.
+ */
+export type UnitFilters = {
+  q?: string;
+  status?: string;
+  unitType?: string;
+  nodeId?: string;      // العقدة وكل ما تحتها
+  minPrice?: number;
+  maxPrice?: number;
+  minRooms?: number;
+};
+
+export function filterUnits(
+  units: Unit[],
+  f: UnitFilters,
+  descendantIds?: Set<string>,
+): Unit[] {
+  const q = f.q?.trim().toLowerCase();
+
+  return units.filter((u) => {
+    if (f.status && u.status !== f.status) return false;
+    if (f.unitType && u.unit_type !== f.unitType) return false;
+    if (f.nodeId && !(descendantIds?.has(u.node_id ?? "") ?? u.node_id === f.nodeId)) return false;
+    if (f.minPrice !== undefined && (u.price ?? 0) < f.minPrice) return false;
+    if (f.maxPrice !== undefined && (u.price ?? 0) > f.maxPrice) return false;
+    if (f.minRooms !== undefined && (u.rooms ?? 0) < f.minRooms) return false;
+
+    if (q) {
+      const hay = [u.unit_code, u.node_path, u.unit_type, u.notes]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/** العقدة وكل ذرّيتها — لأن اختيار «برج A» يعني كل طوابقه */
+export function descendantsOf(nodes: ProjectNode[], rootId: string): Set<string> {
+  const byParent = new Map<string, ProjectNode[]>();
+  for (const n of nodes) {
+    if (!n.parent_id) continue;
+    const list = byParent.get(n.parent_id);
+    if (list) list.push(n);
+    else byParent.set(n.parent_id, [n]);
+  }
+
+  const out = new Set<string>([rootId]);
+  const stack = [rootId];
+  while (stack.length) {
+    const id = stack.pop() as string;
+    for (const child of byParent.get(id) ?? []) {
+      if (!out.has(child.id)) {
+        out.add(child.id);
+        stack.push(child.id);
+      }
+    }
+  }
+  return out;
 }

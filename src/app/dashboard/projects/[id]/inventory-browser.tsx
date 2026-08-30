@@ -1,0 +1,312 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  NODE_KIND_ICONS,
+  NodeTree,
+  ProjectNode,
+  Unit,
+  UNIT_STATUS_DOTS,
+  UNIT_STATUS_LIST,
+  UnitTypeRow,
+  descendantsOf,
+  filterUnits,
+  formatPrice,
+} from "@/lib/types";
+
+// ============================================================
+// متصفّح المخزون: شجرة الهيكل + قائمة الوحدات مصفّاة.
+//
+// كل شيء يعمل في المتصفح على بيانات جُلبت مرة واحدة، فالتصفية
+// فورية بلا انتظار الشبكة — وهذا ما يجعل مشروعاً بألف وحدة
+// قابلاً للتصفّح لا للانتظار.
+//
+// الوحدات تُعرض **مجمّعة بمسارها** لا في جدول واحد، لأن المطلوب
+// أن يكون كل طابق معزولاً واضحاً بذاته.
+// ============================================================
+export default function InventoryBrowser({
+  tree,
+  nodes,
+  units,
+  unitTypes,
+  projectId,
+  canManage,
+}: {
+  tree: NodeTree[];
+  nodes: ProjectNode[];
+  units: Unit[];
+  unitTypes: UnitTypeRow[];
+  projectId: string;
+  canManage: boolean;
+}) {
+  const [nodeId, setNodeId] = useState<string>("");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("");
+  const [unitType, setUnitType] = useState("");
+  const [minRooms, setMinRooms] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+
+  // اختيار «برج A» يعني كل طوابقه، لا البرج وحده
+  const scope = useMemo(
+    () => (nodeId ? descendantsOf(nodes, nodeId) : undefined),
+    [nodes, nodeId],
+  );
+
+  const shown = useMemo(
+    () =>
+      filterUnits(
+        units,
+        {
+          q,
+          status: status || undefined,
+          unitType: unitType || undefined,
+          nodeId: nodeId || undefined,
+          minRooms: minRooms ? Number(minRooms) : undefined,
+          maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        },
+        scope,
+      ),
+    [units, q, status, unitType, nodeId, minRooms, maxPrice, scope],
+  );
+
+  // عدد وحدات كل عقدة شاملاً ما تحتها — يظهر بجانب اسمها في الشجرة
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const n of nodes) {
+      const ids = descendantsOf(nodes, n.id);
+      map.set(n.id, units.filter((u) => ids.has(u.node_id ?? "")).length);
+    }
+    return map;
+  }, [nodes, units]);
+
+  // التجميع بالمسار: مفتاح فارغ = وحدات خارج الهيكل
+  const groups = useMemo(() => {
+    const map = new Map<string, Unit[]>();
+    for (const u of shown) {
+      const key = u.node_path ?? "";
+      const list = map.get(key);
+      if (list) list.push(u);
+      else map.set(key, [u]);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], "ar"));
+  }, [shown]);
+
+  const filtersOn =
+    q || status || unitType || nodeId || minRooms || maxPrice ? true : false;
+
+  const input =
+    "rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+
+  function NodeRow({ n, depth }: { n: NodeTree; depth: number }) {
+    const active = nodeId === n.id;
+    return (
+      <div>
+        <button
+          onClick={() => setNodeId(active ? "" : n.id)}
+          style={{ paddingInlineStart: 12 + depth * 16 }}
+          className={
+            active
+              ? "flex w-full items-center gap-2 rounded-lg bg-brand-600 py-2 pe-3 text-start text-sm font-bold text-white"
+              : "flex w-full items-center gap-2 rounded-lg py-2 pe-3 text-start text-sm text-gray-700 transition hover:bg-gray-100"
+          }
+        >
+          <span className="material-symbols-outlined text-[18px]">
+            {NODE_KIND_ICONS[n.kind] ?? "folder"}
+          </span>
+          <span className="min-w-0 flex-1 truncate">{n.name}</span>
+          <span
+            className={
+              active
+                ? "rounded-full bg-white/20 px-2 py-0.5 text-[11px]"
+                : "rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500"
+            }
+          >
+            {counts.get(n.id) ?? 0}
+          </span>
+        </button>
+        {n.children.map((c) => (
+          <NodeRow key={c.id} n={c} depth={depth + 1} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[260px_1fr]">
+      {/* شجرة الهيكل */}
+      <aside className="h-fit rounded-2xl bg-white p-3 shadow-sm">
+        <div className="mb-2 flex items-center justify-between px-2">
+          <h3 className="text-sm font-bold text-gray-700">الهيكل</h3>
+          {canManage && (
+            <Link
+              href={`/dashboard/projects/${projectId}/structure`}
+              className="text-xs text-brand-600 hover:underline"
+            >
+              تعديل
+            </Link>
+          )}
+        </div>
+
+        <button
+          onClick={() => setNodeId("")}
+          className={
+            nodeId === ""
+              ? "mb-1 flex w-full items-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-start text-sm font-bold text-white"
+              : "mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-sm text-gray-700 transition hover:bg-gray-100"
+          }
+        >
+          <span className="material-symbols-outlined text-[18px]">apps</span>
+          <span className="flex-1">كل الوحدات</span>
+          <span
+            className={
+              nodeId === ""
+                ? "rounded-full bg-white/20 px-2 py-0.5 text-[11px]"
+                : "rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500"
+            }
+          >
+            {units.length}
+          </span>
+        </button>
+
+        {tree.length === 0 ? (
+          <p className="px-3 py-4 text-xs text-gray-400">
+            لا يوجد هيكل بعد — كل الوحدات في قائمة واحدة.
+          </p>
+        ) : (
+          tree.map((n) => <NodeRow key={n.id} n={n} depth={0} />)
+        )}
+      </aside>
+
+      {/* المرشّحات + الوحدات */}
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="بحث برقم الوحدة أو الموقع…"
+              className={input + " min-w-[200px] flex-1"}
+            />
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className={input}
+            >
+              <option value="">كل الحالات</option>
+              {UNIT_STATUS_LIST.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <select
+              value={unitType}
+              onChange={(e) => setUnitType(e.target.value)}
+              className={input}
+            >
+              <option value="">كل الأنواع</option>
+              {unitTypes.map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={minRooms}
+              onChange={(e) => setMinRooms(e.target.value)}
+              type="number"
+              min={0}
+              placeholder="غرف ≥"
+              className={input + " w-24"}
+            />
+            <input
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+              type="number"
+              min={0}
+              placeholder="سعر ≤"
+              className={input + " w-32"}
+              dir="ltr"
+            />
+            {filtersOn && (
+              <button
+                onClick={() => {
+                  setQ("");
+                  setStatus("");
+                  setUnitType("");
+                  setNodeId("");
+                  setMinRooms("");
+                  setMaxPrice("");
+                }}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 transition hover:bg-gray-100"
+              >
+                مسح
+              </button>
+            )}
+          </div>
+
+          <p className="mt-3 text-xs text-gray-500">
+            {shown.length} من {units.length} وحدة
+          </p>
+        </div>
+
+        {groups.length === 0 ? (
+          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
+            <span className="material-symbols-outlined mb-2 inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-3xl text-brand-600">
+              domain_disabled
+            </span>
+            <p className="text-gray-500">
+              {units.length === 0
+                ? "لا توجد وحدات في هذا المشروع بعد."
+                : "لا توجد وحدات تطابق هذه المرشّحات."}
+            </p>
+          </div>
+        ) : (
+          groups.map(([path, list]) => (
+            <div key={path} className="rounded-2xl bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-2">
+                <h3 className="text-sm font-bold text-gray-800">
+                  {path || "خارج الهيكل"}
+                </h3>
+                <span className="text-xs text-gray-400">{list.length} وحدة</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {list.map((u) => (
+                  <Link
+                    key={u.id}
+                    href={`/dashboard/units/${u.id}`}
+                    className="group rounded-xl border border-gray-200 p-3 transition hover:border-brand-400 hover:shadow-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                          UNIT_STATUS_DOTS[u.status] ?? "bg-gray-300"
+                        }`}
+                      />
+                      <span className="truncate font-bold text-gray-800 group-hover:text-brand-700">
+                        {u.unit_code || "بلا رقم"}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-[11px] text-gray-500">
+                      {u.unit_type}
+                      {u.space_m2 ? ` · ${u.space_m2} م²` : ""}
+                      {u.rooms ? ` · ${u.rooms} غرف` : ""}
+                    </p>
+                    <p
+                      className="mt-1 truncate text-xs font-semibold text-brand-700"
+                      dir="ltr"
+                    >
+                      {u.price !== null ? `${formatPrice(u.price)} د.ع` : "—"}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

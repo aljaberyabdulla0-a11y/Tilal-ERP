@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>إدارة العملاء - تلال العقارية</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#064e3b",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed-dim": "#a8cfbc",
+                        "tertiary": "#0e3427",
+                        "secondary-fixed": "#6ffbbe",
+                        "outline": "#707974",
+                        "on-primary-fixed-variant": "#0b513d",
+                        "on-secondary-fixed": "#002113",
+                        "on-secondary-container": "#00714d",
+                        "inverse-surface": "#2e3132",
+                        "on-surface": "#191c1d",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#002117",
+                        "primary": "#003527",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed": "#002115",
+                        "secondary-container": "#6cf8bb",
+                        "surface-container-high": "#e7e8e9",
+                        "surface-container-low": "#f3f4f5",
+                        "on-secondary-fixed-variant": "#005236",
+                        "primary-fixed-dim": "#95d3ba",
+                        "on-surface-variant": "#404944",
+                        "primary-fixed": "#b0f0d6",
+                        "secondary-fixed-dim": "#4edea3",
+                        "on-background": "#191c1d",
+                        "background": "#f8f9fa",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#93baa7",
+                        "on-tertiary-fixed-variant": "#294e3f",
+                        "surface-bright": "#f8f9fa",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#d9dadb",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-on-surface": "#f0f1f2",
+                        "outline-variant": "#bfc9c3",
+                        "surface": "#f8f9fa",
+                        "surface-tint": "#2b6954",
+                        "surface-variant": "#e1e3e4",
+                        "inverse-primary": "#95d3ba",
+                        "tertiary-fixed": "#c3ecd7",
+                        "surface-container": "#edeeef",
+                        "on-primary-container": "#80bea6",
+                        "tertiary-container": "#274b3c",
+                        "secondary": "#006c49"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack_sm": "8px",
+                        "card_padding": "20px",
+                        "stack_lg": "24px",
+                        "sidebar_width": "256px",
+                        "stack_md": "16px",
+                        "gutter": "16px",
+                        "page_padding": "24px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["IBM Plex Sans Arabic"],
+                        "body-md": ["IBM Plex Sans Arabic"],
+                        "headline-md-mobile": ["IBM Plex Sans Arabic"],
+                        "body-lg": ["IBM Plex Sans Arabic"],
+                        "display-lg": ["IBM Plex Sans Arabic"],
+                        "label-md": ["IBM Plex Sans Arabic"],
+                        "headline-sm": ["IBM Plex Sans Arabic"],
+                        "headline-md": ["IBM Plex Sans Arabic"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "26px", "fontWeight": "400" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'IBM Plex Sans Arabic', sans-serif; background-color: #F9FAFB; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-header { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+        .executive-shadow { box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.05); }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .kanban-col { min-width: 320px; max-width: 320px; }
+        
+        /* Side Accents */
+        .card-accent-neutral { border-inline-start: 4px solid #E5E7EB; }
+        .card-accent-emerald { border-inline-start: 4px solid #10B981; }
+        .card-accent-amber { border-inline-start: 4px solid #F59E0B; }
+        .card-accent-red { border-inline-start: 4px solid #EF4444; }
+    </style>
+</head>
+<body class="bg-background text-on-background flex h-screen overflow-hidden rtl">
+<!-- SideNavBar -->
+<nav class="fixed right-0 top-0 h-full w-[256px] bg-primary dark:bg-primary-container text-on-primary dark:text-on-primary-container border-l border-outline-variant dark:border-outline shadow-md flex flex-col gap-stack_sm py-page_padding rtl z-40 hidden md:flex">
+<div class="px-page_padding mb-8 flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center">
+<span class="material-symbols-outlined text-primary font-bold">domain</span>
+</div>
+<div>
+<h1 class="font-display-lg text-display-lg font-bold text-on-primary dark:text-on-primary-container leading-none">تلال</h1>
+<p class="font-label-sm text-label-sm text-on-primary/70 mt-1">نظام إدارة الموارد</p>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto space-y-1">
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">لوحة القيادة</span>
+</a>
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-label-md text-label-md">المهام</span>
+</a>
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-label-md text-label-md">الدردشة</span>
+</a>
+<!-- Active Tab -->
+<a class="flex items-center gap-stack_md px-4 py-3 bg-secondary-container text-on-secondary-container rounded-xl mx-2 scale-95 active:scale-90 transition-transform font-label-md text-label-md shadow-sm" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-bold">إدارة العملاء</span>
+</a>
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-label-md text-label-md">الفواتير</span>
+</a>
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">account_balance</span>
+<span class="font-label-md text-label-md">المحاسبة</span>
+</a>
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">badge</span>
+<span class="font-label-md text-label-md">الموارد البشرية</span>
+</a>
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-label-md text-label-md">المخزون</span>
+</a>
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">handshake</span>
+<span class="font-label-md text-label-md">الوساطة</span>
+</a>
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors mx-2 hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-label-md text-label-md">المشاريع</span>
+</a>
+<div class="mt-auto pt-4 border-t border-outline/30 mx-4">
+<a class="flex items-center gap-stack_md px-4 py-3 text-on-primary/70 hover:text-on-primary transition-colors hover:bg-primary-container/50 dark:hover:bg-primary/50 transition-all scale-95 active:scale-90 transition-transform rounded-xl" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">الإعدادات</span>
+</a>
+</div>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col md:mr-[256px] w-full min-w-0">
+<!-- TopNavBar -->
+<header class="h-16 px-page_padding rtl flex justify-between items-center glass-header border-b border-outline-variant/30 shadow-sm z-30 sticky top-0 shrink-0">
+<div class="flex items-center gap-4">
+<!-- Mobile Menu Toggle (hidden on md) -->
+<button class="md:hidden text-primary p-2 rounded-lg hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="font-headline-md text-headline-md font-extrabold text-primary">تلال العقارية</div>
+</div>
+<!-- Central Search/Actions Area -->
+<div class="flex-1 max-w-2xl mx-8 hidden lg:flex items-center gap-4">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-full py-2 pr-10 pl-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-body-md font-body-md transition-all" placeholder="بحث عن عميل، رقم هاتف، أو مشروع..." type="text"/>
+</div>
+<button class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors px-3 py-2 rounded-lg border border-outline-variant hover:border-primary/50 bg-surface">
+<span class="material-symbols-outlined">filter_list</span>
+<span class="font-label-md text-label-md">تصفية</span>
+</button>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors relative cursor-pointer opacity-80 hover:opacity-100 p-2 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer opacity-80 hover:opacity-100 p-2 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined">language</span>
+</button>
+<div class="w-9 h-9 rounded-full overflow-hidden border-2 border-surface-variant cursor-pointer ml-2">
+<img alt="صورة المدير" class="w-full h-full object-cover" data-alt="A professional headshot of a Middle Eastern male real estate manager in his 40s, wearing a tailored navy suit and white shirt, smiling slightly against a soft, bright, modern office background with subtle greenery out of focus. Lighting is natural and flattering." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTHyQxMY7kjnrX1IS7jCNmecpjO_uYxPbHN9ADyh43a7wjXAM9XlGMbBIAoiRmcz00sdhylPx3-pX_R9tPd2k9cxEVjWu5VSwn_fRB6SxAMH6bu33HqrtvqBpUYm52OcUTOeJA8AjhkdCMmp4wow1wa8uQDKxVQ5Gl7DxdrfpEp8s3wPyvTLoTajpZwJbk8WeO7-y1XRNHbArLTqJ4kf-Af93vybqc6oDQ7ITBncnGfEHR9wbEkLtVjA"/>
+</div>
+</div>
+</header>
+<!-- Page Header & Actions -->
+<div class="px-page_padding py-6 flex flex-col gap-4 bg-surface z-20 shadow-sm shrink-0">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div>
+<h2 class="font-display-lg text-display-lg font-bold text-on-surface flex items-center gap-3">
+                        إدارة العملاء
+                        <span class="bg-surface-variant text-on-surface-variant px-3 py-1 rounded-full font-label-md text-label-md">148 إجمالي</span>
+</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">نظرة عامة على مسار المبيعات وحالة العملاء المحتملين.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 bg-[#D1FAE5] text-[#064E3B] hover:bg-[#A7F3D0] transition-colors px-4 py-2 rounded-lg font-label-md text-label-md font-bold">
+<span class="material-symbols-outlined text-[20px]">download</span>
+                        تصدير
+                    </button>
+<button class="flex items-center gap-2 bg-[#064E3B] text-white hover:bg-[#053A2C] transition-colors px-6 py-2 rounded-lg shadow-sm font-label-md text-label-md font-bold">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                        عميل جديد
+                    </button>
+</div>
+</div>
+<!-- Filter Row -->
+<div class="flex items-center gap-3 overflow-x-auto scrollbar-hide py-1">
+<button class="flex items-center gap-2 bg-surface-container-low border border-outline-variant hover:border-primary/50 text-on-surface px-4 py-2 rounded-full font-label-md text-label-md transition-colors whitespace-nowrap">
+        جميع المشاريع
+        <span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+<button class="flex items-center gap-2 bg-surface-container-low border border-outline-variant hover:border-primary/50 text-on-surface px-4 py-2 rounded-full font-label-md text-label-md transition-colors whitespace-nowrap">
+        جميع المصادر
+        <span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+<button class="flex items-center gap-2 bg-surface-container-low border border-outline-variant hover:border-primary/50 text-on-surface px-4 py-2 rounded-full font-label-md text-label-md transition-colors whitespace-nowrap">
+        جميع الموظفين
+        <span class="material-symbols-outlined text-[18px]">keyboard_arrow_down</span>
+</button>
+<div class="relative w-full max-w-[240px] ml-auto">
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-full py-1.5 pr-10 pl-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-label-md font-label-md transition-all" placeholder="بحث سريع..." type="text"/>
+</div>
+</div>
+</div>
+<!-- Kanban Board Area -->
+<div class="flex-1 overflow-x-auto overflow-y-hidden bg-background p-page_padding scrollbar-hide">
+<div class="flex gap-gutter h-full items-start">
+<!-- Column 1: Lead -->
+<div class="kanban-col bg-surface-container-low rounded-[16px] flex flex-col h-full max-h-full border border-outline-variant/50 executive-shadow">
+<div class="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest rounded-t-[16px] sticky top-0 shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-slate-400"></div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">ليد</h3>
+<span class="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold ml-2">45</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-md hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+<div class="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-hide">
+<!-- Card 1 -->
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">أحمد عبدالله</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
+                                        +964 770 123 4567
+                                    </p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">350,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<img alt="وكيل" class="w-full h-full object-cover" data-alt="A small circular avatar of a young female real estate agent with a warm smile, wearing a professional blazer, against a clean white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQIaIuwiHN9WjIfy9KUF1-ifN7TqSMZNJZxtLBHkmwQnZheT2TRRIDa91ZyfMQpjKf-UGyJFitkQ4qk3U8Ydvl4aKo5cbBHR2K62SoO2KLwei-G25XsuE9MukkPURFVcq93Si_kNF-e0aasBT6a_xnNysBHKfqhksoZ8fM7CQqBVJe8fDAtsCiG-OaoC7GclnyQgZcrS4bDiJftEEB3lq8xlJuCBkRJCes9z6MSgBDWLCkVcmm8hf04A"/>
+</div>
+<span class="bg-[#E0E7FF] text-[#3730A3] px-2 py-0.5 rounded text-[10px] font-bold">سوشيل ميديا</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                    غداً
+                                </div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">شركة الفارس للتجارة</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
+                                        +964 750 987 6543
+                                    </p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">1,200,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">م</div>
+</div>
+<span class="bg-[#FEF3C7] text-[#92400E] px-2 py-0.5 rounded text-[10px] font-bold">مكتب عقاري</span>
+</div>
+<div class="flex items-center gap-1 text-[#F59E0B] font-label-sm text-label-sm bg-[#FEF3C7] px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                                    اليوم
+                                </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Column 2: Call -->
+<div class="kanban-col bg-surface-container-low rounded-[16px] flex flex-col h-full max-h-full border border-outline-variant/50 executive-shadow">
+<div class="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest rounded-t-[16px] sticky top-0 shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-blue-500"></div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">اتصال</h3>
+<span class="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold ml-2">28</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-md hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+<div class="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-hide">
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">مصطفى الربيعي</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
++964 771 445 8890
+</p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">180,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">م</div>
+</div>
+<span class="bg-[#D1FAE5] text-[#065F46] px-2 py-0.5 rounded text-[10px] font-bold">مرّ من المنطقة</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm"><span class="material-symbols-outlined text-[14px]">calendar_today</span>12 سبتمبر</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">سارة محمود</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
+                                        +964 781 234 5678
+                                    </p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">250,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">person</span>
+</div>
+<span class="bg-[#E0E7FF] text-[#3730A3] px-2 py-0.5 rounded text-[10px] font-bold">صديق أو معارف</span>
+</div>
+<div class="flex items-center gap-1 text-[#EF4444] font-label-sm text-label-sm bg-[#FEE2E2] px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[14px]">error</span>
+                                    متأخر
+                                </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Column 3: Visit -->
+<div class="kanban-col bg-surface-container-low rounded-[16px] flex flex-col h-full max-h-full border border-outline-variant/50 executive-shadow">
+<div class="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest rounded-t-[16px] sticky top-0 shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-purple-500"></div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">زيارة</h3>
+<span class="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold ml-2">17</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-md hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+<div class="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-hide">
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">زينب الحسناوي</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
++964 782 334 1122
+</p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">420,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">ز</div>
+</div>
+<span class="bg-[#E0E7FF] text-[#3730A3] px-2 py-0.5 rounded text-[10px] font-bold">سوشيل ميديا</span>
+</div>
+<div class="flex items-center gap-1 text-[#F59E0B] font-label-sm text-label-sm bg-[#FEF3C7] px-2 py-0.5 rounded-full"><span class="material-symbols-outlined text-[14px]">warning</span>اليوم</div>
+</div>
+</div>
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">حيدر الساعدي</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
++964 770 556 7788
+</p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">275,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">ح</div>
+</div>
+<span class="bg-[#FEF3C7] text-[#92400E] px-2 py-0.5 rounded text-[10px] font-bold">مكتب عقاري</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm"><span class="material-symbols-outlined text-[14px]">calendar_today</span>14 سبتمبر</div>
+</div>
+</div>
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">نور الكناني</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
++964 751 220 3344
+</p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">610,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">ن</div>
+</div>
+<span class="bg-[#E0E7FF] text-[#3730A3] px-2 py-0.5 rounded text-[10px] font-bold">صديق أو معارف</span>
+</div>
+<div class="flex items-center gap-1 text-[#EF4444] font-label-sm text-label-sm bg-[#FEE2E2] px-2 py-0.5 rounded-full"><span class="material-symbols-outlined text-[14px]">error</span>متأخر</div>
+</div>
+</div>
+
+</div>
+</div>
+<!-- Column 4: Negotiation -->
+<div class="kanban-col bg-surface-container-low rounded-[16px] flex flex-col h-full max-h-full border border-outline-variant/50 executive-shadow">
+<div class="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest rounded-t-[16px] sticky top-0 shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-amber-500"></div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">مناقشة العرض</h3>
+<span class="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold ml-2">12</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-md hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+<div class="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-hide">
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">علي الجبوري</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
++964 780 990 1234
+</p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">850,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">ع</div>
+</div>
+<span class="bg-[#FEF3C7] text-[#92400E] px-2 py-0.5 rounded text-[10px] font-bold">مكتب عقاري</span>
+</div>
+<div class="flex items-center gap-1 text-[#F59E0B] font-label-sm text-label-sm bg-[#FEF3C7] px-2 py-0.5 rounded-full"><span class="material-symbols-outlined text-[14px]">warning</span>اليوم</div>
+</div>
+</div>
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">هدى العبيدي</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
++964 772 665 4433
+</p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">390,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">ه</div>
+</div>
+<span class="bg-[#E0E7FF] text-[#3730A3] px-2 py-0.5 rounded text-[10px] font-bold">سوشيل ميديا</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm"><span class="material-symbols-outlined text-[14px]">calendar_today</span>16 سبتمبر</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Column 5: Sale -->
+<div class="kanban-col bg-surface-container-low rounded-[16px] flex flex-col h-full max-h-full border border-outline-variant/50 executive-shadow">
+<div class="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest rounded-t-[16px] sticky top-0 shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-green-500"></div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">بيع</h3>
+<span class="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold ml-2">47</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-md hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+<div class="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-hide">
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">كرار الموسوي</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
++964 790 112 5566
+</p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">1,050,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">ك</div>
+</div>
+<span class="bg-[#D1FAE5] text-[#065F46] px-2 py-0.5 rounded text-[10px] font-bold">مرّ من المنطقة</span>
+</div>
+<div class="flex items-center gap-1 text-[#059669] font-label-sm text-label-sm bg-[#D1FAE5] px-2 py-0.5 rounded-full"><span class="material-symbols-outlined text-[14px]">check_circle</span>بيع مكتمل</div>
+</div>
+</div>
+<!-- Sale Card -->
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">عمر طارق</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
+                                        +964 790 456 7890
+                                    </p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">450,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">person</span>
+</div>
+<span class="bg-[#E0E7FF] text-[#3730A3] px-2 py-0.5 rounded text-[10px] font-bold">صديق أو معارف</span>
+</div>
+<div class="flex items-center gap-1 text-[#059669] font-label-sm text-label-sm bg-[#D1FAE5] px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                    بيع مكتمل
+                                </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Column 6: Lost -->
+<div class="kanban-col bg-surface-container-low rounded-[16px] flex flex-col h-full max-h-full border border-outline-variant/50 executive-shadow opacity-75">
+<div class="p-4 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-lowest rounded-t-[16px] sticky top-0 shrink-0">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-red-500"></div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">فشل البيع</h3>
+<span class="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold ml-2">21</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-md hover:bg-surface-variant">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+<div class="p-3 flex-1 overflow-y-auto space-y-3 scrollbar-hide">
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group grayscale-[30%] opacity-80">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">ياسر العزاوي</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
++964 773 808 2211
+</p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-[#064E3B]">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">300,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant">
+<div class="w-full h-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px] font-bold">ي</div>
+</div>
+<span class="bg-[#E0E7FF] text-[#3730A3] px-2 py-0.5 rounded text-[10px] font-bold">صديق أو معارف</span>
+</div>
+<span class="bg-surface-variant text-on-surface-variant px-2 py-0.5 rounded-full text-[10px] font-bold">السعر</span>
+</div>
+</div>
+<!-- Lost Card -->
+<div class="bg-surface rounded-[12px] p-4 shadow-sm border border-outline-variant/50 hover:shadow-md transition-shadow cursor-grab group grayscale-[30%]">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">محمد يوسف</h4>
+<p class="font-body-md text-label-md text-on-surface-variant flex items-center gap-1 mt-1" dir="ltr">
+<span class="material-symbols-outlined text-[14px]">call</span>
+                                        +964 771 555 6666
+                                    </p>
+</div>
+<button class="text-on-surface-variant hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-4 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span class="font-label-md text-label-md font-bold">200,000,000 د.ع</span>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant/30 pt-3">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full overflow-hidden border border-outline-variant bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">person</span>
+</div>
+<span class="bg-[#E0E7FF] text-[#3730A3] px-2 py-0.5 rounded text-[10px] font-bold">سوشيل ميديا</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm bg-surface-variant px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[14px]">cancel</span>
+                                    السعر
+                                </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

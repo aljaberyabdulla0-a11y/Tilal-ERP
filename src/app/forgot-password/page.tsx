@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
 
       <div className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
         <div className="mb-8 text-center">
-          <Logo width={200} className="mx-auto mb-3" />
+          <Logo width={130} className="mx-auto mb-3" />
           <p className="mt-1 text-sm text-gray-400">استعادة كلمة المرور</p>
         </div>
 

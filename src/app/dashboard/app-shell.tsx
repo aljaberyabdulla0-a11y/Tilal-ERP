@@ -64,9 +64,10 @@ export default function AppShell({
   const sidebar = (
     <aside className="flex h-full w-64 flex-col bg-brand-600 text-white">
       {/* الشعار */}
-      <div className="px-5 pb-5 pt-6">
-        <Logo width={150} onDark />
-        <p className="mt-2 text-[11px] font-medium text-brand-200/80">
+      {/* الشعار — مرصوص (رمز + عربي + إنجليزي) فيُوسَّط لا يُحاذى */}
+      <div className="flex flex-col items-center px-5 pb-5 pt-6">
+        <Logo width={132} onDark />
+        <p className="mt-3 text-[11px] font-medium text-brand-200/80">
           {t.nav.tagline}
         </p>
       </div>

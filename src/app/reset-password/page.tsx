@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-brand-900 via-brand-700 to-brand-900 p-4">
       <div className="relative w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
         <div className="mb-8 text-center">
-          <Logo width={200} className="mx-auto mb-3" />
+          <Logo width={130} className="mx-auto mb-3" />
           <p className="mt-1 text-sm text-gray-400">تعيين كلمة مرور جديدة</p>
         </div>
 

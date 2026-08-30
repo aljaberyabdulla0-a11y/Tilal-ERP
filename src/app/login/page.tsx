@@ -55,7 +55,7 @@ export default function LoginPage() {
 
         {/* الشعار */}
         <div className="mb-8 text-center">
-          <Logo width={210} className="mx-auto mb-3" />
+          <Logo width={150} className="mx-auto mb-3" />
           <p className="mt-1 text-sm text-gray-400">{t.auth.subtitle}</p>
         </div>
 

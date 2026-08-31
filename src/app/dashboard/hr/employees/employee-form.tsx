@@ -34,6 +34,7 @@ export default function EmployeeForm({
     phone: initial?.phone ?? "",
     hire_date: initial?.hire_date ?? "",
     base_salary: initial?.base_salary?.toString() ?? "",
+    commission_rate: initial?.commission_rate?.toString() ?? "",
     status: initial?.status ?? "active",
     user_id: initial?.user_id ?? "",
     project_id: initial?.project_id ?? "",
@@ -91,6 +92,8 @@ export default function EmployeeForm({
       phone: form.phone.trim() || null,
       hire_date: form.hire_date || null,
       base_salary: form.base_salary ? Number(form.base_salary) : 0,
+      // فارغة = يتبع نسبة الشركة، لا صفراً يُلغي عمولته
+      commission_rate: form.commission_rate ? Number(form.commission_rate) : null,
       status: form.status,
       user_id: form.user_id || null,
       project_id: form.project_id || null,
@@ -227,6 +230,24 @@ export default function EmployeeForm({
             className={inputClass + " text-start"}
             placeholder="مثال: 1000000"
           />
+        </div>
+
+        <div>
+          <label className={labelClass}>نسبة العمولة الخاصة (%)</label>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.1"
+            dir="ltr"
+            value={form.commission_rate}
+            onChange={(e) => update("commission_rate", e.target.value)}
+            className={inputClass + " text-start"}
+            placeholder="اتركه فارغاً ليتبع نسبة الشركة"
+          />
+          <p className="mt-1 text-[11px] text-gray-500">
+            تسبق نسبة الشركة عند احتساب عمولة الفواتير المسدَّدة.
+          </p>
         </div>
 
         <div>

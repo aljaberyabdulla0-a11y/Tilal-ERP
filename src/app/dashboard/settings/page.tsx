@@ -6,6 +6,7 @@ import { CompanySettings, ROLE_COLORS, ROLE_LABELS, WorkLocation } from "@/lib/t
 import RoleSelect from "./role-select";
 import WorkLocations from "./work-locations";
 import WorkHours from "./work-hours";
+import Integrations from "./integrations";
 
 type Profile = {
   id: string;
@@ -52,6 +53,9 @@ export default async function SettingsPage() {
       <section className="space-y-8 p-6">
         {/* أوقات الدوام */}
         <WorkHours settings={settings} />
+
+        {/* التكامل بين الوحدات */}
+        <Integrations settings={settings} />
 
         {/* مواقع العمل والبصمة */}
         <WorkLocations locations={locations} settings={settings} />

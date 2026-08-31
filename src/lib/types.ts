@@ -301,6 +301,7 @@ export type Reservation = {
   notes: string | null;
   // ===== مخزون المشاريع (sql/044) =====
   expiry_date: string | null;       // نهاية مهلة الحجز
+  expiry_notified_at: string | null; // نُبّه على انتهائها (مرة واحدة)
   agent_id: string | null;          // الموظف المسؤول عن الصفقة
   agent_name: string | null;
   created_by_name: string | null;   // من سجّل الحجز فعلاً
@@ -427,6 +428,8 @@ export type Employee = {
   hire_date: string | null;
   base_salary: number;
   status: string; // active | inactive
+  // نسبة عمولة خاصة بهذا الموظف — فارغة = يتبع نسبة الشركة (sql/046)
+  commission_rate: number | null;
   // نهاية الخدمة — الموظف يبقى في الجدول لأن رواتبه وعمولاته
   // تاريخ لا يُمحى (sql/045)
   end_date: string | null;
@@ -496,6 +499,12 @@ export type CompanySettings = {
   work_end_time: string;        // "17:00:00"
   late_grace_minutes: number;   // سماح قبل احتساب التأخير
   work_days: number[];          // 0=الأحد ... 6=السبت
+  // ===== ضوابط التكامل (sql/046) =====
+  // نسبة عمولة الموظف من قيمة الفاتورة. صفر = لا عمولة تلقائية.
+  commission_rate: number;
+  // مفاتيح الأتمتة: تُطفأ حين يحتاج المدير إدخالاً استثنائياً بيده
+  auto_invoice_on_sale: boolean;
+  auto_commission_on_paid: boolean;
 };
 
 // المسافة بالمتر بين نقطتين (نفس معادلة Haversine المستخدمة في قاعدة البيانات)
@@ -544,6 +553,9 @@ export type Commission = {
   description: string | null;
   journal_entry_id: string | null; // القيد المحاسبي المرتبط (تكامل تلقائي)
   payroll_id: string | null; // الكشف الذي ضمّها (يمنع احتسابها مرتين)
+  // الفاتورة التي استحقّت عنها — فريدة، فلا تتكرّر العمولة (sql/046)
+  invoice_id: string | null;
+  auto: boolean;             // أنشأها النظام لا موظف بيده
 };
 
 export type Deduction = {

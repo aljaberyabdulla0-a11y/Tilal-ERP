@@ -213,7 +213,16 @@ export default async function EmployeeDetailsPage({
                 {commissions.map((c) => (
                   <tr key={c.id} className="border-b last:border-0">
                     <td className="py-2 text-gray-600" dir="ltr">{c.comm_date}</td>
-                    <td className="py-2 text-gray-800">{c.description || "—"}</td>
+                    <td className="py-2 text-gray-800">
+                      {c.description || "—"}
+                      {/* العمولة الآلية تُميَّز: من يراجع الكشف يعرف ما
+                          احتسبه النظام مما أدخله موظف بيده */}
+                      {c.auto && (
+                        <span className="ms-2 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">
+                          آلية
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2">
                       {c.payroll_id ? (
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">

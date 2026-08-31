@@ -5,7 +5,9 @@ import { isAdmin } from "@/lib/auth";
 import {
   Client,
   ClientActivity,
+  Reservation,
   hasAltContact,
+  isSystemActivity,
   sinceColor,
   sinceLabel,
   toIntlPhone,
@@ -15,6 +17,7 @@ import DeleteClientButton from "../delete-client-button";
 import LogActivity from "./log-activity";
 import ActivityTimeline from "@/components/activity-timeline";
 import StageSelect from "@/components/stage-select";
+import ReserveUnit from "./reserve-unit";
 
 // صفحة تفاصيل عميل واحد — تعرض كل المعلومات المسجّلة
 export default async function ClientDetailsPage({
@@ -23,7 +26,7 @@ export default async function ClientDetailsPage({
   params: { id: string };
 }) {
   const supabase = await createClient();
-  const [{ data }, { data: acts }, admin] = await Promise.all([
+  const [{ data }, { data: acts }, { data: resv }, admin] = await Promise.all([
     supabase.from("clients").select("*").eq("id", params.id).single(),
     supabase
       .from("client_activities")
@@ -31,16 +34,22 @@ export default async function ClientDetailsPage({
       .eq("client_id", params.id)
       .order("occurred_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("reservations")
+      .select("*, units(project, unit_code)")
+      .eq("client_id", params.id)
+      .order("created_at", { ascending: false }),
     isAdmin(),
   ]);
 
   if (!data) notFound();
   const c = data as Client;
   const activities = (acts ?? []) as ClientActivity[];
+  const reservations = (resv ?? []) as Reservation[];
 
   // عدّاد التواصل الفعلي (بدون تغييرات المرحلة التلقائية)
   const realContacts = activities.filter(
-    (a) => a.activity_type !== "تغيير مرحلة"
+    (a) => !isSystemActivity(a.activity_type)
   ).length;
 
   // صفّان للهاتف: المحلي والدولي معاً للسهولة
@@ -122,6 +131,14 @@ export default async function ClientDetailsPage({
             </a>
           )}
         </div>
+
+        {/* الحجز من ملفّ العميل: الموظف جالس معه فيحجز من مكانه،
+            بدل أن يفتح المخزون ويبحث عن الوحدة ثم يعود لاختياره */}
+        <ReserveUnit
+          clientId={c.id}
+          clientName={c.name}
+          existing={reservations}
+        />
 
         <div className="rounded-2xl bg-white p-8 shadow-sm">
           <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">

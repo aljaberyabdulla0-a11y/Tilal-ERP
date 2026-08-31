@@ -75,19 +75,36 @@ export const ACTIVITY_TYPES: ActivityTypeMeta[] = [
   { key: "زيارة", icon: "location_on", color: "bg-amber-100 text-amber-700", hasDuration: true },
   { key: "عرض سعر", icon: "request_quote", color: "bg-teal-100 text-teal-700" },
   { key: "ملاحظة", icon: "sticky_note_2", color: "bg-gray-100 text-gray-600" },
-  // يكتبه النظام عند نقل الملف بين موظفين — لا يُحتسب تواصلاً
-  { key: "تسليم", icon: "swap_horiz", color: "bg-indigo-100 text-indigo-700" },
 ];
 
-// نوع يُنشئه النظام تلقائياً ولا يظهر في أزرار التسجيل
+// أنواع يُنشئها النظام تلقائياً ولا تظهر في أزرار التسجيل — لأنها
+// ليست تواصلاً مع العميل بل أحداثاً في ملفّه (sql/045).
 export const STAGE_CHANGE_TYPE: ActivityTypeMeta = {
   key: "تغيير مرحلة",
   icon: "swap_horiz",
   color: "bg-indigo-100 text-indigo-700",
 };
 
+export const HANDOVER_TYPE: ActivityTypeMeta = {
+  key: "تسليم",
+  icon: "swap_horiz",
+  color: "bg-indigo-100 text-indigo-700",
+};
+
+export const SYSTEM_ACTIVITY_TYPES = [STAGE_CHANGE_TYPE, HANDOVER_TYPE];
+
+/**
+ * حدثٌ كتبه النظام لا تواصلٌ قام به موظف — لا يُحتسب في عدّاد
+ * الاتصالات. يقابلها في القاعدة public.is_system_activity() (sql/045)،
+ * وأي نوع نظامي جديد يُضاف في الموضعين.
+ */
+export function isSystemActivity(type: string): boolean {
+  return SYSTEM_ACTIVITY_TYPES.some((t) => t.key === type);
+}
+
 export function activityMeta(type: string): ActivityTypeMeta {
-  if (type === STAGE_CHANGE_TYPE.key) return STAGE_CHANGE_TYPE;
+  const sys = SYSTEM_ACTIVITY_TYPES.find((t) => t.key === type);
+  if (sys) return sys;
   return (
     ACTIVITY_TYPES.find((t) => t.key === type) ?? {
       key: type,

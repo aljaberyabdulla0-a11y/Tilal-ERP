@@ -4,8 +4,9 @@ import { isAdmin } from "@/lib/auth";
 import {
   ACTIVITY_OUTCOMES,
   ACTIVITY_TYPES,
+  SYSTEM_ACTIVITY_TYPES,
   ClientActivity,
-  STAGE_CHANGE_TYPE,
+  isSystemActivity,
 } from "@/lib/types";
 import { baghdadDate } from "@/lib/time";
 import CrmTabs from "../../crm/crm-tabs";
@@ -55,7 +56,7 @@ export default async function ActivitiesPage({
   // مؤشرات سريعة
   const today = baghdadDate();
   const realOnly = activities.filter(
-    (a) => a.activity_type !== STAGE_CHANGE_TYPE.key
+    (a) => !isSystemActivity(a.activity_type)
   );
   const todayCount = realOnly.filter(
     (a) => baghdadDate(a.occurred_at) === today
@@ -135,7 +136,7 @@ export default async function ActivitiesPage({
             <Link href={linkWith({ type: "" })} className={chip(!type)}>
               الكل
             </Link>
-            {[...ACTIVITY_TYPES, STAGE_CHANGE_TYPE].map((t) => (
+            {[...ACTIVITY_TYPES, ...SYSTEM_ACTIVITY_TYPES].map((t) => (
               <Link key={t.key} href={linkWith({ type: t.key })} className={chip(type === t.key)}>
                 {t.key}
               </Link>

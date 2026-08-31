@@ -143,8 +143,9 @@ export default async function DashboardLayout({
       ? [{ href: "/dashboard/invoices", label: t.nav.invoices, icon: "receipt_long", prefixes: ["/dashboard/invoices"] }]
       : []),
 
-    // العمولات: المدير يضبط النسب، والمشرف يقرؤها
-    ...(admin || supervisor
+    // العمولات للمدير وحده: تكشف ما تربحه الشركة من كل مطوّر
+    // ونسب الزملاء — أرقام إدارية لا يطّلع عليها من يعمل تحتها.
+    ...(admin
       ? [{ href: "/dashboard/commissions", label: t.nav.commissions, icon: "percent", prefixes: ["/dashboard/commissions"] }]
       : []),
 

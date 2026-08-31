@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canSeeTeam, isAdmin } from "@/lib/auth";
+import { isAdmin } from "@/lib/auth";
 import { getProjects, getTeamMembers } from "@/lib/projects";
 import {
   CommissionTier,
@@ -18,8 +18,10 @@ import CommissionsTabs from "./commissions-tabs";
 // مشروع نسبته وتاركته، ولكل موظف قاعدته. فصار لها بابها.
 // ============================================================
 export default async function CommissionsPage() {
-  if (!(await canSeeTeam())) redirect("/dashboard");
+  // للمدير وحده — وسياسات القاعدة تفرض ذلك أيضاً، فلا يكفي
+  // إخفاء البند من القائمة (sql/049).
   const admin = await isAdmin();
+  if (!admin) redirect("/dashboard");
 
   const supabase = await createClient();
   const [projects, employees, { data: rates }, { data: tiers }, { data: rules }, { data: earned }] =

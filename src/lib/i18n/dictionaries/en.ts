@@ -70,6 +70,7 @@ const en: Dictionary = {
     employees: "Employees",
     contacts: "Calls",
     brokers: "Brokers",
+    commissions: "Commissions",
     ourLeads: "Our leads",
     ourCommissions: "Our commissions",
   },

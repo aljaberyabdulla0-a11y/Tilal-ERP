@@ -1930,3 +1930,84 @@ export type EmployeeHandover = {
   revoked_access: boolean;
   note: string | null;
 };
+
+// ============================================================
+// نظام العمولات (sql/048)
+//
+// طبقتان: عمولة الشركة من المشروع بشرائحها، ونصيب الموظف منها.
+// النسبة الواحدة لم تكن تكفي — مشروعان بنسبتين، وشريحة تتغيّر
+// بعدد الصفقات، وموظفان بقاعدتين.
+// ============================================================
+
+export type ProjectCommission = {
+  project_id: string;
+  base_rate: number;          // النسبة الأساسية %
+  target_sales: number | null; // التاركت — للقياس لا للاحتساب
+  notes: string | null;
+  updated_at: string;
+};
+
+export type CommissionTier = {
+  id: string;
+  project_id: string;
+  min_sales: number;  // من هذه الصفقة فصاعداً
+  rate: number;
+};
+
+export const RULE_KINDS = [
+  "نسبة من عمولة الشركة",
+  "نسبة من سعر البيع",
+  "مبلغ لكل متر",
+  "مبلغ مقطوع",
+] as const;
+export type RuleKind = (typeof RULE_KINDS)[number];
+
+export function isRateKind(kind: string): boolean {
+  return kind.startsWith("نسبة");
+}
+
+export type EmployeeCommissionRule = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  employee_id: string | null;  // فارغ = كل الموظفين
+  project_id: string | null;   // فارغ = كل المشاريع
+  kind: string;
+  value: number;
+  min_area: number | null;
+  max_area: number | null;
+  active: boolean;
+  notes: string | null;
+};
+
+export type SaleCommission = {
+  id: string;
+  created_at: string;
+  reservation_id: string;
+  project_id: string | null;
+  unit_id: string | null;
+  client_id: string | null;
+  deal_amount: number;
+  unit_area: number | null;
+  sales_index: number;      // ترتيب الصفقة في مشروعها — به تُعرف الشريحة
+  company_rate: number;
+  company_amount: number;
+  employee_id: string | null;
+  employee_basis: string | null;
+  employee_amount: number;
+  rule_id: string | null;
+  commission_id: string | null;
+  collected_at: string | null; // فارغ = عمولة الشركة ما زالت مستحقّة
+};
+
+/** وصف القاعدة بعبارة يفهمها من يقرؤها بلا شرح */
+export function ruleLabel(r: EmployeeCommissionRule): string {
+  const v = isRateKind(r.kind)
+    ? `${r.value}%`
+    : `${r.value.toLocaleString("en-US")} د.ع`;
+  const area =
+    r.min_area !== null || r.max_area !== null
+      ? ` · المساحة ${r.min_area ?? "0"}–${r.max_area ?? "∞"} م²`
+      : "";
+  return `${r.kind} ${v}${area}`;
+}

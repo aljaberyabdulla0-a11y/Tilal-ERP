@@ -68,6 +68,7 @@ const ar = {
     employees: "الموظفون",
     contacts: "الاتصالات",
     brokers: "الوساطة",
+    commissions: "العمولات",
     ourLeads: "ليداتنا",
     ourCommissions: "استحقاقاتنا",
   },

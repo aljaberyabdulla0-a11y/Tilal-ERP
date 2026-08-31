@@ -30,10 +30,12 @@ export default async function ImportUnitsPage({
     getProjectUnits(params.id),
   ]);
 
-  // أرقام الوحدات القائمة — ليُكتشف التكرار قبل الرفع لا بعده
+  // الوحدات القائمة بمفتاح «الموقع + الرقم»: رقم الشقة يتكرّر بين
+  // المباني (01 في B1 و01 في B2)، فالتفرّد داخل الموقع لا في
+  // المشروع كله — وإلا رُفض نصف ملفّ مشروع متعدّد الأبراج.
   const existingCodes = units
-    .map((u) => u.unit_code)
-    .filter((c): c is string => Boolean(c));
+    .filter((u) => u.unit_code)
+    .map((u) => `${u.node_path ?? ""} ${u.unit_code}`);
 
   return (
     <main className="min-h-screen bg-gray-50">

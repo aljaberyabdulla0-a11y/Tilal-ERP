@@ -26,6 +26,13 @@ import {
 import DeleteUnitButton from "../delete-unit-button";
 import UnitActions from "./unit-actions";
 
+// تسميات الحقول الإضافية القادمة من ملفات الرفع
+const EXTRA_ATTR_LABELS: Record<string, string> = {
+  barcode: "الباركود",
+  label: "الاسم الكامل",
+  building_type: "نوع المبنى",
+};
+
 // ============================================================
 // صفحة الوحدة — دورة حياتها كاملة في مكان واحد.
 //
@@ -80,6 +87,14 @@ export default async function UnitDetailsPage({
     const v = colValue[f];
     return v === null || v === undefined ? "—" : String(v);
   }
+
+  // ما في attrs ولا يظهر ضمن حقول هذا النوع — لا يُهمل بل يُعرض أسفلها
+  const extraAttrs = Object.entries(unit.attrs ?? {}).filter(
+    ([k, v]) =>
+      v !== null &&
+      v !== "" &&
+      !(fields as string[]).includes(k),
+  );
 
   const clientNameOf = (r: (typeof reservations)[number]) => r.clients?.name ?? "—";
 
@@ -226,6 +241,23 @@ export default async function UnitDetailsPage({
                   </div>
                 )}
               </dl>
+              {/* بيانات جاءت مع الملف ولا تخصّ هذا النوع — تُعرض ولا
+                  تُهمل: الباركود واسم المطوّر مفاتيح للمطابقة معه. */}
+              {extraAttrs.length > 0 && (
+                <dl className="mt-4 grid grid-cols-2 gap-x-8 border-t border-gray-100 pt-4 sm:grid-cols-3">
+                  {extraAttrs.map(([k, v]) => (
+                    <div key={k} className="py-2">
+                      <dt className="text-xs text-gray-500">
+                        {EXTRA_ATTR_LABELS[k] ?? k}
+                      </dt>
+                      <dd className="mt-0.5 break-words text-sm font-medium text-gray-700">
+                        {String(v)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+
               {unit.notes && (
                 <p className="mt-4 whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
                   {unit.notes}

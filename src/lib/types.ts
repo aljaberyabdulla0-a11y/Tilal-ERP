@@ -1668,19 +1668,24 @@ export type UnitField =
   | "garden_area"
   | "roof"
   | "model"
-  | "frontage";
+  | "frontage"
+  | "direction"   // اتجاه الوحدة (SE/NW…) — يميّز شققاً متطابقة المساحة
+  | "layout";     // التصميم كما يكتبه المطوّرون: 2+1 أي غرفتان وصالة
 
 export function unitFieldsFor(category: string): UnitField[] {
   switch (category) {
     case "عمودي":
-      return ["space_m2", "rooms", "bathrooms", "parking_spaces", "view", "balcony"];
+      return [
+        "space_m2", "built_area_m2", "layout", "rooms", "bathrooms",
+        "parking_spaces", "direction", "view", "balcony",
+      ];
     case "أفقي":
       return [
         "land_area_m2", "built_area_m2", "floors_count", "rooms", "bathrooms",
         "parking_spaces", "garden_area", "roof", "model",
       ];
     case "تجاري":
-      return ["space_m2", "frontage", "bathrooms", "parking_spaces"];
+      return ["space_m2", "built_area_m2", "frontage", "bathrooms", "parking_spaces", "direction"];
     case "أرض":
       return ["land_area_m2", "frontage"];
     default:
@@ -1691,6 +1696,7 @@ export function unitFieldsFor(category: string): UnitField[] {
 // الحقول التي تعيش داخل attrs (jsonb) لا في أعمدة
 export const JSON_UNIT_FIELDS: UnitField[] = [
   "view", "balcony", "garden_area", "roof", "model", "frontage",
+  "direction", "layout",
 ];
 
 export const UNIT_FIELD_LABELS: Record<UnitField, string> = {
@@ -1707,6 +1713,8 @@ export const UNIT_FIELD_LABELS: Record<UnitField, string> = {
   roof: "سطح / تراس",
   model: "الموديل",
   frontage: "الواجهة (م)",
+  direction: "الاتجاه",
+  layout: "التصميم",
 };
 
 // ===== حالة الوحدة =====

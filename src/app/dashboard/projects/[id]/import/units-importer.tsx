@@ -21,21 +21,40 @@ import { ProjectNode, UNIT_STATUS_LIST, UnitTypeRow } from "@/lib/types";
 
 type Field =
   | "code" | "type" | "location" | "status"
+  | "loc1" | "loc2" | "loc3"
   | "space_m2" | "land_area_m2" | "built_area_m2"
   | "rooms" | "bathrooms" | "floors_count" | "parking_spaces"
   | "price" | "payment_plan" | "notes"
-  | "view" | "balcony" | "garden_area" | "roof" | "model" | "frontage";
+  | "view" | "balcony" | "garden_area" | "roof" | "model" | "frontage"
+  | "direction" | "layout" | "barcode" | "label" | "building_type";
 
 // مرادفات العنوان — عربية وإنجليزية، لأن الملف قد يأتي من مطوّر
 // أو من إكسل مكتب المبيعات، ولا ينبغي أن يُطلب من أحدهما التنازل.
+//
+// loc1/loc2/loc3 مستويات الهيكل حين تأتي **أعمدةً منفصلة**: عمود
+// للمبنى وآخر للطابق. تُركَّب في مسار واحد «B1 / G.FLOOR»، فملفّ
+// المطوّر يُرفع كما هو بلا دمج أعمدة يدوياً.
 const ALIASES: Record<Field, string[]> = {
-  code: ["رقم الوحدة", "الرقم", "رقم", "كود", "الكود", "unit", "unit code", "code", "no"],
+  code: [
+    "رقم الوحدة", "الرقم", "رقم", "كود", "الكود",
+    "unit", "unit code", "unit no", "code", "no",
+    "flat number", "flat no", "flat", "apartment", "apartment no", "apt",
+  ],
   type: ["النوع", "نوع الوحدة", "type", "unit type"],
-  location: ["الموقع", "المسار", "الطابق", "البرج", "المرحلة", "المبنى", "location", "path", "floor", "tower", "phase"],
+  location: ["الموقع", "المسار", "location", "path"],
+  loc1: [
+    "البرج", "المبنى", "المرحلة", "البلوك", "المجمع",
+    "building", "building name", "tower", "block", "phase", "cluster", "zone",
+  ],
+  loc2: ["الطابق", "floor", "floor c", "level"],
+  loc3: ["القسم", "الجناح", "wing", "section"],
   status: ["الحالة", "status"],
-  space_m2: ["المساحة", "مساحة الوحدة", "المساحة م2", "area", "space", "size"],
+  space_m2: ["المساحة", "مساحة الوحدة", "المساحة م2", "المساحة الصافية", "area", "net area", "space", "size"],
   land_area_m2: ["مساحة الأرض", "الأرض", "land", "land area", "plot"],
-  built_area_m2: ["مساحة البناء", "البناء", "built", "built area", "bua"],
+  built_area_m2: [
+    "مساحة البناء", "البناء", "المساحة الإجمالية", "المساحة الاجماليه",
+    "built", "built area", "bua", "gross area", "cross area", "total area",
+  ],
   rooms: ["الغرف", "عدد الغرف", "غرف النوم", "rooms", "bedrooms", "beds"],
   bathrooms: ["الحمامات", "الحمّامات", "عدد الحمامات", "bathrooms", "baths"],
   floors_count: ["عدد الطوابق", "الطوابق", "floors"],
@@ -49,18 +68,34 @@ const ALIASES: Record<Field, string[]> = {
   roof: ["السطح", "التراس", "roof", "terrace"],
   model: ["الموديل", "النموذج", "model"],
   frontage: ["الواجهة", "frontage"],
+  direction: ["الاتجاه", "الجهة", "direction", "orientation", "facing"],
+  layout: ["التصميم", "التوزيع", "layout", "unit type c", "flat type"],
+  barcode: ["الباركود", "barcode", "barcode c", "reference", "ref"],
+  label: ["الاسم", "التسمية", "name", "full name", "title"],
+  building_type: ["نوع المبنى", "building type"],
 };
 
 const FIELD_LABELS: Record<Field, string> = {
   code: "رقم الوحدة", type: "النوع", location: "الموقع", status: "الحالة",
-  space_m2: "المساحة", land_area_m2: "مساحة الأرض", built_area_m2: "مساحة البناء",
+  loc1: "المبنى / البرج", loc2: "الطابق", loc3: "القسم",
+  space_m2: "المساحة", land_area_m2: "مساحة الأرض",
+  built_area_m2: "المساحة الإجمالية",
   rooms: "الغرف", bathrooms: "الحمّامات", floors_count: "عدد الطوابق",
   parking_spaces: "المواقف", price: "السعر", payment_plan: "خطة الدفع",
   notes: "ملاحظات", view: "الإطلالة", balcony: "شرفة", garden_area: "الحديقة",
   roof: "السطح", model: "الموديل", frontage: "الواجهة",
+  direction: "الاتجاه", layout: "التصميم", barcode: "الباركود",
+  label: "الاسم الكامل", building_type: "نوع المبنى",
 };
 
-const JSON_FIELDS: Field[] = ["view", "balcony", "garden_area", "roof", "model", "frontage"];
+const JSON_FIELDS: Field[] = [
+  "view", "balcony", "garden_area", "roof", "model", "frontage",
+  "direction", "layout", "barcode", "label", "building_type",
+];
+
+// «2+1» = غرفتان وصالة. تُقرأ منها الغرف حين لا يوجد عمود غرف.
+const LAYOUT_RE = /^\s*\d+\s*\+\s*\d+\s*$/;
+const DIRECTION_RE = /^\s*(n|s|e|w|ne|nw|se|sw|شمال|جنوب|شرق|غرب)\s*$/i;
 
 /** توحيد العنوان قبل المطابقة: مسافات مكرّرة، تشكيل، ألف بأشكالها */
 function norm(s: string): string {
@@ -200,9 +235,38 @@ export default function UnitsImporter({
 
     const delim = detectDelimiter(lines[0]);
     const headers = splitLine(lines[0], delim);
+    const body = lines.slice(1).map((l) => splitLine(l, delim));
 
     // العمود → الحقل، والعناوين المجهولة تُتجاهل بلا ضجيج
     const colField: (Field | null)[] = headers.map((h) => LOOKUP.get(norm(h)) ?? null);
+
+    // ============================================================
+    // العنوان يكذب أحياناً، فنسأل المحتوى.
+    //
+    // «Type_» في ملفات المطوّرين ليست نوع الوحدة بل تصميمها (2+1)،
+    // و«Location_» ليست الموقع في المشروع بل اتجاه الشقة (SE).
+    // لو صدّقنا العنوان لرُفض الملف كله بخطأ «نوع غير معروف».
+    // فنفحص أول القيم: إن لم يطابق أيٌّ منها نوعاً معروفاً وبدت
+    // أنماطاً معروفة، نُعيد تعيين العمود لما هو فعلاً.
+    // ============================================================
+    const sample = (idx: number) =>
+      body
+        .map((c) => (c[idx] ?? "").trim())
+        .filter((v) => v !== "")
+        .slice(0, 25);
+
+    const looksLike = (vals: string[], re: RegExp) =>
+      vals.length > 0 && vals.filter((v) => re.test(v)).length >= vals.length * 0.7;
+
+    colField.forEach((f, idx) => {
+      const vals = sample(idx);
+      if (f === "type" && !vals.some((v) => typeNames.has(v)) && looksLike(vals, LAYOUT_RE)) {
+        colField[idx] = "layout";
+      } else if (f === "location" && looksLike(vals, DIRECTION_RE)) {
+        colField[idx] = "direction";
+      }
+    });
+
     const found = colField.filter(Boolean) as Field[];
     const unknown = headers.filter((_, i) => colField[i] === null && headers[i] !== "");
 
@@ -211,30 +275,49 @@ export default function UnitsImporter({
       setMapped([]);
       setIgnored(unknown);
       setResult(
-        "لم نجد عمود رقم الوحدة. سمِّ العمود «رقم الوحدة» أو «الكود» أو «code».",
+        "لم نجد عمود رقم الوحدة. سمِّ العمود «رقم الوحدة» أو «الكود» أو «رقم الشقة» أو «code».",
       );
       return;
     }
 
+    // رقم الشقة يتكرّر بين المباني (01 في B1 و01 في B2)، فالتفرّد
+    // يُقاس داخل الموقع لا في المشروع كله.
     const seen = new Set<string>();
     const parsed: Row[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const cells = splitLine(lines[i], delim);
+    for (let i = 0; i < body.length; i++) {
+      const cells = body[i];
       const values: Partial<Record<Field, string>> = {};
       colField.forEach((f, idx) => {
-        if (f && cells[idx]) values[f] = cells[idx];
+        if (f && cells[idx]) values[f] = cells[idx].trim();
       });
 
-      const row: Row = { line: i + 1, values, nodeId: null, newPath: null, error: null };
+      // المسار: عمود جاهز، أو تركيب من أعمدة المستويات، أو الافتراضي
+      const composed = [values.loc1, values.loc2, values.loc3]
+        .filter((v) => v && v !== "")
+        .join(" / ");
+      const location = values.location ?? (composed || defLocation);
+
+      // الغرف من التصميم حين لا يوجد عمود غرف: «3+1» ⇒ 3
+      if (!values.rooms && values.layout && LAYOUT_RE.test(values.layout)) {
+        values.rooms = values.layout.split("+")[0].trim();
+      }
+
+      const row: Row = {
+        line: i + 2,
+        values,
+        nodeId: null,
+        newPath: null,
+        error: null,
+      };
       const code = values.code ?? "";
       const type = values.type ?? defType;
-      const location = values.location ?? defLocation;
       const status = values.status ?? defStatus;
+      const dupKey = `${location} ${code}`;
 
       if (!code) row.error = "رقم الوحدة مفقود";
-      else if (seen.has(code)) row.error = "رقم مكرّر داخل الملف";
-      else if (existingCodes.has(code)) row.error = "رقم موجود في المشروع";
+      else if (seen.has(dupKey)) row.error = "رقم مكرّر في نفس الموقع";
+      else if (existingCodes.has(dupKey)) row.error = "رقم موجود في هذا الموقع";
       else if (type && !typeNames.has(type)) row.error = `نوع غير معروف: ${type}`;
       else if (status && !(UNIT_STATUS_LIST as readonly string[]).includes(status))
         row.error = `حالة غير معروفة: ${status}`;
@@ -245,7 +328,10 @@ export default function UnitsImporter({
         row.error = r.error;
       }
 
-      if (!row.error) seen.add(code);
+      // المسار المحسوب يُحفظ ليُعرض في المعاينة ويُستعمل عند الرفع
+      values.location = location || undefined;
+
+      if (!row.error) seen.add(dupKey);
       parsed.push(row);
     }
 
@@ -255,17 +341,28 @@ export default function UnitsImporter({
     setResult(null);
   }
 
-  /** المستويات الناقصة التي سيُنشئها الرفع */
+  /**
+   * المستويات الناقصة التي سيُنشئها الرفع — **بترتيب ظهورها في
+   * الملف** لا أبجدياً، فالطابق الأرضي يأتي أوّلاً في ملفّ المطوّر
+   * بينما ترتيبه الأبجدي («G.FLOOR») يضعه بعد «5TH.FLOOR».
+   */
   const missingPaths = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of rows) if (!r.error && r.newPath) set.add(r.newPath);
-    return Array.from(set).sort();
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const r of rows) {
+      if (!r.error && r.newPath && !seen.has(r.newPath)) {
+        seen.add(r.newPath);
+        out.push(r.newPath);
+      }
+    }
+    return out;
   }, [rows]);
 
   /** ينشئ مستوى بمساره، ويعيد معرّفه — ينشئ الآباء الناقصين في طريقه */
   async function ensureNode(
     path: string,
     cache: Map<string, string>,
+    orderCounter: Map<string, number>,
   ): Promise<string> {
     if (cache.has(path)) return cache.get(path) as string;
 
@@ -292,6 +389,12 @@ export default function UnitsImporter({
         structureKinds[depth] ??
         (parts.length > 1 ? (depth === 0 ? "برج" : "طابق") : "مرحلة");
 
+      // الترتيب يتبع ظهور المستوى في الملف: الطابق الأرضي أوّلاً
+      // لأنه أوّل سطر عند المطوّر، لا لأن حرفه أسبق.
+      const parentKey = parentId ?? "root";
+      const order = (orderCounter.get(parentKey) ?? 0) + 1;
+      orderCounter.set(parentKey, order);
+
       // النتيجة تُقرأ عبر متغيّر مُعنون: تفكيكها مباشرةً داخل دالة
       // تُبنى قيمتها من نفسها يجعل TypeScript يدور في حلقة استنتاج.
       const res = await supabase
@@ -301,7 +404,7 @@ export default function UnitsImporter({
           parent_id: parentId,
           kind,
           name: parts[depth],
-          sort_order: depth,
+          sort_order: order,
         })
         .select("id")
         .single();
@@ -325,12 +428,13 @@ export default function UnitsImporter({
     setResult(null);
 
     const cache = new Map<string, string>();
+    const orderCounter = new Map<string, number>();
 
     // 1) المستويات الناقصة أولاً، فالوحدة لا تُوضع في مكان غير موجود
     if (autoCreate && missingPaths.length > 0) {
       setProgress(`إنشاء ${missingPaths.length} مستوى…`);
       try {
-        for (const p of missingPaths) await ensureNode(p, cache);
+        for (const p of missingPaths) await ensureNode(p, cache, orderCounter);
       } catch (e) {
         setSaving(false);
         setProgress("");
@@ -409,11 +513,20 @@ export default function UnitsImporter({
   const bad = rows.length - ok;
   const blockedByNodes = !autoCreate && missingPaths.length > 0;
 
+  // نموذج بأعمدة منفصلة للمبنى والطابق — شكل ملفات المطوّرين
   const template =
-    "رقم الوحدة,النوع,الموقع,المساحة,الغرف,الحمامات,السعر,ملاحظات\n" +
-    "101,شقة,برج A / الطابق 01,120,3,2,250000000,\n" +
-    "102,شقة,برج A / الطابق 01,95,2,1,190000000,زاوية\n" +
-    "201,شقة,برج A / الطابق 02,120,3,2,255000000,";
+    "Building_,Floor__c,Flat_Number_,Location_,Type_,Area_,Cross_Area,BarCode__c,Name\n" +
+    "B1,G.FLOOR,01,SE,2+1,158,187,B1.G.FLOOR.1,B1-G.FLOOR-APT1-Type2+1-187M-SE\n" +
+    "B1,G.FLOOR,02,SW,2+1,158,187,B1.G.FLOOR.2,B1-G.FLOOR-APT2-Type2+1-187M-SW\n" +
+    "B1,1FS.FLOOR,11,SE,3+1,192,227,B1.1FS.FLOOR.11,B1-1FS.FLOOR-APT11-Type3+1-227M-SE\n" +
+    "B1,1FS.FLOOR,12,SW,2+1,158,187,B1.1FS.FLOOR.12,B1-1FS.FLOOR-APT12-Type2+1-187M-SW";
+
+  // نموذج عربي بمسار واحد جاهز
+  const arabicTemplate =
+    "رقم الوحدة,الموقع,النوع,المساحة,الغرف,الحمامات,السعر,ملاحظات\n" +
+    "101,برج A / الطابق 01,شقة,120,3,2,250000000,\n" +
+    "102,برج A / الطابق 01,شقة,95,2,1,190000000,زاوية\n" +
+    "201,برج A / الطابق 02,شقة,120,3,2,255000000,";
 
   const minimalTemplate = "رقم الوحدة\n101\n102\n103\n104";
 
@@ -433,25 +546,45 @@ export default function UnitsImporter({
             لا نعرفه نتجاهله بلا خطأ.
           </li>
           <li>
-            <b>الأسماء مرنة.</b> «رقم الوحدة» أو «الكود» أو <span dir="ltr">code</span>،
-            و«الغرف» أو <span dir="ltr">bedrooms</span> — كلها تُقبل.
+            <b>المبنى والطابق عمودان منفصلان — أو مسار واحد.</b> ملفّ المطوّر
+            الذي فيه <span dir="ltr">Building_</span> و
+            <span dir="ltr">Floor__c</span> يُرفع كما هو، ونركّب منهما «B1 /
+            G.FLOOR». وإن كان عندك عمود «الموقع» بالمسار كاملاً فهو يكفي وحده.
           </li>
           <li>
-            <b>الأعمدة المفهومة:</b>{" "}
-            {Object.values(FIELD_LABELS).join("، ")}.
+            <b>نسأل المحتوى حين يكذب العنوان.</b> عمود اسمه{" "}
+            <span dir="ltr">Type_</span> قيمته <span dir="ltr">2+1</span> ليس
+            نوع وحدة بل تصميمها، و<span dir="ltr">Location_</span> قيمته{" "}
+            <span dir="ltr">SE</span> ليست موقعاً بل اتجاهاً — نفهمها كذلك بلا
+            أن تعدّل شيئاً. ونشتقّ عدد الغرف من «3+1».
+          </li>
+          <li>
+            <b>الأسماء مرنة.</b> «رقم الوحدة» أو «رقم الشقة» أو{" "}
+            <span dir="ltr">Flat_Number_</span>، و«الغرف» أو{" "}
+            <span dir="ltr">bedrooms</span> — كلها تُقبل.
           </li>
           <li>
             <b>الفاصل.</b> فاصلة أو فاصلة منقوطة أو تبويب — نكتشفه وحدنا.
+          </li>
+          <li>
+            <b>الأعمدة المفهومة:</b> {Object.values(FIELD_LABELS).join("، ")}.
           </li>
         </ul>
 
         <div className="mt-3 flex flex-wrap gap-2">
           <a
             href={"data:text/csv;charset=utf-8,%EF%BB%BF" + encodeURIComponent(template)}
-            download="نموذج-الوحدات.csv"
+            download="نموذج-مبنى-وطابق.csv"
             className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-blue-800 shadow-sm hover:bg-blue-100"
           >
-            نموذج كامل
+            نموذج بأعمدة المبنى والطابق
+          </a>
+          <a
+            href={"data:text/csv;charset=utf-8,%EF%BB%BF" + encodeURIComponent(arabicTemplate)}
+            download="نموذج-عربي.csv"
+            className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-blue-800 shadow-sm hover:bg-blue-100"
+          >
+            نموذج عربي
           </a>
           <a
             href={"data:text/csv;charset=utf-8,%EF%BB%BF" + encodeURIComponent(minimalTemplate)}

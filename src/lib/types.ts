@@ -75,6 +75,8 @@ export const ACTIVITY_TYPES: ActivityTypeMeta[] = [
   { key: "زيارة", icon: "location_on", color: "bg-amber-100 text-amber-700", hasDuration: true },
   { key: "عرض سعر", icon: "request_quote", color: "bg-teal-100 text-teal-700" },
   { key: "ملاحظة", icon: "sticky_note_2", color: "bg-gray-100 text-gray-600" },
+  // يكتبه النظام عند نقل الملف بين موظفين — لا يُحتسب تواصلاً
+  { key: "تسليم", icon: "swap_horiz", color: "bg-indigo-100 text-indigo-700" },
 ];
 
 // نوع يُنشئه النظام تلقائياً ولا يظهر في أزرار التسجيل
@@ -425,6 +427,10 @@ export type Employee = {
   hire_date: string | null;
   base_salary: number;
   status: string; // active | inactive
+  // نهاية الخدمة — الموظف يبقى في الجدول لأن رواتبه وعمولاته
+  // تاريخ لا يُمحى (sql/045)
+  end_date: string | null;
+  end_reason: string | null;
   notes: string | null;
   created_at: string;
   // المشروع الذي يعمل عليه — عليه يُبنى نطاق المشرف (sql/037)
@@ -683,6 +689,7 @@ export const NOTIFICATION_ICONS: Record<string, string> = {
   "مهمة": "task_alt",
   "مخزون": "inventory_2",
   "راتب": "payments",
+  "تسليم": "swap_horiz",
   "عام": "notifications",
 };
 
@@ -1863,3 +1870,26 @@ export function descendantsOf(nodes: ProjectNode[], rootId: string): Set<string>
   }
   return out;
 }
+
+// ============================================================
+// تسليم ملفات موظف انتهت خدمته (sql/045).
+//
+// ينتقل ما يُتابَع — العملاء والمهام المفتوحة والحجوزات القائمة —
+// ويبقى ما استُحقّ: سجلّ تواصله وعمولاته ورواتبه.
+// ============================================================
+export type EmployeeHandover = {
+  id: string;
+  created_at: string;
+  created_by: string | null;
+  created_by_name: string | null;
+  from_employee: string | null;
+  from_name: string;
+  to_employee: string | null;
+  to_name: string;
+  clients_moved: number;
+  tasks_moved: number;
+  reservations_moved: number;
+  ended_service: boolean;
+  revoked_access: boolean;
+  note: string | null;
+};

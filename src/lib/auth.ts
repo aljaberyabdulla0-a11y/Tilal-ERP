@@ -57,6 +57,23 @@ export const getUserRole = cache(async (): Promise<UserRole> => {
   return role && ROLES.includes(role) ? role : "employee";
 });
 
+// ============================================================
+// هل الحساب ما زال على رأس العمل؟
+//
+// من أُنهيت خدمته يُحظر حسابه في auth، لكن رمزاً كان بيده يبقى
+// صالحاً حتى ينتهي أجله — فلا يكفي الحظر وحده لطرده من الشاشات.
+// تُقرأ من دالة في القاعدة لا من جدول، فتبقى القاعدة مصدر الحقيقة
+// الوحيد وتحكم الاستعلامات كما تحكم الواجهة (sql/045).
+// ============================================================
+export const isAccountActive = cache(async (): Promise<boolean> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_account_active");
+  // عند تعذّر الفحص نفترض النشاط: عطلٌ في الشبكة يجب ألّا يقفل
+  // النظام في وجه الجميع.
+  if (error) return true;
+  return data !== false;
+});
+
 // اختصار: هل المستخدم الحالي مدير؟
 export const isAdmin = cache(async (): Promise<boolean> => {
   return (await getUserRole()) === "admin";

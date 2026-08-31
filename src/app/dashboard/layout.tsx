@@ -1,7 +1,8 @@
-import { getCurrentUser, getUserRole } from "@/lib/auth";
+import { getCurrentUser, getUserRole, isAccountActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import AppShell, { NavItem } from "./app-shell";
 import ChatWidget from "@/components/chat-widget";
+import LogoutButton from "./logout-button";
 
 // ============================================================
 // التخطيط العام لكل صفحات النظام — يبني قائمة التنقّل حسب الدور.
@@ -28,9 +29,40 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // الاثنان مخزّنان لكل طلب، فلا يكلّفان رحلة شبكة إضافية
-  const [user, role] = await Promise.all([getCurrentUser(), getUserRole()]);
+  // الثلاثة مخزّنة لكل طلب، فلا تكلّف رحلات شبكة إضافية
+  const [user, role, active] = await Promise.all([
+    getCurrentUser(),
+    getUserRole(),
+    isAccountActive(),
+  ]);
   const t = getT();
+
+  // ============================================================
+  // من أُنهيت خدمته لا يرى النظام.
+  //
+  // الحاجز هنا لا في الـ middleware لأن كل ما يُحمى تحت /dashboard،
+  // والفحص في الـ middleware كان سيكلّف رحلة قاعدة مع كل ملفّ ثابت.
+  // وهو حاجزُ عرضٍ فقط: سياسات القاعدة هي التي تمنع البيانات فعلاً
+  // حتى لو نودِيت الواجهة مباشرة (sql/045).
+  // ============================================================
+  if (!active) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 p-6">
+        <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-sm">
+          <span className="material-symbols-outlined mb-3 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-4xl text-gray-400">
+            lock
+          </span>
+          <h1 className="mb-2 text-xl font-bold text-gray-800">
+            انتهت خدمتك في الشركة
+          </h1>
+          <p className="mb-6 text-sm text-gray-500">
+            سُلّمت ملفاتك إلى زميل يواصل متابعتها. إن كان هذا خطأً راجع الإدارة.
+          </p>
+          <LogoutButton className="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100" />
+        </div>
+      </main>
+    );
+  }
 
   const admin = role === "admin";
   const supervisor = role === "supervisor";

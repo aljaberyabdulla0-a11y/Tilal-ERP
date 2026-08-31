@@ -10,6 +10,7 @@ import {
   Attendance,
   Payroll,
   PayrollPayment,
+  EmployeeHandover,
   LEAVE_STATUS_COLORS,
   formatPrice,
   formatTime,
@@ -17,6 +18,7 @@ import {
 } from "@/lib/types";
 import PayPayroll from "../../payroll/pay-payroll";
 import DeleteEmployeeButton from "../delete-employee-button";
+import EndService from "./end-service";
 import AddCommission from "./add-commission";
 import AddDeduction from "./add-deduction";
 import GeneratePayroll from "./generate-payroll";
@@ -56,6 +58,21 @@ export default async function EmployeeDetailsPage({
     .select("*", { count: "exact", head: true })
     .eq("employee_id", id);
 
+  // سجلّ التسليم في الاتجاهين: ما سلّمه وما استلمه
+  const { data: hands } = await supabase
+    .from("employee_handovers")
+    .select("*")
+    .or(`from_employee.eq.${id},to_employee.eq.${id}`)
+    .order("created_at", { ascending: false });
+
+  // الزملاء النشطون — المرشّحون لاستلام ملفات من تنتهي خدمته
+  const { data: peers } = await supabase
+    .from("employees")
+    .select("*")
+    .eq("status", "active")
+    .neq("id", id)
+    .order("full_name");
+
   const commissions = (comms ?? []) as Commission[];
   const deductions = (deds ?? []) as Deduction[];
   const leaves = (lvs ?? []) as Leave[];
@@ -91,13 +108,14 @@ export default async function EmployeeDetailsPage({
           </Link>
           <h1 className="text-xl font-bold text-brand-700">{emp.full_name}</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href={`/dashboard/hr/employees/${emp.id}/edit`}
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
           >
             تعديل
           </Link>
+          <EndService employee={emp} candidates={(peers ?? []) as Employee[]} />
           <DeleteEmployeeButton id={emp.id} name={emp.full_name} />
         </div>
       </header>
@@ -112,9 +130,68 @@ export default async function EmployeeDetailsPage({
             <div><dt className="text-gray-500">الهاتف</dt><dd className="font-medium" dir="ltr">{emp.phone || "—"}</dd></div>
             <div><dt className="text-gray-500">تاريخ التعيين</dt><dd className="font-medium" dir="ltr">{emp.hire_date || "—"}</dd></div>
             <div><dt className="text-gray-500">الراتب الأساسي</dt><dd className="font-medium" dir="ltr">{formatPrice(emp.base_salary)}</dd></div>
-            <div><dt className="text-gray-500">الحالة</dt><dd className="font-medium">{emp.status === "active" ? "على رأس العمل" : "غير نشط"}</dd></div>
+            <div>
+              <dt className="text-gray-500">الحالة</dt>
+              <dd className="font-medium">
+                {emp.status === "active" ? (
+                  "على رأس العمل"
+                ) : (
+                  <span className="text-gray-600">
+                    انتهت الخدمة{emp.end_date ? ` — ${emp.end_date}` : ""}
+                    {emp.end_reason ? (
+                      <span className="block text-xs text-gray-400">{emp.end_reason}</span>
+                    ) : null}
+                  </span>
+                )}
+              </dd>
+            </div>
           </dl>
         </div>
+
+        {/* سجلّ التسليم — «أين ذهب عملاء فلان؟» له جواب بعد سنة */}
+        {(hands ?? []).length > 0 && (
+          <div className={card}>
+            <h3 className={h3}>تسليم الملفات</h3>
+            <div className="space-y-3">
+              {((hands ?? []) as EmployeeHandover[]).map((h) => {
+                const outgoing = h.from_employee === emp.id;
+                return (
+                  <div
+                    key={h.id}
+                    className={`rounded-xl border border-gray-200 border-s-4 p-4 ${
+                      outgoing ? "border-s-red-400" : "border-s-green-500"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] text-gray-400">
+                        swap_horiz
+                      </span>
+                      <span className="font-medium text-gray-800">
+                        {outgoing
+                          ? `سُلّمت ملفاته إلى ${h.to_name}`
+                          : `استلم ملفات ${h.from_name}`}
+                      </span>
+                      <span className="ms-auto text-xs text-gray-400" dir="ltr">
+                        {new Date(h.created_at).toLocaleDateString("en-CA", {
+                          timeZone: "Asia/Baghdad",
+                        })}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {h.clients_moved} عميلاً · {h.tasks_moved} مهمة ·{" "}
+                      {h.reservations_moved} حجزاً
+                      {h.note ? ` — ${h.note}` : ""}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-gray-400">
+                      بأمر {h.created_by_name ?? "الإدارة"}
+                      {h.revoked_access ? " · أُغلق الحساب" : ""}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* العمولات */}
         <div className={card}>

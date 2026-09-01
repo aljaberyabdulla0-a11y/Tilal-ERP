@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getMyEmployee } from "@/lib/hr";
 import { canEditUnit } from "@/lib/projects";
 import {
   getUnit,
@@ -20,10 +21,13 @@ import {
   UNIT_STATUS_DOTS,
   UnitField,
   formatPrice,
+  ownsReservation,
   reservationExpired,
+  salePending,
   unitFieldsFor,
 } from "@/lib/types";
 import DeleteUnitButton from "../delete-unit-button";
+import SaleRequest from "@/components/sale-request";
 import UnitActions from "./unit-actions";
 
 // تسميات الحقول الإضافية القادمة من ملفات الرفع
@@ -48,22 +52,36 @@ export default async function UnitDetailsPage({
   if (!unit) notFound();
 
   const admin = await isAdmin();
-  const [canEdit, finance, reservations, invoices, payments, events, unitTypes] =
-    await Promise.all([
-      canEditUnit(unit.project_id, admin),
-      getUnitFinance(unit.id),
-      getUnitReservations(unit.id),
-      getUnitInvoices(unit.id),
-      getUnitPayments(unit.id),
-      getUnitEvents(unit.id),
-      getUnitTypes(),
-    ]);
+  const [
+    canEdit,
+    finance,
+    reservations,
+    invoices,
+    payments,
+    events,
+    unitTypes,
+    user,
+    myEmployee,
+  ] = await Promise.all([
+    canEditUnit(unit.project_id, admin),
+    getUnitFinance(unit.id),
+    getUnitReservations(unit.id),
+    getUnitInvoices(unit.id),
+    getUnitPayments(unit.id),
+    getUnitEvents(unit.id),
+    getUnitTypes(),
+    getCurrentUser(),
+    getMyEmployee(),
+  ]);
 
   // العميل الحالي: صاحب البيع، وإلا صاحب الحجز القائم
   const active =
     reservations.find((r) => r.status === "بيع مكتمل") ??
     reservations.find((r) => r.status === "حجز") ??
     null;
+
+  // الحجز القائم وحده هو ما يُطلب بيعه أو يُبتّ فيه
+  const held = reservations.find((r) => r.status === "حجز") ?? null;
 
   const category =
     unitTypes.find((t) => t.name === unit.unit_type)?.category ?? "أخرى";
@@ -143,12 +161,26 @@ export default async function UnitDetailsPage({
             unitId={unit.id}
             status={unit.status}
             blockedReason={unit.blocked_reason}
-            activeReservationId={
-              reservations.find((r) => r.status === "حجز")?.id ?? null
-            }
+            activeReservationId={held?.id ?? null}
             isAdmin={admin}
             canEdit={canEdit}
+            salePending={held ? salePending(held) : false}
           />
+
+          {/* الموظف يطلب البيع، والإدارة تبتّ — كلاهما من هنا (sql/050) */}
+          {held && (
+            <SaleRequest
+              reservationId={held.id}
+              status={held.status}
+              requestStatus={held.sale_request_status}
+              requestNote={held.sale_request_note}
+              rejectReason={held.sale_reject_reason}
+              canDecide={canEdit}
+              canRequest={
+                canEdit || ownsReservation(held, user?.id, myEmployee?.id)
+              }
+            />
+          )}
           {canEdit && unit.project_id && (
             <Link
               href={`/dashboard/units/${unit.id}/edit`}

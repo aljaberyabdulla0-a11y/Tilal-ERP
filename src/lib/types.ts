@@ -322,10 +322,51 @@ export type Reservation = {
   agent_id: string | null;          // الموظف المسؤول عن الصفقة
   agent_name: string | null;
   created_by_name: string | null;   // من سجّل الحجز فعلاً
+  // ===== طلب تحويل الحجز إلى بيع (sql/050) =====
+  // الموظف يرفع الطلب والإدارة تُمضيه — لأن البيع يُصدر فاتورة
+  // ويعترف بالإيراد ويستحقّ عمولة، فليس تغيير حالة في شاشة.
+  sale_request_status: SaleRequestStatus | null;
+  sale_requested_at: string | null;
+  sale_requested_by: string | null;
+  sale_request_note: string | null;
+  sale_decided_at: string | null;
+  sale_decided_by: string | null;
+  sale_reject_reason: string | null;
   // بيانات مرتبطة (تأتي من الربط مع الجداول الأخرى)
   clients?: { name: string } | null;
   units?: { project: string; unit_code: string | null } | null;
 };
+
+// حالة طلب البيع — فارغة تعني «لا طلب على هذا الحجز»
+export type SaleRequestStatus = "معلّق" | "مقبول" | "مرفوض";
+
+export const SALE_REQUEST_COLORS: Record<string, string> = {
+  "معلّق": "bg-blue-100 text-blue-700",
+  "مقبول": "bg-green-100 text-green-700",
+  "مرفوض": "bg-red-100 text-red-700",
+};
+
+// طلبٌ ينتظر قراراً — يظهر للإدارة في شاشة الحجوزات
+export function salePending(r: {
+  status: string;
+  sale_request_status: string | null;
+}): boolean {
+  return r.status === "حجز" && r.sale_request_status === "معلّق";
+}
+
+// صاحب الصفقة: من سجّل الحجز أو المسؤول عنه — وهو وحده من يطلب
+// بيعها. تطابق `can_request_unit_sale()` في القاعدة (sql/050)،
+// فلا يظهر زرٌّ ترفضه القاعدة عند الضغط.
+export function ownsReservation(
+  r: Pick<Reservation, "created_by" | "agent_id">,
+  userId: string | null | undefined,
+  employeeId: string | null | undefined
+): boolean {
+  return Boolean(
+    (userId && r.created_by === userId) ||
+      (employeeId && r.agent_id === employeeId)
+  );
+}
 
 // الحجز انتهت مهلته ولم يُقفل — يحتاج قراراً: تمديد أو إلغاء
 export function reservationExpired(r: { status: string; expiry_date: string | null }): boolean {
@@ -719,6 +760,7 @@ export const NOTIFICATION_ICONS: Record<string, string> = {
   "مخزون": "inventory_2",
   "راتب": "payments",
   "تسليم": "swap_horiz",
+  "بيع": "handshake",
   "عام": "notifications",
 };
 
@@ -1785,6 +1827,8 @@ export const UNIT_EVENT_ICONS: Record<string, string> = {
   "حجز": "event_available",
   "إلغاء حجز": "event_busy",
   "بيع": "handshake",
+  "طلب بيع": "pending_actions",
+  "رفض بيع": "cancel",
   "فاتورة": "receipt_long",
   "دفعة": "payments",
 };

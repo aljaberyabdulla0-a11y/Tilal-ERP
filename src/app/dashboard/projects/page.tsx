@@ -1,27 +1,38 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin, isSupervisor } from "@/lib/auth";
+import { getUserRole } from "@/lib/auth";
+import { getProjectStock } from "@/lib/estate";
 import { getProjects, getTeamMembers } from "@/lib/projects";
 import { PROJECT_STATUS_COLORS } from "@/lib/types";
 import ProjectsManager from "./projects-manager";
 
 // ============================================================
-// المشاريع (للمدير) — وحدة التقسيم في النظام كله.
+// المشاريع — وحدة التقسيم في النظام كله.
 // المشروع له مشرف مسؤول وموظفون يعملون عليه، وعلى هذا التقسيم
 // تُبنى رؤية الليدات والمتابعات والحضور.
+//
+// ثلاث شاشات بثلاث حاجات:
+//   المدير  : الإدارة — إنشاء المشاريع وإسناد الموظفين والمشرفين.
+//   المشرف  : مشاريعه — يفتحها ليدير وحداتها وحجوزاتها.
+//   الموظف  : المخزون — يتصفّح الوحدات ويحجز لعميله. لا إدارة ولا
+//             أرقام مالية: ما يحتاجه وهو مع عميله لا أكثر.
 // ============================================================
 export default async function ProjectsPage() {
-  const admin = await isAdmin();
+  const role = await getUserRole();
+  const admin = role === "admin";
   // المشرف يدخل ليدير مخزون مشروعه — لكنه لا يُنشئ مشاريع ولا يحذفها
-  const supervisor = admin ? false : await isSupervisor();
-  if (!admin && !supervisor) redirect("/dashboard");
+  const supervisor = role === "supervisor";
+  const employee = role === "employee";
+  // مدير المتابعة له قسم المخزون الخاص به، والوسطاء ومدير العلاقات
+  // خارج المخزون العقاري أصلاً — فلا شاشة لهم هنا.
+  if (!admin && !supervisor && !employee) redirect("/dashboard");
 
-  const [projects, employees] = await Promise.all([
-    getProjects(),
-    getTeamMembers(),
-  ]);
+  if (!admin) {
+    const [projects, stock] = await Promise.all([
+      getProjects(),
+      getProjectStock(),
+    ]);
 
-  if (supervisor) {
     return (
       <main className="min-h-screen bg-gray-50">
         <header className="flex items-center gap-3 border-b bg-white px-6 py-4 shadow-sm">
@@ -29,9 +40,13 @@ export default async function ProjectsPage() {
             ← لوحة التحكم
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-brand-700">مشاريعي</h1>
+            <h1 className="text-xl font-bold text-brand-700">
+              {supervisor ? "مشاريعي" : "المشاريع"}
+            </h1>
             <p className="text-sm text-gray-500">
-              افتح المشروع لتدير وحداته وحجوزاته.
+              {supervisor
+                ? "افتح المشروع لتدير وحداته وحجوزاته."
+                : "افتح المشروع لتتصفّح وحداته وتحجز لعميلك."}
             </p>
           </div>
         </header>
@@ -40,32 +55,57 @@ export default async function ProjectsPage() {
           {projects.length === 0 ? (
             <p className="text-sm text-gray-400">لا مشاريع في نطاقك.</p>
           ) : (
-            projects.map((p) => (
-              <Link
-                key={p.id}
-                href={`/dashboard/projects/${p.id}`}
-                className="glass-card p-5 transition hover:shadow-md"
-              >
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-gray-800">{p.name}</h3>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      PROJECT_STATUS_COLORS[p.status] ?? "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {p.status}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  {[p.governorate, p.area].filter(Boolean).join(" — ") || "—"}
-                </p>
-              </Link>
-            ))
+            projects.map((p) => {
+              const s = stock.get(p.id);
+              return (
+                <Link
+                  key={p.id}
+                  href={`/dashboard/projects/${p.id}`}
+                  className="glass-card p-5 transition hover:shadow-md"
+                >
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-gray-800">{p.name}</h3>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        PROJECT_STATUS_COLORS[p.status] ?? "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {p.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {[p.governorate, p.area].filter(Boolean).join(" — ") || "—"}
+                  </p>
+
+                  {/* المتاح أولاً — هو ما يبحث عنه من يفتح الشاشة */}
+                  {s && s.total > 0 && (
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                        {s.available} متاحة
+                      </span>
+                      {s.reserved > 0 && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                          {s.reserved} محجوزة
+                        </span>
+                      )}
+                      <span className="text-[11px] text-gray-400">
+                        من {s.total} وحدة
+                      </span>
+                    </div>
+                  )}
+                </Link>
+              );
+            })
           )}
         </section>
       </main>
     );
   }
+
+  const [projects, employees] = await Promise.all([
+    getProjects(),
+    getTeamMembers(),
+  ]);
 
   const active = employees.filter((e) => e.status === "active");
   const supervised = projects.filter((p) => p.supervisor_id).length;

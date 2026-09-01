@@ -22,7 +22,10 @@ import LogoutButton from "./logout-button";
 //   شركة وسيطة   : **حساب خارجي** — لوحتها · ليداتها · استحقاقاتها ·
 //                  إعداداتها. لا مهام ولا محادثات ولا CRM ولا HR،
 //                  لأنها ليست موظفاً في تلال.
-//   الموظف       : لوحة · مهام · محادثات · CRM · HR · إعداداته.
+//   الموظف       : لوحة · مهام · محادثات · CRM · HR · **المشاريع** ·
+//                  إعداداته. والمشاريع عنده مخزونٌ يُتصفَّح لا شاشة
+//                  إدارة: يحجز لعميله ويطلب تحويل الحجز إلى بيع،
+//                  والبيع نفسه لا يقع إلا بموافقة الإدارة (sql/050).
 // ============================================================
 export default async function DashboardLayout({
   children,
@@ -159,10 +162,13 @@ export default async function DashboardLayout({
     // شاشة «الموظفون» أعلاه.
     { href: "/dashboard/hr", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me"] },
 
-    // المشاريع: المدير يديرها كلها، والمشرف يفتح مخزون مشروعه منها
-    ...(admin || supervisor
-      ? [{ href: "/dashboard/projects", label: t.nav.projects, icon: "apartment", prefixes: ["/dashboard/projects"] }]
-      : []),
+    // المشاريع: المدير يديرها كلها، والمشرف يفتح مخزون مشروعه منها،
+    // والموظف يتصفّح مخزون مشاريعه ليحجز لعميله (sql/050).
+    // مستثنى منها مدير المتابعة — له قسم المخزون الخاص به —
+    // ومدير العلاقات، فالمخزون العقاري خارج نطاقه.
+    ...(followup || rm
+      ? []
+      : [{ href: "/dashboard/projects", label: t.nav.projects, icon: "apartment", prefixes: ["/dashboard/projects"] }]),
     ...(admin
       ? [{ href: "/dashboard/attendance", label: t.nav.attendance, icon: "schedule", prefixes: ["/dashboard/attendance"] }]
       : []),

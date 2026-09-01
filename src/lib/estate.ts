@@ -57,6 +57,39 @@ export async function getProjectUnits(projectId: string): Promise<Unit[]> {
   return (data ?? []) as Unit[];
 }
 
+// ============================================================
+// عدّاد المخزون لكل مشروع — لبطاقات قائمة المشاريع.
+//
+// استعلامٌ واحد بعمودين لا استعلام لكل مشروع: الصفوف التي تعود
+// هي وحدات نطاق المستخدم وحدها (RLS)، والعدّ في الذاكرة أرخص من
+// عشر رحلات شبكة تعود كل واحدة برقم.
+// ============================================================
+export type ProjectStock = {
+  total: number;
+  available: number;
+  reserved: number;
+  sold: number;
+};
+
+export async function getProjectStock(): Promise<Map<string, ProjectStock>> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("units").select("project_id, status");
+
+  const map = new Map<string, ProjectStock>();
+  for (const row of (data ?? []) as { project_id: string | null; status: string }[]) {
+    if (!row.project_id) continue;
+    const s =
+      map.get(row.project_id) ??
+      { total: 0, available: 0, reserved: 0, sold: 0 };
+    s.total++;
+    if (row.status === "متاحة") s.available++;
+    else if (row.status === "محجوزة") s.reserved++;
+    else if (row.status === "مباعة") s.sold++;
+    map.set(row.project_id, s);
+  }
+  return map;
+}
+
 export async function getUnit(id: string): Promise<Unit | null> {
   const supabase = await createClient();
   const { data } = await supabase.from("units").select("*").eq("id", id).maybeSingle();
@@ -92,6 +125,22 @@ export async function getUnitReservations(unitId: string): Promise<Reservation[]
     .from("reservations")
     .select("*, clients(name)")
     .eq("unit_id", unitId)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as Reservation[];
+}
+
+// الحجوزات القائمة في مشروع واحد — منها تُبنى «صفقاتي» للموظف
+// و«طلبات بانتظار قرارك» للإدارة. الربط inner لأن الحجز بلا
+// وحدة لا معنى له هنا.
+export async function getProjectHeldReservations(
+  projectId: string
+): Promise<Reservation[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("reservations")
+    .select("*, clients(name), units!inner(project, project_id, unit_code)")
+    .eq("units.project_id", projectId)
+    .eq("status", "حجز")
     .order("created_at", { ascending: false });
   return (data ?? []) as Reservation[];
 }

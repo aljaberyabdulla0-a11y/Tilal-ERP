@@ -1,21 +1,37 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { getMyEmployee } from "@/lib/hr";
 import { canEditUnit } from "@/lib/projects";
 import {
   getProject,
+  getProjectHeldReservations,
   getProjectNodes,
   getProjectUnits,
   getUnitTypes,
 } from "@/lib/estate";
-import { buildNodeTree, formatPrice, summarizeUnits } from "@/lib/types";
+import {
+  buildNodeTree,
+  formatPrice,
+  ownsReservation,
+  salePending,
+  summarizeUnits,
+} from "@/lib/types";
 import InventoryBrowser from "./inventory-browser";
+import ProjectDeals from "./project-deals";
 
 // ============================================================
 // مخزون المشروع — الشاشة التي تُدار منها الوحدات.
 //
 // تُجلب العقد والوحدات مرة واحدة ثم يُبنى كل شيء في الذاكرة:
 // الشجرة والعدادات والتصفية. مشروع بألف وحدة استعلامان لا ألف.
+//
+// نفس الشاشة تخدم ثلاثة، وتختلف بقدر ما يملك كلٌّ منهم:
+//   الإدارة (المدير ومشرف المشروع): الهيكل والرفع والوحدة الجديدة،
+//       وقيمة المخزون، والبتّ في طلبات البيع.
+//   الموظف: المخزون وحده — يتصفّح، ويحجز من صفحة الوحدة، ويطلب
+//       تحويل حجزه إلى بيع. لا أزرار إدارة ولا أرقام مالية
+//       (قيمة المخزون وقيمة المبيعات أرقامُ الشركة لا أرقامُه).
 // ============================================================
 export default async function ProjectInventoryPage({
   params,
@@ -36,8 +52,18 @@ export default async function ProjectInventoryPage({
   const tree = buildNodeTree(nodes);
   const s = summarizeUnits(units);
 
-  const tile =
-    "glass-card border-s-4 p-5 transition hover:shadow-md";
+  // الحجوزات القائمة: للإدارة ما ينتظر قرارها، وللموظف صفقاته هو
+  const [held, user, myEmployee] = await Promise.all([
+    getProjectHeldReservations(project.id),
+    getCurrentUser(),
+    getMyEmployee(),
+  ]);
+
+  const deals = canManage
+    ? held.filter((r) => salePending(r))
+    : held.filter((r) => ownsReservation(r, user?.id, myEmployee?.id));
+
+  const tile = "glass-card border-s-4 p-5 transition hover:shadow-md";
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -84,13 +110,19 @@ export default async function ProjectInventoryPage({
 
       <section className="space-y-5 p-6">
         {/* لوحة المخزون — كل بطاقة رابط يصفّي القائمة بحالتها */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div
+          className={`grid grid-cols-2 gap-4 ${
+            canManage ? "lg:grid-cols-5" : "lg:grid-cols-4"
+          }`}
+        >
           <div className={tile + " border-s-brand-500"}>
             <span className="text-sm text-gray-500">إجمالي الوحدات</span>
             <p className="mt-1 text-2xl font-bold text-gray-800">{s.total}</p>
-            <p className="mt-1 text-[11px] text-gray-400" dir="ltr">
-              {formatPrice(s.value)} د.ع
-            </p>
+            {canManage && (
+              <p className="mt-1 text-[11px] text-gray-400" dir="ltr">
+                {formatPrice(s.value)} د.ع
+              </p>
+            )}
           </div>
           <a href="#units" className={tile + " border-s-green-500"}>
             <span className="text-sm text-gray-500">متاحة</span>
@@ -103,15 +135,27 @@ export default async function ProjectInventoryPage({
           <a href="#units" className={tile + " border-s-red-500"}>
             <span className="text-sm text-gray-500">مباعة</span>
             <p className="mt-1 text-2xl font-bold text-red-700">{s.sold}</p>
-            <p className="mt-1 text-[11px] text-gray-400" dir="ltr">
-              {formatPrice(s.soldValue)} د.ع
-            </p>
+            {canManage && (
+              <p className="mt-1 text-[11px] text-gray-400" dir="ltr">
+                {formatPrice(s.soldValue)} د.ع
+              </p>
+            )}
           </a>
-          <a href="#units" className={tile + " border-s-gray-400"}>
-            <span className="text-sm text-gray-500">موقوفة</span>
-            <p className="mt-1 text-2xl font-bold text-gray-600">{s.blocked}</p>
-          </a>
+          {canManage && (
+            <a href="#units" className={tile + " border-s-gray-400"}>
+              <span className="text-sm text-gray-500">موقوفة</span>
+              <p className="mt-1 text-2xl font-bold text-gray-600">{s.blocked}</p>
+            </a>
+          )}
         </div>
+
+        {/* صفقات هذه الشاشة: طلبات تنتظر الإدارة، أو حجوزات الموظف */}
+        <ProjectDeals
+          deals={deals}
+          canManage={canManage}
+          userId={user?.id ?? null}
+          employeeId={myEmployee?.id ?? null}
+        />
 
         {nodes.length === 0 && units.length === 0 && (
           <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm text-gray-700">
@@ -126,6 +170,16 @@ export default async function ProjectInventoryPage({
                 حدّد الهيكل الآن
               </Link>
             )}
+          </div>
+        )}
+
+        {/* الموظف يحجز من صفحة الوحدة — سطرٌ يدلّه على الطريق */}
+        {!canManage && units.length > 0 && (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-gray-700">
+            <b className="text-blue-800">كيف تحجز؟</b> افتح الوحدة المتاحة من
+            القائمة أدناه ثم اضغط <b>«حجز الوحدة»</b> واختر عميلك. وحين يتمّ
+            الاتفاق اضغط <b>«طلب تحويلها إلى بيع»</b> — ويصل الطلب للإدارة
+            لتُمضيه.
           </div>
         )}
 

@@ -19,6 +19,7 @@ export default function UnitActions({
   activeReservationId,
   isAdmin,
   canEdit,
+  salePending = false,
 }: {
   unitId: string;
   status: string;
@@ -26,6 +27,9 @@ export default function UnitActions({
   activeReservationId: string | null;
   isAdmin: boolean;
   canEdit: boolean;
+  // طلب بيع معلّق: البتّ فيه من زرّ الطلب لا من هنا، فلا يبقى
+  // للبيع بابان — أحدهما يترك الطلب معلّقاً بعد وقوع البيع.
+  salePending?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -149,13 +153,15 @@ export default function UnitActions({
 
         {canSell(status) && activeReservationId && canEdit && (
           <>
-            <button
-              onClick={() => setReservationStatus("بيع مكتمل")}
-              disabled={busy}
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
-            >
-              إتمام البيع
-            </button>
+            {!salePending && (
+              <button
+                onClick={() => setReservationStatus("بيع مكتمل")}
+                disabled={busy}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+              >
+                إتمام البيع
+              </button>
+            )}
             <button
               onClick={() => setReservationStatus("ملغى")}
               disabled={busy}

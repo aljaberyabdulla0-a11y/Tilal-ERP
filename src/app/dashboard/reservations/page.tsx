@@ -5,8 +5,10 @@ import {
   Reservation,
   RESERVATION_STATUS_COLORS,
   formatPrice,
+  salePending,
 } from "@/lib/types";
 import DeleteReservationButton from "./delete-reservation-button";
+import SaleRequest from "@/components/sale-request";
 import CrmTabs from "../crm/crm-tabs";
 
 // صفحة قائمة الحجوزات — تعرض اسم العميل والوحدة عبر الربط بين الجداول
@@ -23,6 +25,10 @@ export default async function ReservationsPage() {
   const admin = await isAdmin();
   // ما يراه المشرف من حجوزات هو نطاقه أصلاً (سياسة القاعدة تفلترها)
   const canEdit = await canSeeTeam();
+
+  // طلبات البيع المعلّقة — تُعرض لمن يملك البتّ فيها وحده.
+  // (القاعدة ترفض قرار غيره على أي حال، لكن عرضَ زرٍّ لا يعمل عبث.)
+  const pending = canEdit ? reservations.filter(salePending) : [];
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -47,6 +53,68 @@ export default async function ReservationsPage() {
       <CrmTabs active="reservations" />
 
       <section className="p-6">
+        {/* ===== ما ينتظر توقيع الإدارة =====
+            الطلبات فوق الجدول لا داخله: الجدول سجلّ يُقرأ، وهذه
+            أعمالٌ معلّقة — من فتح الشاشة لأجلها وجدها أولاً.
+            (إليها يقود إشعار «طلب تحويل حجز إلى بيع» — sql/050) */}
+        {pending.length > 0 && (
+          <div className="mb-5 rounded-2xl border border-blue-200 bg-blue-50/60 p-4">
+            <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-blue-900">
+              <span className="material-symbols-outlined text-[18px]">
+                pending_actions
+              </span>
+              طلبات تحويل حجز إلى بيع بانتظار قرارك ({pending.length})
+            </h2>
+
+            <div className="space-y-3">
+              {pending.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-blue-200 bg-white p-3"
+                >
+                  <div className="min-w-0">
+                    <Link
+                      href={`/dashboard/units/${r.unit_id}`}
+                      className="font-bold text-gray-800 hover:text-brand-700 hover:underline"
+                    >
+                      {r.units
+                        ? `${r.units.project}${
+                            r.units.unit_code ? " - " + r.units.unit_code : ""
+                          }`
+                        : "وحدة"}
+                    </Link>
+                    <p className="truncate text-xs text-gray-500">
+                      {r.clients?.name ?? "—"}
+                      {r.created_by_name && (
+                        <span className="ms-2 text-gray-400">
+                          طلبه: {r.created_by_name}
+                        </span>
+                      )}
+                      {r.amount !== null && (
+                        <span dir="ltr" className="ms-2 text-gray-400">
+                          {formatPrice(r.amount)} د.ع
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="ms-auto">
+                    <SaleRequest
+                      reservationId={r.id}
+                      status={r.status}
+                      requestStatus={r.sale_request_status}
+                      requestNote={r.sale_request_note}
+                      rejectReason={r.sale_reject_reason}
+                      canDecide={canEdit}
+                      canRequest={false}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
             تعذّر جلب الحجوزات: {error.message}
@@ -107,6 +175,12 @@ export default async function ReservationsPage() {
                       >
                         {r.status}
                       </span>
+                      {/* الموظف يتابع طلبه من هنا بلا فتح كل وحدة */}
+                      {salePending(r) && (
+                        <span className="ms-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                          طلب بيع معلّق
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <Link

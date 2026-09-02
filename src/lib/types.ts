@@ -650,7 +650,92 @@ export type Payroll = {
   status: string; // غير مدفوع | مدفوع جزئياً | مدفوع (تتحدّث تلقائياً من الدفعات)
   created_at: string;
   journal_entry_id: string | null; // قيد الاستحقاق المرتبط (تكامل تلقائي)
+  // ===== دورة العمل (sql/051) =====
+  // ⚠️ محورٌ آخر غير status: ذاك حالة الدفع وهذا حالة الاعتماد.
+  // كشفٌ «معتمد» قد يكون «مدفوعاً جزئياً» في الوقت نفسه.
+  state: PayrollState;
+  approved_at: string | null;
+  approved_by: string | null;
+  locked_at: string | null;
 };
+
+// ============================================================
+// كشف الراتب بنوداً (sql/051).
+//
+// الأعمدة الأربعة أعلاه (basic, allowances, …) لم تعد تُكتب
+// باليد — تُحسب من هذه البنود بمحفّز في القاعدة. البند يقول من
+// أين جاء كل دينار: أساسيٌّ من ملفّ الموظف، أو عمولة من صفقة،
+// أو خصمٌ سجّله فلان.
+// ============================================================
+export type PayrollLine = {
+  id: string;
+  payroll_id: string;
+  kind: "استحقاق" | "استقطاع";
+  category: string;
+  description: string | null;
+  amount: number;
+  source_table: string | null;
+  source_id: string | null;
+  manual: boolean;
+  created_at: string;
+  created_by: string | null;
+  created_by_name: string | null;
+};
+
+export const PAYROLL_EARNING_CATEGORIES = [
+  "بدل",
+  "مكافأة",
+  "عمل إضافي",
+  "استحقاق آخر",
+] as const;
+
+export const PAYROLL_DEDUCTION_CATEGORIES = [
+  "غياب",
+  "تأخير",
+  "إجازة بلا راتب",
+  "استقطاع آخر",
+] as const;
+
+export type PayrollState = "مسودة" | "معتمد" | "مقفل";
+
+export const PAYROLL_STATE_COLORS: Record<string, string> = {
+  "مسودة": "bg-blue-100 text-blue-700",
+  "معتمد": "bg-green-100 text-green-700",
+  "مقفل": "bg-gray-200 text-gray-600",
+};
+
+// شرحٌ لكل حالة — يظهر تلميحاً على الشارة فيعرف من يقرأ ما تعنيه
+export const PAYROLL_STATE_HINTS: Record<string, string> = {
+  "مسودة": "لم يدخل الدفاتر بعد — يُعاد حسابه وتُعدَّل بنوده بحرّية.",
+  "معتمد": "دخل دفاتر الشركة وتجمّدت أرقامه. يُعاد فتحه ما لم يُدفع منه شيء.",
+  "مقفل": "مغلق نهائياً — لا يُعدَّل ولا يُعاد فتحه.",
+};
+
+// أيقونة كل نوع بند — تُقرأ القسيمة بالنظر لا بالقراءة
+export const PAYROLL_LINE_ICONS: Record<string, string> = {
+  "راتب أساسي": "account_balance_wallet",
+  "بدل": "add_card",
+  "عمولة": "percent",
+  "مكافأة": "military_tech",
+  "عمل إضافي": "more_time",
+  "استحقاق آخر": "add_circle",
+  "غياب": "event_busy",
+  "تأخير": "schedule",
+  "إجازة بلا راتب": "beach_access",
+  "قسط سلفة": "credit_score",
+  "سلفة": "payments",
+  "استقطاع آخر": "remove_circle",
+};
+
+// مجموع بنود جهة واحدة
+export function sumLines(
+  lines: PayrollLine[],
+  kind: "استحقاق" | "استقطاع"
+): number {
+  return lines
+    .filter((l) => l.kind === kind)
+    .reduce((s, l) => s + Number(l.amount), 0);
+}
 
 // دفعة راتب — تسمح بالدفع كاملاً أو على أجزاء
 export type PayrollPayment = {

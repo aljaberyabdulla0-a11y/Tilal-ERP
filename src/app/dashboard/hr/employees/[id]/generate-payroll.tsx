@@ -3,68 +3,55 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { formatPrice } from "@/lib/types";
 
-// توليد كشف راتب لموظف — يجمع الأساسي + البدلات + العمولات - الاستقطاعات
+// ============================================================
+// بناء كشف الراتب.
+//
+// كان هذا المكوّن يحسب الراتب بنفسه: يجمع الأساسي والبدلات
+// والعمولات ويطرح الاستقطاعات في جافاسكربت ثم يُدخل الصفّ جاهزاً.
+// وكان وحده في النظام يفعل ذلك — بقيّته تضع الحساب في القاعدة.
+//
+// صار ينادي `build_payroll` ولا يحسب شيئاً (sql/051). الفرق ليس
+// شكلياً: الدالة تبني **بنوداً** لا أربعة أرقام، وترفض كشفاً
+// ثانياً لنفس الشهر، وترفض كشفاً لمن انتهت خدمته، وتضمّ العمولات
+// والاستقطاعات المعلّقة وتَسِمها فلا تتكرّر في الشهر القادم.
+//
+// وإعادة الضغط على الزرّ **تُعيد الحساب** ولا تُنشئ كشفاً ثانياً —
+// ما دام الكشف مسوّدة.
+// ============================================================
 export default function GeneratePayroll({
   employeeId,
-  baseSalary,
-  commissionsTotal,
-  deductionsTotal,
+  hasDraft,
 }: {
   employeeId: string;
-  baseSalary: number;
-  commissionsTotal: number;
-  deductionsTotal: number;
+  // هل للموظف مسوّدة قائمة في هذا الشهر؟ يتغيّر بها نصّ الزرّ
+  // حتى لا يخشى المستخدم أن يُنشئ كشفاً مكرّراً.
+  hasDraft: (period: string) => boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  // الشهر الحالي بتوقيت بغداد لا بتوقيت جهاز المستخدم
+  const thisMonth = new Date()
+    .toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" })
+    .slice(0, 7);
+
   const [period, setPeriod] = useState(thisMonth);
-  const [allowances, setAllowances] = useState("0");
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
-  const net =
-    baseSalary + (Number(allowances) || 0) + commissionsTotal - deductionsTotal;
+  const rebuilding = hasDraft(period);
 
-  async function generate() {
-    setSaving(true);
-    // 1) إنشاء الكشف
-    const { data, error } = await supabase
-      .from("payrolls")
-      .insert({
-        employee_id: employeeId,
-        period,
-        basic: baseSalary,
-        allowances: Number(allowances) || 0,
-        commissions_total: commissionsTotal,
-        deductions_total: deductionsTotal,
-        net,
-      })
-      .select("id")
-      .single();
-
-    // 2) وسم العمولات والاستقطاعات غير المحتسبة بأنها ضُمّت لهذا الكشف
-    //    حتى لا تتكرّر في كشف الشهر القادم
-    if (!error && data?.id) {
-      await Promise.all([
-        supabase
-          .from("commissions")
-          .update({ payroll_id: data.id })
-          .eq("employee_id", employeeId)
-          .is("payroll_id", null),
-        supabase
-          .from("deductions")
-          .update({ payroll_id: data.id })
-          .eq("employee_id", employeeId)
-          .is("payroll_id", null),
-      ]);
-    }
-
-    setSaving(false);
+  async function build() {
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("build_payroll", {
+      p_employee: employeeId,
+      p_period: period,
+    });
+    setBusy(false);
     if (error) {
-      alert("تعذّر التوليد: " + error.message);
+      setErr(error.message);
       return;
     }
     router.refresh();
@@ -74,7 +61,7 @@ export default function GeneratePayroll({
     "rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
 
   return (
-    <div className="rounded-lg border border-dashed border-gray-300 p-4">
+    <div className="rounded-xl border border-dashed border-gray-300 p-4">
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="mb-1 block text-xs text-gray-500">الشهر</label>
@@ -86,37 +73,30 @@ export default function GeneratePayroll({
             className={cls + " text-start"}
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-gray-500">البدلات</label>
-          <input
-            type="number"
-            min="0"
-            dir="ltr"
-            value={allowances}
-            onChange={(e) => setAllowances(e.target.value)}
-            className={cls + " w-28 text-start"}
-          />
-        </div>
-        <div className="text-sm text-gray-600">
-          الصافي المتوقّع:{" "}
-          <b className="text-gray-800" dir="ltr">
-            {formatPrice(net)}
-          </b>
-        </div>
+
         <button
-          onClick={generate}
-          disabled={saving}
-          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+          onClick={build}
+          disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
         >
-          {saving ? "..." : "توليد كشف الراتب"}
+          <span className="material-symbols-outlined text-[18px]">
+            {rebuilding ? "refresh" : "receipt_long"}
+          </span>
+          {busy
+            ? "جارٍ الحساب…"
+            : rebuilding
+            ? "إعادة حساب المسوّدة"
+            : "بناء مسوّدة الكشف"}
         </button>
       </div>
+
+      {err && (
+        <p className="mt-3 rounded-lg bg-red-50 p-2 text-xs text-red-700">{err}</p>
+      )}
+
       <p className="mt-2 text-xs text-gray-400">
-        الأساسي {formatPrice(baseSalary)} + العمولات {formatPrice(commissionsTotal)} −
-        الاستقطاعات {formatPrice(deductionsTotal)} + البدلات = الصافي
-      </p>
-      <p className="mt-1 text-xs text-gray-400">
-        التوليد يسجّل الراتب كمستحق للموظف فقط — الصندوق ينقص عند الضغط على «دفع».
+        يُبنى الكشف <b>مسوّدة</b>: الأساسي من ملفّ الموظف، وكل عمولة واستقطاع
+        لم يدخل كشفاً بعد — بنداً بنداً. ولا يدخل دفاتر الشركة حتى تعتمده.
       </p>
     </div>
   );

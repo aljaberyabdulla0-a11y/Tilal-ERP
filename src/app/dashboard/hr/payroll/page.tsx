@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import {
+  PAYROLL_STATE_COLORS,
+  PAYROLL_STATE_HINTS,
   Payroll,
   PayrollPayment,
   formatPrice,
@@ -37,8 +39,13 @@ export default async function HrPayrollPage() {
       .filter((p) => p.payroll_id === payrollId)
       .reduce((s, p) => s + Number(p.amount), 0);
 
-  const totalNet = payrolls.reduce((s, p) => s + Number(p.net), 0);
-  const totalPaid = payrolls.reduce((s, p) => s + paidOf(p.id), 0);
+  // ⚠️ المسوّدات خارج كل مجموع: لم تدخل الدفاتر بعد، فعدّها ديناً
+  // على الشركة يُضخّم الالتزام برقمٍ لم يُعتمد.
+  const drafts = payrolls.filter((p) => p.state === "مسودة");
+  const live = payrolls.filter((p) => p.state !== "مسودة");
+
+  const totalNet = live.reduce((s, p) => s + Number(p.net), 0);
+  const totalPaid = live.reduce((s, p) => s + paidOf(p.id), 0);
   const totalDue = Math.max(totalNet - totalPaid, 0);
 
   const kpi = "rounded-2xl border bg-white p-5 shadow-sm";
@@ -80,16 +87,44 @@ export default async function HrPayrollPage() {
         </div>
 
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-relaxed text-gray-700">
-          <b className="text-blue-800">كيف تشتغل الرواتب مع المحاسبة؟</b> توليد كشف الراتب
-          يسجّل الراتب كـ<b> دَين على الشركة</b> ولا يمسّ الصندوق. عند الضغط على{" "}
-          <b>«دفع»</b> ينقص الصندوق أو البنك بالمبلغ المدفوع فقط ويقلّ الدَين — تقدر تدفع
-          الراتب كاملاً أو على دفعات.
+          <b className="text-blue-800">كيف تشتغل الرواتب مع المحاسبة؟</b> الكشف
+          يُبنى <b>مسوّدة</b> فلا يمسّ الدفاتر — تراجع بنوده وتُعدّلها بحرّية.
+          و<b>الاعتماد</b> هو ما يسجّل الراتب <b>دَيناً على الشركة</b>. وعند
+          الضغط على <b>«دفع»</b> ينقص الصندوق أو البنك بالمبلغ المدفوع ويقلّ
+          الدَين — كاملاً أو على دفعات. والأرقام أعلاه للمعتمَد وحده.
         </div>
 
-        {payrolls.length === 0 ? (
+        {/* المسوّدات أولاً: عملٌ لم يُنجَز بعد، لا سجلٌّ يُقرأ */}
+        {drafts.length > 0 && (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4">
+            <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-blue-900">
+              <span className="material-symbols-outlined text-[18px]">edit_note</span>
+              مسوّدات بانتظار الاعتماد ({drafts.length})
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {drafts.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/dashboard/hr/employees/${p.employee_id}`}
+                  className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm transition hover:border-brand-400"
+                >
+                  <b className="text-gray-800">{p.employees?.full_name ?? "—"}</b>
+                  <span className="ms-2 text-xs text-gray-400" dir="ltr">
+                    {p.period}
+                  </span>
+                  <span className="ms-2 text-xs font-semibold text-gray-700" dir="ltr">
+                    {formatPrice(p.net)}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {live.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
-            لا توجد كشوف رواتب بعد. افتح صفحة الموظف من قسم الموظفين ثم استخدم
-            &quot;توليد كشف الراتب&quot;.
+            لا كشوف معتمدة بعد. افتح صفحة الموظف من قسم الموظفين، ابنِ مسوّدة
+            الكشف، راجع بنودها، ثم اعتمدها.
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
@@ -104,12 +139,13 @@ export default async function HrPayrollPage() {
                   <th className="px-4 py-3 font-medium">الصافي</th>
                   <th className="px-4 py-3 font-medium">المدفوع</th>
                   <th className="px-4 py-3 font-medium">المتبقّي</th>
-                  <th className="px-4 py-3 font-medium">الحالة</th>
+                  <th className="px-4 py-3 font-medium">الكشف</th>
+                  <th className="px-4 py-3 font-medium">الدفع</th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
-                {payrolls.map((p) => {
+                {live.map((p) => {
                   const paid = paidOf(p.id);
                   const st = payrollPayStatus(Number(p.net), paid);
                   return (
@@ -142,6 +178,16 @@ export default async function HrPayrollPage() {
                         dir="ltr"
                       >
                         {formatPrice(st.remaining)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          title={PAYROLL_STATE_HINTS[p.state]}
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            PAYROLL_STATE_COLORS[p.state] ?? "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {p.state}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <span

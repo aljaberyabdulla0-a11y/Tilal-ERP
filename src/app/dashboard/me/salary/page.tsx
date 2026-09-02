@@ -3,12 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getMyEmployee } from "@/lib/hr";
 import {
   Payroll,
+  PayrollLine,
   PayrollPayment,
   Commission,
   Deduction,
   formatPrice,
   payrollPayStatus,
 } from "@/lib/types";
+import PayrollDetail from "@/components/payroll-detail";
 
 // رواتبي وعمولاتي واستقطاعاتي (للموظف)
 export default async function MySalaryPage() {
@@ -42,7 +44,9 @@ export default async function MySalaryPage() {
     supabase.from("commissions").select("*").eq("employee_id", emp.id).order("comm_date", { ascending: false }),
     supabase.from("deductions").select("*").eq("employee_id", emp.id).order("ded_date", { ascending: false }),
   ]);
-  const payrolls = (pays ?? []) as Payroll[];
+  // ⚠️ المسوّدات لا تظهر للموظف: كشفٌ لم يُعتمد بعد أرقامه تتغيّر،
+  // وإظهاره يُفهم وعداً برقمٍ قد ينقص غداً.
+  const payrolls = ((pays ?? []) as Payroll[]).filter((p) => p.state !== "مسودة");
   const commissions = (comms ?? []) as Commission[];
   const deductions = (deds ?? []) as Deduction[];
 
@@ -61,6 +65,13 @@ export default async function MySalaryPage() {
     (s, p) => s + Math.max(Number(p.net) - paidOf(p.id), 0),
     0
   );
+
+  // بنود آخر كشف — استعلامٌ واحد لأحدث شهر لا لكل الشهور
+  const latest = payrolls[0] ?? null;
+  const { data: lineData } = latest
+    ? await supabase.from("payroll_lines").select("*").eq("payroll_id", latest.id)
+    : { data: null };
+  const latestLines = (lineData ?? []) as PayrollLine[];
 
   const card = "rounded-2xl border bg-white p-6 shadow-sm";
 
@@ -88,9 +99,25 @@ export default async function MySalaryPage() {
           )}
         </div>
 
+        {/* قسيمة آخر شهر مفتوحة ببنودها — الموظف يسأل عن هذه أولاً:
+            «لماذا نقص راتبي؟» تُجيب البنود لا المجاميع. */}
+        {latest && (
+          <div>
+            <h3 className="mb-3 text-lg font-semibold text-gray-800">
+              قسيمة آخر شهر
+            </h3>
+            <PayrollDetail
+              payroll={latest}
+              lines={latestLines}
+              paid={paidOf(latest.id)}
+              canManage={false}
+            />
+          </div>
+        )}
+
         {/* كشوف الرواتب */}
         <div className={card}>
-          <h3 className="mb-3 text-lg font-semibold text-gray-800">كشوف الرواتب</h3>
+          <h3 className="mb-3 text-lg font-semibold text-gray-800">كل الكشوف</h3>
           {payrolls.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد كشوف رواتب بعد.</p>
           ) : (

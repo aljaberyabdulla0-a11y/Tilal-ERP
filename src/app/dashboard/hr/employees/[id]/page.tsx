@@ -9,13 +9,17 @@ import {
   Leave,
   Attendance,
   Payroll,
+  PayrollLine,
   PayrollPayment,
   EmployeeHandover,
   LEAVE_STATUS_COLORS,
+  PAYROLL_STATE_COLORS,
+  PAYROLL_STATE_HINTS,
   formatPrice,
   formatTime,
   payrollPayStatus,
 } from "@/lib/types";
+import PayrollDetail from "@/components/payroll-detail";
 import PayPayroll from "../../payroll/pay-payroll";
 import DeleteEmployeeButton from "../delete-employee-button";
 import EndService from "./end-service";
@@ -89,6 +93,25 @@ export default async function EmployeeDetailsPage({
     payrollPayments
       .filter((x) => x.payroll_id === payrollId)
       .reduce((s, x) => s + Number(x.amount), 0);
+
+  // بنود كل الكشوف في استعلام واحد ثم تُوزَّع في الذاكرة —
+  // استعلامٌ لكل كشف كان سيعني عشر رحلات شبكة في صفحة واحدة.
+  const { data: lineData } = await supabase
+    .from("payroll_lines")
+    .select("*")
+    .in("payroll_id", payrolls.length ? payrolls.map((p) => p.id) : ["-"])
+    .order("kind")
+    .order("created_at");
+  const allLines = (lineData ?? []) as PayrollLine[];
+  const linesOf = (payrollId: string) =>
+    allLines.filter((l) => l.payroll_id === payrollId);
+
+  // المسوّدة القائمة (إن وُجدت) تُعرض مفتوحة بتفاصيلها، وبقيّة
+  // الكشوف في جدول — لأن المسوّدة هي ما يُعمل عليه الآن.
+  const draft = payrolls.find((p) => p.state === "مسودة") ?? null;
+  const settled = payrolls.filter((p) => p.state !== "مسودة");
+  const hasDraftFor = (period: string) =>
+    payrolls.some((p) => p.period === period && p.state === "مسودة");
 
   // العمولات/الاستقطاعات التي لم تُضمَّن في أي كشف بعد — هي وحدها تدخل الكشف القادم
   const pendingCommissions = commissions.filter((c) => !c.payroll_id);
@@ -281,18 +304,27 @@ export default async function EmployeeDetailsPage({
         <div className={card}>
           <h3 className={h3}>كشوف الرواتب</h3>
           <p className="mb-3 text-xs text-gray-400">
-            🔗 توليد الكشف يسجّله كدَين مستحق على الشركة (لا يمسّ الصندوق)، وزر «دفع» ينقص
-            الصندوق أو البنك بالمبلغ المدفوع — كاملاً أو على دفعات.
+            🔗 الكشف يُبنى <b>مسوّدة</b> لا تمسّ الدفاتر. <b>الاعتماد</b> يسجّله
+            دَيناً مستحقاً على الشركة، و<b>الدفع</b> ينقص الصندوق أو البنك —
+            كاملاً أو على دفعات.
           </p>
           <div className="mb-4">
-            <GeneratePayroll
-              employeeId={emp.id}
-              baseSalary={emp.base_salary}
-              commissionsTotal={commissionsTotal}
-              deductionsTotal={deductionsTotal}
-            />
+            <GeneratePayroll employeeId={emp.id} hasDraft={hasDraftFor} />
           </div>
-          {payrolls.length === 0 ? (
+
+          {/* المسوّدة القائمة مفتوحة ببنودها — هي ما يُعمل عليه الآن */}
+          {draft && (
+            <div className="mb-5">
+              <PayrollDetail
+                payroll={draft}
+                lines={linesOf(draft.id)}
+                paid={paidOf(draft.id)}
+                canManage
+              />
+            </div>
+          )}
+
+          {settled.length === 0 && !draft ? (
             <p className="text-sm text-gray-400">لا توجد كشوف رواتب.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -305,12 +337,13 @@ export default async function EmployeeDetailsPage({
                     <th className="pb-2 font-medium">الاستقطاعات</th>
                     <th className="pb-2 font-medium">الصافي</th>
                     <th className="pb-2 font-medium">المدفوع</th>
-                    <th className="pb-2 font-medium">الحالة</th>
+                    <th className="pb-2 font-medium">الكشف</th>
+                    <th className="pb-2 font-medium">الدفع</th>
                     <th className="pb-2 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {payrolls.map((p) => {
+                  {settled.map((p) => {
                     const paid = paidOf(p.id);
                     const st = payrollPayStatus(Number(p.net), paid);
                     return (
@@ -323,6 +356,16 @@ export default async function EmployeeDetailsPage({
                         <td className="py-2 text-red-700" dir="ltr">{formatPrice(p.deductions_total)}</td>
                         <td className="py-2 font-bold" dir="ltr">{formatPrice(p.net)}</td>
                         <td className="py-2 text-green-700" dir="ltr">{formatPrice(paid)}</td>
+                        <td className="py-2">
+                          <span
+                            title={PAYROLL_STATE_HINTS[p.state]}
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              PAYROLL_STATE_COLORS[p.state] ?? "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {p.state}
+                          </span>
+                        </td>
                         <td className="py-2">
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${st.color}`}>
                             {st.label}

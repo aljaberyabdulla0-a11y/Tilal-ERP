@@ -349,8 +349,13 @@ export default async function EmployeeDetailsPage({
                     const st = payrollPayStatus(Number(p.net), paid);
                     return (
                       <tr key={p.id} className="border-b last:border-0">
-                        <td className="py-2 text-gray-600" dir="ltr">
-                          {p.period}
+                        <td className="py-2" dir="ltr">
+                          <Link
+                            href={`/dashboard/hr/payroll/${p.id}`}
+                            className="font-medium text-brand-700 hover:underline"
+                          >
+                            {p.period}
+                          </Link>
                         </td>
                         <td className="py-2" dir="ltr">{formatPrice(p.basic)}</td>
                         <td className="py-2 text-green-700" dir="ltr">{formatPrice(p.commissions_total)}</td>

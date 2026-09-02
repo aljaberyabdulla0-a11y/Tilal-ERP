@@ -105,7 +105,7 @@ export default async function HrPayrollPage() {
               {drafts.map((p) => (
                 <Link
                   key={p.id}
-                  href={`/dashboard/hr/employees/${p.employee_id}`}
+                  href={`/dashboard/hr/payroll/${p.id}`}
                   className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm transition hover:border-brand-400"
                 >
                   <b className="text-gray-800">{p.employees?.full_name ?? "—"}</b>
@@ -150,8 +150,13 @@ export default async function HrPayrollPage() {
                   const st = payrollPayStatus(Number(p.net), paid);
                   return (
                     <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-800">
-                        {p.employees?.full_name ?? "—"}
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/dashboard/hr/payroll/${p.id}`}
+                          className="font-medium text-brand-700 hover:underline"
+                        >
+                          {p.employees?.full_name ?? "—"}
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-gray-600" dir="ltr">
                         {p.period}

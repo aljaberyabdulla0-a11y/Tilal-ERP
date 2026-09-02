@@ -110,8 +110,9 @@ export default async function EmployeeDetailsPage({
   // الكشوف في جدول — لأن المسوّدة هي ما يُعمل عليه الآن.
   const draft = payrolls.find((p) => p.state === "مسودة") ?? null;
   const settled = payrolls.filter((p) => p.state !== "مسودة");
-  const hasDraftFor = (period: string) =>
-    payrolls.some((p) => p.period === period && p.state === "مسودة");
+  const draftPeriods = payrolls
+    .filter((p) => p.state === "مسودة")
+    .map((p) => p.period);
 
   // العمولات/الاستقطاعات التي لم تُضمَّن في أي كشف بعد — هي وحدها تدخل الكشف القادم
   const pendingCommissions = commissions.filter((c) => !c.payroll_id);
@@ -309,7 +310,7 @@ export default async function EmployeeDetailsPage({
             كاملاً أو على دفعات.
           </p>
           <div className="mb-4">
-            <GeneratePayroll employeeId={emp.id} hasDraft={hasDraftFor} />
+            <GeneratePayroll employeeId={emp.id} draftPeriods={draftPeriods} />
           </div>
 
           {/* المسوّدة القائمة مفتوحة ببنودها — هي ما يُعمل عليه الآن */}

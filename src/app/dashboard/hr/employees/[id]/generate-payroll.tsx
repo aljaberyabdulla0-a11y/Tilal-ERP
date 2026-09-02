@@ -21,12 +21,17 @@ import { createClient } from "@/lib/supabase/client";
 // ============================================================
 export default function GeneratePayroll({
   employeeId,
-  hasDraft,
+  draftPeriods,
 }: {
   employeeId: string;
-  // هل للموظف مسوّدة قائمة في هذا الشهر؟ يتغيّر بها نصّ الزرّ
-  // حتى لا يخشى المستخدم أن يُنشئ كشفاً مكرّراً.
-  hasDraft: (period: string) => boolean;
+  // الشهور التي للموظف فيها مسوّدة — يتغيّر بها نصّ الزرّ حتى لا
+  // يخشى المستخدم أنه يُنشئ كشفاً مكرّراً.
+  //
+  // ⚠️ قائمةٌ لا دالّة عمداً: ما يُمرَّر من صفحة الخادم إلى مكوّن
+  //    المتصفّح يجب أن يكون **بيانات** تُنقل عبر الشبكة. تمرير
+  //    دالّة هنا كان يُسقط الصفحة كلها عند التشغيل، ولا يكشفه
+  //    البناء لأنه خطأ نقلٍ لا خطأ أنواع.
+  draftPeriods: string[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -40,7 +45,7 @@ export default function GeneratePayroll({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const rebuilding = hasDraft(period);
+  const rebuilding = draftPeriods.includes(period);
 
   async function build() {
     setBusy(true);

@@ -46,6 +46,7 @@ const ar = {
     tasks: "المهام",
     chat: "المحادثات",
     crm: "CRM",
+    finance: "المالية",
     invoices: "الفواتير",
     accounting: "المحاسبة",
     hr: "HR",

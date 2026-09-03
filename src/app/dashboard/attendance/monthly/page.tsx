@@ -90,8 +90,8 @@ export default async function MonthlyAttendancePage({
     <main className="min-h-screen bg-gray-50">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-brand-700">
-            ← لوحة التحكم
+          <Link href="/dashboard/hr" className="text-sm text-gray-500 hover:text-brand-700">
+            ← الموارد البشرية
           </Link>
           <h1 className="text-xl font-bold text-brand-700">التقرير الشهري للدوام</h1>
         </div>

@@ -8,10 +8,16 @@ import LogoutButton from "./logout-button";
 // التخطيط العام لكل صفحات النظام — يبني قائمة التنقّل حسب الدور.
 //
 // الأدوار الأربعة:
+// وبندان يجمعان ما تفرّق: **المالية** (فواتير + عمولات + محاسبة)
+// و**HR** (موظفون + دوام + إجازات + رواتب). كلاهما بوابةٌ تُفتح
+// فيُختار منها — والصلاحيات داخلها كما كانت قبل الجمع، لا تتوسّع
+// بندٌ ولا يضيق.
+//
 //   المدير       : كل شيء.
-//   المشرف       : لوحة · مهام · محادثات · CRM · فواتير · HR · إعداداته.
-//                  **بلا محاسبة وبلا قسم الدوام الإداري** — يرى نطاق
-//                  مشروعه فقط، وسياسات القاعدة تفرض ذلك لا هذه القائمة.
+//   المشرف       : لوحة · مهام · محادثات · CRM · المالية (فواتيرُ
+//                  وحدها) · HR · إعداداته. **بلا محاسبة ولا عمولات
+//                  ولا الدوام الإداري** — يرى نطاق مشروعه فقط،
+//                  وسياسات القاعدة تفرض ذلك لا هذه القائمة.
 //   مدير المتابعة: لوحة · مهام · محادثات · المخزون · الموظفون ·
 //                  الاتصالات · إعداداته. **بلا محاسبة ولا فواتير ولا
 //                  رواتب** — متابعة تشغيلية لا مالية (sql/040).
@@ -95,26 +101,23 @@ export default async function DashboardLayout({
     );
   }
 
+  // ============================================================
+  // ترتيب القائمة: ثلاث مجموعات لا قائمةٌ واحدة طويلة.
+  //
+  //   ١) العمل اليومي  — ما يُفتح كل صباح: العملاء، المخزون
+  //                      العقاري، المهام، المحادثات.
+  //   ٢) الإدارة       — ما يُفتح أسبوعياً أو شهرياً: المالية،
+  //                      الموارد البشرية، الوساطة، لوازم المكتب.
+  //   ٣) الإعدادات     — آخر البنود لأنه أقلّها فتحاً.
+  //
+  // كانت مرتّبةً بترتيب بنائها لا بترتيب استعمالها، فيقع «المخزون»
+  // (لوازم المكتب) بين المحادثات والوساطة، وتنزل «المشاريع» — وهي
+  // قلب عمل شركة عقارية — إلى ما قبل الأخير.
+  // ============================================================
   const nav: NavItem[] = [
     { href: "/dashboard", label: t.nav.dashboard, icon: "dashboard", prefixes: ["/dashboard"], exact: true },
-    { href: "/dashboard/tasks", label: t.nav.tasks, icon: "checklist", prefixes: ["/dashboard/tasks"] },
-    {
-      href: "/dashboard/chat",
-      label: t.nav.chat,
-      icon: "chat",
-      prefixes: ["/dashboard/chat"],
-      badge: "chat",
-    },
 
-    // المخزون: المدير ومدير المتابعة (نفس قاعدة can_manage_inventory)
-    ...(admin || followup
-      ? [{ href: "/dashboard/inventory", label: t.nav.inventory, icon: "inventory_2", prefixes: ["/dashboard/inventory"] }]
-      : []),
-
-    // الوساطة: المدير يديرها، ومدير العلاقات يرى شركاته منها
-    ...(admin || rm
-      ? [{ href: "/dashboard/brokers", label: t.nav.brokers, icon: "handshake", prefixes: ["/dashboard/brokers"] }]
-      : []),
+    // ===== ١) العمل اليومي =====
 
     // مدير المتابعة: ملفّه التشغيلي — الموظفون والاتصالات.
     // (لا يظهر له CRM كاملاً: لا وحدات ولا حجوزات ولا فواتير.)
@@ -123,10 +126,6 @@ export default async function DashboardLayout({
           { href: "/dashboard/followup/employees", label: t.nav.employees, icon: "supervisor_account", prefixes: ["/dashboard/followup/employees"] },
           { href: "/dashboard/clients/activities", label: t.nav.contacts, icon: "call", prefixes: ["/dashboard/clients"] },
         ]
-      : []),
-
-    ...(followup
-      ? []
       : [
           {
             href: "/dashboard/crm",
@@ -136,32 +135,6 @@ export default async function DashboardLayout({
           },
         ]),
 
-    // فريقي — للمشرف وحده (المدير عنده شاشات الإدارة الكاملة)
-    ...(supervisor
-      ? [{ href: "/dashboard/team", label: t.nav.myTeam, icon: "supervisor_account", prefixes: ["/dashboard/team"] }]
-      : []),
-
-    // الفواتير: المدير يديرها، والمشرف يقرأ فواتير عملاء مشروعه
-    ...(admin || supervisor
-      ? [{ href: "/dashboard/invoices", label: t.nav.invoices, icon: "receipt_long", prefixes: ["/dashboard/invoices"] }]
-      : []),
-
-    // العمولات للمدير وحده: تكشف ما تربحه الشركة من كل مطوّر
-    // ونسب الزملاء — أرقام إدارية لا يطّلع عليها من يعمل تحتها.
-    ...(admin
-      ? [{ href: "/dashboard/commissions", label: t.nav.commissions, icon: "percent", prefixes: ["/dashboard/commissions"] }]
-      : []),
-
-    // المحاسبة للمدير وحده — هنا الصرف وأرباح الشركة
-    ...(admin
-      ? [{ href: "/dashboard/accounting", label: t.nav.accounting, icon: "account_balance_wallet", prefixes: ["/dashboard/accounting"] }]
-      : []),
-
-    // HR: للمدير إدارة كاملة، ولغيره بوابته الشخصية (بصمة وإجازات).
-    // مدير المتابعة يحتاجها كموظف مثل الجميع — ومتابعته لغيره في
-    // شاشة «الموظفون» أعلاه.
-    { href: "/dashboard/hr", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me"] },
-
     // المشاريع: المدير يديرها كلها، والمشرف يفتح مخزون مشروعه منها،
     // والموظف يتصفّح مخزون مشاريعه ليحجز لعميله (sql/050).
     // مستثنى منها مدير المتابعة — له قسم المخزون الخاص به —
@@ -169,11 +142,69 @@ export default async function DashboardLayout({
     ...(followup || rm
       ? []
       : [{ href: "/dashboard/projects", label: t.nav.projects, icon: "apartment", prefixes: ["/dashboard/projects"] }]),
-    ...(admin
-      ? [{ href: "/dashboard/attendance", label: t.nav.attendance, icon: "schedule", prefixes: ["/dashboard/attendance"] }]
+
+    { href: "/dashboard/tasks", label: t.nav.tasks, icon: "checklist", prefixes: ["/dashboard/tasks"] },
+    {
+      href: "/dashboard/chat",
+      label: t.nav.chat,
+      icon: "chat",
+      prefixes: ["/dashboard/chat"],
+      badge: "chat",
+    },
+
+    // فريقي — للمشرف وحده (المدير عنده شاشات الإدارة الكاملة)
+    ...(supervisor
+      ? [{ href: "/dashboard/team", label: t.nav.myTeam, icon: "supervisor_account", prefixes: ["/dashboard/team"] }]
       : []),
 
-    // الإعدادات: الإدارية للمدير، والشخصية لغيره
+    // ===== ٢) الإدارة =====
+
+    // ============================================================
+    // المالية: بندٌ واحد يجمع الفواتير والعمولات والمحاسبة.
+    //
+    // كانت ثلاثة بنود منفصلة، وقائمةٌ من اثني عشر بنداً لا تُقرأ
+    // بالنظر بل بالبحث. وهي في ذهن من يفتحها شيءٌ واحد: مال
+    // الشركة. فصارت بوابةً تُفتح فيُختار منها.
+    //
+    // ⚠️ الصلاحيات لم تتغيّر بالجمع: البوابة نفسها لا تعرض للمشرف
+    //    إلا الفواتير، والعمولات والمحاسبة تبقيان للمدير — في
+    //    الشاشة وفي صفحاتها وفي القاعدة.
+    // ============================================================
+    ...(admin || supervisor
+      ? [{
+          href: "/dashboard/finance",
+          label: t.nav.finance,
+          icon: "payments",
+          prefixes: [
+            "/dashboard/finance",
+            "/dashboard/invoices",
+            "/dashboard/commissions",
+            "/dashboard/accounting",
+          ],
+        }]
+      : []),
+
+    // HR: للمدير إدارة كاملة، ولغيره بوابته الشخصية (بصمة وإجازات).
+    // مدير المتابعة يحتاجها كموظف مثل الجميع — ومتابعته لغيره في
+    // شاشة «الموظفون» أعلاه.
+    //
+    // الدوام بندٌ داخلها لا بجانبها: هو شأنٌ من شؤون الموظف كالراتب
+    // والإجازة، وكان بنداً مستقلاً في القائمة بلا سببٍ إلا التاريخ.
+    { href: "/dashboard/hr", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me", "/dashboard/attendance"] },
+
+    // الوساطة: المدير يديرها، ومدير العلاقات يرى شركاته منها
+    ...(admin || rm
+      ? [{ href: "/dashboard/brokers", label: t.nav.brokers, icon: "handshake", prefixes: ["/dashboard/brokers"] }]
+      : []),
+
+    // المخزون: لوازم المكتب — المدير ومدير المتابعة (نفس قاعدة
+    // can_manage_inventory). وهو غير المخزون العقاري الذي في
+    // «المشاريع»، ولذلك يبعد عنه في القائمة لا يجاوره.
+    ...(admin || followup
+      ? [{ href: "/dashboard/inventory", label: t.nav.inventory, icon: "inventory_2", prefixes: ["/dashboard/inventory"] }]
+      : []),
+
+    // ===== ٣) الإعدادات: الإدارية للمدير، والشخصية لغيره =====
     admin
       ? { href: "/dashboard/settings", label: t.nav.settings, icon: "settings", prefixes: ["/dashboard/settings"] }
       : { href: "/dashboard/account", label: t.nav.settings, icon: "settings", prefixes: ["/dashboard/account"] },

@@ -57,11 +57,19 @@ export default async function AccountingHome() {
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-6 py-4 shadow-sm">
-        <div>
-          <h1 className="text-xl font-bold text-brand-700">الملخص المالي</h1>
-          <p className="text-sm text-gray-500">
-            سجّل ما صرفته أو قبضته بجملة بسيطة، والنظام يتكفّل بالباقي.
-          </p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/finance"
+            className="text-sm text-gray-500 hover:text-brand-700"
+          >
+            ← المالية
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-brand-700">الملخص المالي</h1>
+            <p className="text-sm text-gray-500">
+              سجّل ما صرفته أو قبضته بجملة بسيطة، والنظام يتكفّل بالباقي.
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Link

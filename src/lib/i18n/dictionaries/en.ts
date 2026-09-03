@@ -48,6 +48,7 @@ const en: Dictionary = {
     tasks: "Tasks",
     chat: "Chat",
     crm: "CRM",
+    finance: "Finance",
     invoices: "Invoices",
     accounting: "Accounting",
     hr: "HR",

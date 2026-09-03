@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-// سجل الحضور انتقل إلى قسم «الدوام» المستقل في الشريط الجانبي.
+// سجلّ الحضور يسكن /dashboard/attendance — ويُدخل إليه من بطاقة
+// «الدوام» داخل الموارد البشرية.
 // نُبقي هذا المسار لتعمل الروابط القديمة والمحفوظة.
 export default function HrAttendanceRedirect({
   searchParams,

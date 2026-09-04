@@ -7,6 +7,7 @@ import {
   PayrollPayment,
   Commission,
   Deduction,
+  commissionStage,
   formatPrice,
   payrollPayStatus,
 } from "@/lib/types";
@@ -164,19 +165,34 @@ export default async function MySalaryPage() {
 
         {/* العمولات */}
         <div className={card}>
-          <h3 className="mb-3 text-lg font-semibold text-gray-800">عمولاتي</h3>
+          <h3 className="mb-1 text-lg font-semibold text-gray-800">عمولاتي</h3>
+          {/* الموظف يسأل: «أين عمولتي؟» — والشارة تُجيب بلا مراجعة أحد */}
+          <p className="mb-3 text-xs text-gray-400">
+            العمولة تُستحقّ لك عند تأكيد مقدمة الصفقة، وتدخل كشف راتبك بعد أن
+            تُحصّل الشركة عمولتها من المطوّر.
+          </p>
           {commissions.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد عمولات.</p>
           ) : (
             <table className="w-full text-start text-sm">
               <tbody>
-                {commissions.map((c) => (
-                  <tr key={c.id} className="border-b last:border-0">
-                    <td className="py-2 text-gray-600" dir="ltr">{c.comm_date}</td>
-                    <td className="py-2 text-gray-800">{c.description || "—"}</td>
-                    <td className="py-2 text-end font-medium text-green-700" dir="ltr">{formatPrice(c.amount)}</td>
-                  </tr>
-                ))}
+                {commissions.map((c) => {
+                  const st = commissionStage(c);
+                  return (
+                    <tr key={c.id} className="border-b last:border-0">
+                      <td className="py-2 text-gray-600" dir="ltr">{c.comm_date}</td>
+                      <td className="py-2 text-gray-800">{c.description || "—"}</td>
+                      <td className="py-2">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${st.color}`}
+                        >
+                          {st.label}
+                        </span>
+                      </td>
+                      <td className="py-2 text-end font-medium text-green-700" dir="ltr">{formatPrice(c.amount)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

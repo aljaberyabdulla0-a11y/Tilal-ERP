@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getMyEmployee } from "@/lib/hr";
 import { canEditUnit } from "@/lib/projects";
@@ -19,6 +20,7 @@ import {
   UNIT_FIELD_LABELS,
   UNIT_STATUS_COLORS,
   UNIT_STATUS_DOTS,
+  SaleCommission,
   UnitField,
   formatPrice,
   ownsReservation,
@@ -27,6 +29,7 @@ import {
   unitFieldsFor,
 } from "@/lib/types";
 import DeleteUnitButton from "../delete-unit-button";
+import DealCommission from "@/components/deal-commission";
 import SaleRequest from "@/components/sale-request";
 import UnitActions from "./unit-actions";
 
@@ -82,6 +85,18 @@ export default async function UnitDetailsPage({
 
   // الحجز القائم وحده هو ما يُطلب بيعه أو يُبتّ فيه
   const held = reservations.find((r) => r.status === "حجز") ?? null;
+
+  // الصفقة المكتملة: منها تُستحقّ عمولة تلال عند تأكيد المقدمة (sql/056)
+  const sold = reservations.find((r) => r.status === "بيع مكتمل") ?? null;
+  const supabase = await createClient();
+  const { data: scData } = sold
+    ? await supabase
+        .from("sale_commissions")
+        .select("*")
+        .eq("reservation_id", sold.id)
+        .maybeSingle()
+    : { data: null };
+  const saleCommission = (scData as SaleCommission) ?? null;
 
   const category =
     unitTypes.find((t) => t.name === unit.unit_type)?.category ?? "أخرى";
@@ -204,6 +219,16 @@ export default async function UnitDetailsPage({
             <b>هذه الوحدة موقوفة:</b> {unit.blocked_reason} — لا تُحجز ولا تُباع
             حتى يرفع المدير الإيقاف.
           </div>
+        )}
+
+        {/* المقدمة وعمولة الصفقة — مسار المال الحقيقي (sql/056) */}
+        {sold && (
+          <DealCommission
+            reservation={sold}
+            saleCommission={saleCommission}
+            canManage={canEdit}
+            isAdmin={admin}
+          />
         )}
 
         {/* الوضع المالي */}

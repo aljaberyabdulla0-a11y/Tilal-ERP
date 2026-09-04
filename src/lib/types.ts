@@ -332,6 +332,14 @@ export type Reservation = {
   sale_decided_at: string | null;
   sale_decided_by: string | null;
   sale_reject_reason: string | null;
+  // ===== المقدمة — نقطة استحقاق العمولة الوحيدة (sql/056) =====
+  // ⚠️ العربون (amount) معلومة متابعة بلا قيد: يذهب للمطوّر ولا
+  // يمرّ بصندوق تلال. أمّا تأكيد المقدمة فهو ما يُنشئ القيود.
+  down_payment_amount: number | null;
+  down_payment_confirmed_at: string | null;
+  down_payment_confirmed_by: string | null;
+  commission_accrual_entry_id: string | null; // مدين 1250 / دائن 4200
+  commission_collect_entry_id: string | null; // مدين 1100 / دائن 1250
   // بيانات مرتبطة (تأتي من الربط مع الجداول الأخرى)
   clients?: { name: string } | null;
   units?: { project: string; unit_code: string | null } | null;
@@ -614,7 +622,23 @@ export type Commission = {
   // الفاتورة التي استحقّت عنها — فريدة، فلا تتكرّر العمولة (sql/046)
   invoice_id: string | null;
   auto: boolean;             // أنشأها النظام لا موظف بيده
+  // ===== متى تصير قابلة للدفع (sql/056) =====
+  // فارغ = استُحقّت للموظف ولم تقبض تلال عمولتها من المطوّر بعد،
+  // فلا تدخل كشف راتب. «لا أدفع عمولة من جيبي على مال لم يصلني».
+  payable_at: string | null;
 };
+
+// حالة العمولة كما تُعرض: استُحقّت ثم صارت قابلة للدفع ثم دخلت كشفاً
+export function commissionStage(c: Pick<Commission, "payable_at" | "payroll_id">) {
+  if (c.payroll_id)
+    return { label: "في كشف الراتب", color: "bg-green-100 text-green-700" };
+  if (c.payable_at)
+    return { label: "جاهزة للكشف القادم", color: "bg-blue-100 text-blue-700" };
+  return {
+    label: "مستحقّة — بانتظار تحصيل الشركة",
+    color: "bg-amber-100 text-amber-700",
+  };
+}
 
 export type Deduction = {
   id: string;

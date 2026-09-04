@@ -11,6 +11,7 @@ import {
   Payroll,
   PayrollLine,
   PayrollPayment,
+  AdvanceSummary,
   EmployeeHandover,
   LEAVE_STATUS_COLORS,
   PAYROLL_STATE_COLORS,
@@ -20,6 +21,7 @@ import {
   payrollPayStatus,
 } from "@/lib/types";
 import PayrollDetail from "@/components/payroll-detail";
+import AdvancesPanel from "@/components/advances-panel";
 import PayPayroll from "../../payroll/pay-payroll";
 import DeleteEmployeeButton from "../delete-employee-button";
 import EndService from "./end-service";
@@ -93,6 +95,10 @@ export default async function EmployeeDetailsPage({
     payrollPayments
       .filter((x) => x.payroll_id === payrollId)
       .reduce((s, x) => s + Number(x.amount), 0);
+
+  // سلف الموظف — المتبقّي وجدول الأقساط محسوبان في القاعدة
+  const { data: advData } = await supabase.rpc("advances_for", { p_employee: id });
+  const advances = (advData ?? []) as AdvanceSummary[];
 
   // بنود كل الكشوف في استعلام واحد ثم تُوزَّع في الذاكرة —
   // استعلامٌ لكل كشف كان سيعني عشر رحلات شبكة في صفحة واحدة.
@@ -300,6 +306,9 @@ export default async function EmployeeDetailsPage({
             </table>
           )}
         </div>
+
+        {/* السلف — تُقرأ قبل الكشوف لأن قسطها يظهر فيها */}
+        <AdvancesPanel employeeId={emp.id} advances={advances} isAdmin />
 
         {/* كشوف الرواتب */}
         <div className={card}>

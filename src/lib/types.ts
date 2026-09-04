@@ -890,6 +890,77 @@ export type LeaveLedgerEntry = {
   created_by_name: string | null;
 };
 
+// ============================================================
+// سلف الموظفين (sql/062) — ذمّة على الموظف لا مصروف.
+//
+// ⚠️ القسط في الكشف يُنقص **الالتزام** لا المصروف: الموظف استحقّ
+// راتبه كاملاً وقبض جزءاً منه سلفاً. ولذلك قيد الكشف يفرده:
+//     مدين 5100 E / دائن 2300 (E − القسط) / دائن 1360 القسط
+// ============================================================
+export type EmployeeAdvance = {
+  id: string;
+  employee_id: string;
+  amount: number;
+  installments: number;
+  request_date: string;
+  start_period: string | null;
+  reason: string | null;
+  status: AdvanceStatus;
+  method: "نقد" | "بنك";
+  approved_at: string | null;
+  disbursed_at: string | null;
+  cancel_reason: string | null;
+  created_by_name: string | null;
+};
+
+export type AdvanceStatus =
+  | "معلّقة"
+  | "معتمدة"
+  | "مصروفة"
+  | "مسدَّدة"
+  | "ملغاة";
+
+// ما تُرجعه advances_for() — المتبقّي محسوبٌ في القاعدة
+export type AdvanceSummary = {
+  id: string;
+  amount: number;
+  installments: number;
+  status: AdvanceStatus;
+  request_date: string;
+  disbursed_at: string | null;
+  reason: string | null;
+  collected: number;
+  remaining: number;
+  next_due: string | null;
+};
+
+export const ADVANCE_STATUS_COLORS: Record<string, string> = {
+  "معلّقة": "bg-amber-100 text-amber-700",
+  "معتمدة": "bg-blue-100 text-blue-700",
+  "مصروفة": "bg-brand-100 text-brand-700",
+  "مسدَّدة": "bg-green-100 text-green-700",
+  "ملغاة": "bg-gray-200 text-gray-600",
+};
+
+export const ADVANCE_STATUS_HINTS: Record<string, string> = {
+  "معلّقة": "بانتظار اعتماد المدير.",
+  "معتمدة": "اعتُمدت ووُلّد جدول أقساطها — ولم يخرج نقدٌ بعد.",
+  "مصروفة": "صُرفت وتُستردّ بأقساط من الراتب.",
+  "مسدَّدة": "سُدّدت بالكامل.",
+  "ملغاة": "أُلغيت قبل الصرف.",
+};
+
+export type AdvanceInstallment = {
+  id: string;
+  advance_id: string;
+  seq: number;
+  due_period: string;
+  amount: number;
+  status: "مستحق" | "محصّل" | "مؤجّل" | "ملغى";
+  payroll_id: string | null;
+  collected_at: string | null;
+};
+
 export const LEAVE_LEDGER_ICONS: Record<string, string> = {
   "استحقاق شهري": "add_circle",
   "استهلاك": "remove_circle",

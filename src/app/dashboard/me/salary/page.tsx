@@ -7,11 +7,13 @@ import {
   PayrollPayment,
   Commission,
   Deduction,
+  AdvanceSummary,
   commissionStage,
   formatPrice,
   payrollPayStatus,
 } from "@/lib/types";
 import PayrollDetail from "@/components/payroll-detail";
+import AdvancesPanel from "@/components/advances-panel";
 
 // رواتبي وعمولاتي واستقطاعاتي (للموظف)
 export default async function MySalaryPage() {
@@ -66,6 +68,10 @@ export default async function MySalaryPage() {
     (s, p) => s + Math.max(Number(p.net) - paidOf(p.id), 0),
     0
   );
+
+  // سلفي وأقساطها — المتبقّي محسوبٌ في القاعدة
+  const { data: advData } = await supabase.rpc("advances_for", { p_employee: emp.id });
+  const advances = (advData ?? []) as AdvanceSummary[];
 
   // بنود آخر كشف — استعلامٌ واحد لأحدث شهر لا لكل الشهور
   const latest = payrolls[0] ?? null;
@@ -162,6 +168,9 @@ export default async function MySalaryPage() {
             </div>
           )}
         </div>
+
+        {/* سلفي — قبل العمولات لأن الموظف يسأل عن ذمّته أولاً */}
+        <AdvancesPanel employeeId={emp.id} advances={advances} isAdmin={false} />
 
         {/* العمولات */}
         <div className={card}>

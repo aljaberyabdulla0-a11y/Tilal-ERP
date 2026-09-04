@@ -716,9 +716,70 @@ export const PAYROLL_EARNING_CATEGORIES = [
 export const PAYROLL_DEDUCTION_CATEGORIES = [
   "غياب",
   "تأخير",
+  "انصراف مبكر",
   "إجازة بلا راتب",
   "استقطاع آخر",
 ] as const;
+
+// ============================================================
+// خصم الدوام (sql/060) — يُحسب في القاعدة ويُعرض هنا.
+//
+// ⚠️ لا حساب في المتصفّح: هذه الأنواع تصف ما تُرجعه
+// attendance_deductions()، وهي نفسها التي يستعملها build_payroll —
+// فما تراه المعاينة هو بعينه ما يُكتب في الكشف.
+// ============================================================
+export type AttendanceDeduction = {
+  work_date: string;
+  category: "غياب" | "تأخير" | "انصراف مبكر";
+  description: string;
+  amount: number;
+  minutes: number | null;
+  source_id: string;
+};
+
+export type AttendanceExemption = {
+  id: string;
+  employee_id: string;
+  exempt_date: string;
+  exempt_type: "يوم كامل" | "فترة";
+  start_time: string | null;
+  end_time: string | null;
+  reason: string;
+  created_at: string;
+  created_by: string | null;
+  created_by_name: string | null;
+};
+
+export const EXEMPT_TYPES = ["يوم كامل", "فترة"] as const;
+
+// شرح كل نوع — الفرق بينهما مالي لا شكلي
+export const EXEMPT_TYPE_HINTS: Record<string, string> = {
+  "يوم كامل": "خارج المكتب طول اليوم — لا غياب ولا تأخير، ولا يُشترط أن يبصم.",
+  "فترة": "خرج أو تأخّر بإذن ثم داوم — يُعفى من الدقائق لا من البصمة.",
+};
+
+export type EmployeeSalaryRecord = {
+  id: string;
+  employee_id: string;
+  amount: number;
+  effective_from: string;
+  reason: string | null;
+  created_at: string;
+  created_by: string | null;
+  created_by_name: string | null;
+};
+
+// معاملات خصم الدوام في إعدادات الشركة
+export type AttendanceRules = {
+  attendance_rules_enabled: boolean;
+  attendance_effective_date: string | null;
+  late_grace_minutes: number;
+  late_hour_factor: number;
+  late_absent_threshold_minutes: number;
+  absence_deduction_days: number;
+  late_daily_cap_days: number;
+  early_leave_as_late: boolean;
+};
 
 export type PayrollState = "مسودة" | "معتمد" | "مقفل";
 

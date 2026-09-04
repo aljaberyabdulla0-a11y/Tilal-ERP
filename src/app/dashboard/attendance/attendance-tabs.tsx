@@ -5,6 +5,7 @@ export default function AttendanceTabs({ active }: { active: string }) {
   const tabs = [
     { key: "today", label: "اليوم", href: "/dashboard/attendance" },
     { key: "monthly", label: "التقرير الشهري", href: "/dashboard/attendance/monthly" },
+    { key: "rules", label: "قواعد الخصم", href: "/dashboard/attendance/rules" },
   ];
 
   return (

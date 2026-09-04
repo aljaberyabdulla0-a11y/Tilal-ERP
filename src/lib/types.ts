@@ -846,6 +846,62 @@ export function payrollPayStatus(net: number, paid: number) {
 }
 
 export const LEAVE_TYPES = ["سنوية", "مرضية", "طارئة", "بدون راتب"] as const;
+
+// ============================================================
+// أرصدة الإجازات (sql/061).
+//
+// ⚠️ الرصيد **يُشتقّ من دفتر الحركات** ولا يُخزَّن رقماً. هذه
+// الأنواع تصف ما تُرجعه leave_balances_for() — ولا يُحسب رصيد
+// في المتصفّح أبداً.
+// ============================================================
+export type LeaveType = {
+  id: string;
+  name: string;
+  annual_days: number;
+  accrues_monthly: boolean;
+  requires_balance: boolean;
+  deducts_salary: boolean;
+  carries_over: boolean;
+  active: boolean;
+  sort_order: number;
+};
+
+export type LeaveBalance = {
+  leave_type_id: string;
+  type_name: string;
+  entitled: number;
+  accrued: number;
+  used: number;
+  balance: number;
+  requires_balance: boolean;
+  deducts_salary: boolean;
+};
+
+export type LeaveLedgerEntry = {
+  id: string;
+  employee_id: string;
+  leave_type_id: string;
+  entry_date: string;
+  days: number;
+  kind: "استحقاق شهري" | "استهلاك" | "ترحيل" | "تسوية يدوية";
+  leave_id: string | null;
+  note: string | null;
+  created_at: string;
+  created_by_name: string | null;
+};
+
+export const LEAVE_LEDGER_ICONS: Record<string, string> = {
+  "استحقاق شهري": "add_circle",
+  "استهلاك": "remove_circle",
+  "ترحيل": "move_down",
+  "تسوية يدوية": "tune",
+};
+
+// نصف يوم لا يُكتب 0.5 بالإنكليزية في نصّ عربي
+export function formatDays(n: number): string {
+  const v = Math.round(Number(n) * 100) / 100;
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/0$/, "");
+}
 export const LEAVE_STATUSES = ["معلقة", "موافق عليها", "مرفوضة"] as const;
 
 // مدّة الإجازة: يوم كامل (أو أكثر) — أو إجازة زمنية بالساعات داخل يوم واحد

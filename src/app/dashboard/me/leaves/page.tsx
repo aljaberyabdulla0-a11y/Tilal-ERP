@@ -3,7 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { getMyEmployee } from "@/lib/hr";
 import {
   Leave,
+  LeaveBalance,
+  LeaveLedgerEntry,
+  LEAVE_LEDGER_ICONS,
   LEAVE_STATUS_COLORS,
+  formatDays,
   formatLeaveDuration,
   formatLeavePeriod,
 } from "@/lib/types";
@@ -36,17 +40,72 @@ export default async function MyLeavesPage() {
   }
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("leaves")
-    .select("*")
-    .eq("employee_id", emp.id)
-    .order("created_at", { ascending: false });
+  const [{ data }, { data: balData }, { data: ledgerData }] = await Promise.all([
+    supabase
+      .from("leaves")
+      .select("*")
+      .eq("employee_id", emp.id)
+      .order("created_at", { ascending: false }),
+    // ⚠️ الرصيد يأتي من القاعدة محسوباً — لا يُجمع في المتصفّح
+    supabase.rpc("leave_balances_for", { p_employee: emp.id }),
+    supabase
+      .from("leave_ledger")
+      .select("*")
+      .eq("employee_id", emp.id)
+      .order("entry_date", { ascending: false })
+      .limit(20),
+  ]);
+
   const leaves = (data ?? []) as Leave[];
+  const balances = (balData ?? []) as LeaveBalance[];
+  const ledger = (ledgerData ?? []) as LeaveLedgerEntry[];
 
   return (
     <main className="min-h-screen bg-gray-50">
       {header}
       <section className="space-y-6 p-6">
+        {/* رصيدي — أول ما يسأل عنه الموظف قبل أن يطلب */}
+        {balances.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {balances.map((b) => (
+              <div
+                key={b.leave_type_id}
+                className={`glass-card border-s-4 p-5 ${
+                  b.deducts_salary
+                    ? "border-s-red-400"
+                    : b.balance > 0
+                    ? "border-s-green-500"
+                    : "border-s-gray-300"
+                }`}
+              >
+                <span className="text-sm text-gray-500">{b.type_name}</span>
+                {b.requires_balance ? (
+                  <>
+                    <p
+                      className={`mt-1 text-2xl font-bold ${
+                        b.balance > 0 ? "text-green-700" : "text-gray-500"
+                      }`}
+                    >
+                      {formatDays(b.balance)}{" "}
+                      <span className="text-sm font-normal text-gray-400">يوم متبقٍّ</span>
+                    </p>
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      استُحقّ {formatDays(b.accrued)} · استُهلك {formatDays(b.used)} ·
+                      المستحَقّ السنوي {formatDays(b.entitled)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-gray-500">
+                    {b.deducts_salary
+                      ? "تُخصم من الراتب — بلا رصيد"
+                      : "بلا رصيد محدَّد"}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <RequestLeave employeeId={emp.id} />
 
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
@@ -96,6 +155,42 @@ export default async function MyLeavesPage() {
             </div>
           )}
         </div>
+
+        {/* حركة الرصيد — «من أين جاء رصيدي وأين ذهب» */}
+        {ledger.length > 0 && (
+          <div className="rounded-2xl border bg-white p-6 shadow-sm">
+            <h3 className="mb-1 text-lg font-semibold text-gray-800">حركة رصيدي</h3>
+            <p className="mb-3 text-xs text-gray-400">
+              الرصيد ليس رقماً مكتوباً — هو مجموع هذه الحركات.
+            </p>
+            <div className="divide-y divide-gray-100">
+              {ledger.map((e) => (
+                <div key={e.id} className="flex items-center gap-3 py-2.5">
+                  <span
+                    className={`material-symbols-outlined text-[18px] ${
+                      e.days > 0 ? "text-green-600" : "text-red-500"
+                    }`}
+                  >
+                    {LEAVE_LEDGER_ICONS[e.kind] ?? "circle"}
+                  </span>
+                  <span className="w-24 shrink-0 text-xs text-gray-500" dir="ltr">
+                    {e.entry_date}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+                    {e.note || e.kind}
+                  </span>
+                  <span
+                    className={`shrink-0 text-sm font-semibold ${
+                      e.days > 0 ? "text-green-700" : "text-red-700"
+                    }`}
+                  >
+                    {e.days > 0 ? "+" : "−"} {formatDays(Math.abs(e.days))} يوم
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

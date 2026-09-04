@@ -934,6 +934,37 @@ export type AdvanceSummary = {
   next_due: string | null;
 };
 
+// ============================================================
+// الفترات المحاسبية (sql/063).
+//
+// ⚠️ القفل يُفرض بمحفّزات على journal_entries و journal_lines —
+// فيمسك كل الأبواب: الشاشة، ودوالّ repost_* (وهي تتجاوز RLS ولا
+// تتجاوز المحفّزات)، والمحفّزات المتسلسلة. الشهر بلا صفّ مفتوح.
+// ============================================================
+export type PeriodStatus = "مفتوح" | "مقفل" | "مؤرشف";
+
+export type AccountingPeriod = {
+  period: string;
+  status: PeriodStatus;
+  entries: number;
+  total_debit: number;
+  draft_payrolls: number;
+  closed_by_name: string | null;
+  closed_at: string | null;
+};
+
+export const PERIOD_STATUS_COLORS: Record<string, string> = {
+  "مفتوح": "bg-blue-100 text-blue-700",
+  "مقفل": "bg-green-100 text-green-700",
+  "مؤرشف": "bg-gray-200 text-gray-600",
+};
+
+export const PERIOD_STATUS_HINTS: Record<string, string> = {
+  "مفتوح": "تُكتب فيه القيود وتُعدَّل.",
+  "مقفل": "لا كتابة ولا حذف — ولا حتى من دوالّ النظام. يُفتح بسببٍ مكتوب.",
+  "مؤرشف": "نهائي — لا كتابة ولا إعادة فتح.",
+};
+
 export const ADVANCE_STATUS_COLORS: Record<string, string> = {
   "معلّقة": "bg-amber-100 text-amber-700",
   "معتمدة": "bg-blue-100 text-blue-700",

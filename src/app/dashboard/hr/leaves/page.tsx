@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import {
   Leave,
   LEAVE_STATUS_COLORS,
@@ -12,7 +12,7 @@ import LeaveDecision from "../leave-decision";
 
 // كل طلبات الإجازات (للمدير)
 export default async function HrLeavesPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageHr())) redirect("/dashboard");
 
   const supabase = await createClient();
   const { data } = await supabase

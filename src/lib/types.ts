@@ -1275,6 +1275,8 @@ export const USER_ROLES = [
 
 export const ROLE_LABELS: Record<string, string> = {
   admin: "مدير",
+  accountant: "محاسب",
+  hr: "موارد بشرية",
   supervisor: "مشرف",
   followup_manager: "مدير المتابعة",
   relationship_manager: "مدير علاقات",
@@ -1284,6 +1286,8 @@ export const ROLE_LABELS: Record<string, string> = {
 
 export const ROLE_COLORS: Record<string, string> = {
   admin: "bg-green-100 text-green-700",
+  accountant: "bg-emerald-100 text-emerald-700",
+  hr: "bg-indigo-100 text-indigo-700",
   supervisor: "bg-blue-100 text-blue-700",
   followup_manager: "bg-purple-100 text-purple-700",
   relationship_manager: "bg-teal-100 text-teal-700",

@@ -14,6 +14,13 @@ import LogoutButton from "./logout-button";
 // بندٌ ولا يضيق.
 //
 //   المدير       : كل شيء.
+//   المحاسب      : لوحة · مهام · محادثات · **المالية كاملةً**
+//                  (فواتير وعمولات ومحاسبة ورواتب) · بوابته
+//                  الشخصية · إعداداته. لا عملاء ولا مشاريع ولا
+//                  ملفّات موظفين — يُرحّل ويدفع لا غير (sql/068).
+//   موارد بشرية  : لوحة · مهام · محادثات · **HR كاملةً** (موظفون
+//                  ودوام وإجازات وبناء الكشوف) · إعداداته. لا
+//                  محاسبة ولا اعتماد كشف: تبني ولا توقّع.
 //   المشرف       : لوحة · مهام · محادثات · CRM · المالية (فواتيرُ
 //                  وحدها) · HR · إعداداته. **بلا محاسبة ولا عمولات
 //                  ولا الدوام الإداري** — يرى نطاق مشروعه فقط،
@@ -78,6 +85,11 @@ export default async function DashboardLayout({
   const followup = role === "followup_manager";
   const broker = role === "broker";
   const rm = role === "relationship_manager";
+  const accountant = role === "accountant";
+  const hr = role === "hr";
+
+  // ⚠️ تطابق can_manage_finance() في القاعدة.
+  const finance = admin || accountant;
 
   // ============================================================
   // الشركة الوسيطة: قائمة مستقلة تماماً.
@@ -126,6 +138,10 @@ export default async function DashboardLayout({
           { href: "/dashboard/followup/employees", label: t.nav.employees, icon: "supervisor_account", prefixes: ["/dashboard/followup/employees"] },
           { href: "/dashboard/clients/activities", label: t.nav.contacts, icon: "call", prefixes: ["/dashboard/clients"] },
         ]
+      : accountant || hr
+      ? // المحاسب والموارد البشرية خارج CRM تماماً: لا عميلَ لهما
+        // ولا ليد. عملهما داخل الشركة لا في سوقها.
+        []
       : [
           {
             href: "/dashboard/crm",
@@ -139,7 +155,7 @@ export default async function DashboardLayout({
     // والموظف يتصفّح مخزون مشاريعه ليحجز لعميله (sql/050).
     // مستثنى منها مدير المتابعة — له قسم المخزون الخاص به —
     // ومدير العلاقات، فالمخزون العقاري خارج نطاقه.
-    ...(followup || rm
+    ...(followup || rm || accountant || hr
       ? []
       : [{ href: "/dashboard/projects", label: t.nav.projects, icon: "apartment", prefixes: ["/dashboard/projects"] }]),
 
@@ -167,10 +183,10 @@ export default async function DashboardLayout({
     // الشركة. فصارت بوابةً تُفتح فيُختار منها.
     //
     // ⚠️ الصلاحيات لم تتغيّر بالجمع: البوابة نفسها لا تعرض للمشرف
-    //    إلا الفواتير، والعمولات والمحاسبة تبقيان للمدير — في
+    //    إلا الفواتير، والعمولات والمحاسبة لمن يدير المال — في
     //    الشاشة وفي صفحاتها وفي القاعدة.
     // ============================================================
-    ...(admin || supervisor
+    ...(finance || supervisor
       ? [{
           href: "/dashboard/finance",
           label: t.nav.finance,
@@ -180,6 +196,9 @@ export default async function DashboardLayout({
             "/dashboard/invoices",
             "/dashboard/commissions",
             "/dashboard/accounting",
+            // الرواتب باب من أبواب المال عند المحاسب، فيُضاء البند
+            // معه وهو داخلها — وإلا بدا وكأنه خرج من قائمته.
+            ...(accountant ? ["/dashboard/hr/payroll", "/dashboard/hr/month-close"] : []),
           ],
         }]
       : []),
@@ -190,7 +209,13 @@ export default async function DashboardLayout({
     //
     // الدوام بندٌ داخلها لا بجانبها: هو شأنٌ من شؤون الموظف كالراتب
     // والإجازة، وكان بنداً مستقلاً في القائمة بلا سببٍ إلا التاريخ.
-    { href: "/dashboard/hr", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me", "/dashboard/attendance"] },
+    //
+    // ⚠️ المحاسب يُستثنى من بادئة /dashboard/hr: كشوف الرواتب تقع
+    //    تحتها في المسار، وهي عنده بابٌ من أبواب المال. لولا هذا
+    //    الاستثناء لأُضيء بندان معاً وهو في شاشةٍ واحدة.
+    accountant
+      ? { href: "/dashboard/me", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/me"] }
+      : { href: "/dashboard/hr", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me", "/dashboard/attendance"] },
 
     // الوساطة: المدير يديرها، ومدير العلاقات يرى شركاته منها
     ...(admin || rm
@@ -212,6 +237,10 @@ export default async function DashboardLayout({
 
   const roleLabel = admin
     ? t.nav.roleAdmin
+    : accountant
+    ? t.nav.roleAccountant
+    : hr
+    ? t.nav.roleHr
     : supervisor
     ? t.nav.roleSupervisor
     : followup

@@ -55,6 +55,11 @@ export default function RoleSelect({
       >
         <option value="employee">موظف</option>
         <option value="supervisor">مشرف</option>
+        {/* الدوران يقسمان عملَ الراتب قسمين: الموارد البشرية تبني
+            الكشف، والمحاسب يعتمده فيدخل الدفاتر. لا تجمعهما في
+            شخصٍ واحد — ينهدم الفصل الذي بُنيا له (sql/068). */}
+        <option value="hr">موارد بشرية</option>
+        <option value="accountant">محاسب</option>
         <option value="followup_manager">مدير المتابعة</option>
         <option value="relationship_manager">مدير علاقات</option>
         {/* «شركة وسيطة» لا تُختار من هنا: تُضبط تلقائياً عند ربط

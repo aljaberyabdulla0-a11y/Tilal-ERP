@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole } from "@/lib/auth";
 import { formatPrice } from "@/lib/types";
@@ -30,6 +31,18 @@ export default async function DashboardPage() {
 
   // مدير العلاقات: الشركات التي تحت مظلته وليداتها
   if (role === "relationship_manager") return <RmDashboard />;
+
+  // ============================================================
+  // المحاسب والموارد البشرية: لا لوحةَ ثالثةً تُبنى لهما.
+  //
+  // اللوحة التنفيذية عن سوق الشركة — عملاء ووحدات ومبيعات — وليس
+  // فيها ما يخصّهما، ولوحة الموظف عن ليداته ومتابعاته ولا ليد
+  // لهما. فيُفتح كلٌّ على بوابة عمله رأساً: المال أو الأفراد
+  // (sql/068). وبوابتهما الشخصية (بصمة وإجازة وقسيمة) في
+  // /dashboard/me كبقيّة الموظفين.
+  // ============================================================
+  if (role === "accountant") redirect("/dashboard/finance");
+  if (role === "hr") redirect("/dashboard/hr");
 
   // الموظف يرى لوحته الشخصية بدل اللوحة التنفيذية العامة
   if (!admin) return <EmployeeDashboard />;

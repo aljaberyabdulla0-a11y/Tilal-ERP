@@ -23,12 +23,12 @@ import {
 export default function AdvancesPanel({
   employeeId,
   advances,
-  isAdmin,
+  manager,
   compact = false,
 }: {
   employeeId: string;
   advances: AdvanceSummary[];
-  isAdmin: boolean;
+  manager: boolean;
   compact?: boolean;
 }) {
   const router = useRouter();
@@ -92,7 +92,7 @@ export default function AdvancesPanel({
           </h3>
           {owed > 0 && (
             <p className="mt-0.5 text-xs text-gray-500">
-              المتبقّي على {isAdmin ? "الموظف" : "ذمّتك"}:{" "}
+              المتبقّي على {manager ? "الموظف" : "ذمّتك"}:{" "}
               <b className="text-amber-700" dir="ltr">
                 {formatPrice(owed)}
               </b>
@@ -108,7 +108,7 @@ export default function AdvancesPanel({
             }}
             className="rounded-lg border border-brand-300 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-100"
           >
-            {isAdmin ? "+ سلفة للموظف" : "+ طلب سلفة"}
+            {manager ? "+ سلفة للموظف" : "+ طلب سلفة"}
           </button>
         )}
       </div>
@@ -209,7 +209,7 @@ export default function AdvancesPanel({
                 </span>
               )}
 
-              {isAdmin && (
+              {manager && (
                 <div className="ms-auto flex flex-wrap items-center gap-2">
                   {a.status === "معلّقة" && (
                     <>

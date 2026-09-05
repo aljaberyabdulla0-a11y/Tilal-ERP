@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import InvoiceForm from "../invoice-form";
 import { getInvoiceFormOptions } from "../form-options";
 
 export default async function NewInvoicePage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const { clients, reservations } = await getInvoiceFormOptions();
 

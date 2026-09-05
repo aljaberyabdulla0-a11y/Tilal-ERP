@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance, canManageHr, canSeePayroll } from "@/lib/auth";
 import { MonthCloseRow } from "@/lib/types";
 import CloseWizard from "./close-wizard";
 
@@ -16,7 +16,14 @@ export default async function MonthClosePage({
 }: {
   searchParams: { period?: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  // الشاشة واحدة والفعلان اثنان: «بناء» للموارد البشرية،
+  // و«اعتماد» للمحاسب. يقرأ الجدولَ كلاهما (sql/068).
+  const [seeAll, canBuild, canApprove] = await Promise.all([
+    canSeePayroll(),
+    canManageHr(),
+    canManageFinance(),
+  ]);
+  if (!seeAll) redirect("/dashboard");
 
   const thisMonth = new Date()
     .toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" })
@@ -32,8 +39,11 @@ export default async function MonthClosePage({
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="flex items-center gap-3 border-b bg-white px-6 py-4 shadow-sm">
-        <Link href="/dashboard/hr" className="text-sm text-gray-500 hover:text-brand-700">
-          ← الموارد البشرية
+        <Link
+          href={canBuild ? "/dashboard/hr" : "/dashboard/finance"}
+          className="text-sm text-gray-500 hover:text-brand-700"
+        >
+          ← {canBuild ? "الموارد البشرية" : "المالية"}
         </Link>
         <div>
           <h1 className="text-xl font-bold text-brand-700">إغلاق الشهر</h1>
@@ -58,7 +68,12 @@ export default async function MonthClosePage({
           فتتجمّد دفاتر الشهر.
         </div>
 
-        <CloseWizard period={period} rows={rows} />
+        <CloseWizard
+          period={period}
+          rows={rows}
+          canBuild={canBuild}
+          canApprove={canApprove}
+        />
       </section>
     </main>
   );

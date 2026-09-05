@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import { Attendance, CompanySettings, Employee, Leave } from "@/lib/types";
 import {
   buildMonth,
@@ -22,7 +22,7 @@ export default async function MonthlyAttendancePage({
 }: {
   searchParams: { month?: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageHr())) redirect("/dashboard");
 
   const month = /^\d{4}-\d{2}$/.test(searchParams.month ?? "")
     ? searchParams.month!

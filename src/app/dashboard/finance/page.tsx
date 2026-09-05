@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canSeeTeam, isAdmin } from "@/lib/auth";
+import { canSeeTeam, canManageFinance } from "@/lib/auth";
 import { getMoneyOverview } from "@/lib/money";
 import { Invoice, Payment, formatPrice } from "@/lib/types";
 
@@ -16,12 +16,16 @@ import { Invoice, Payment, formatPrice } from "@/lib/types";
 // الشاشة الأولى أين المشكلة قبل الدخول إلى أيّها.
 //
 // ⚠️ الأبواب تتبع الدور لا القائمة: المشرف يرى الفواتير وحدها،
-//    والمحاسبة والعمولات للمدير — كما كانت السياسة قبل الجمع.
-//    لا صلاحية جديدة تُفتح هنا ولا واحدة تُغلق.
+//    والمحاسبة والعمولات لمن يدير المال — المدير أو المحاسب
+//    (sql/068). لا صلاحية جديدة تُفتح هنا ولا واحدة تُغلق.
+//
+// وباب «الرواتب» هنا لا في HR: المحاسب لا يفتح ملفّات الموظفين،
+// وإنما يعتمد ما بنته الموارد البشرية ويدفعه. فطريقه إلى الكشوف
+// من بوابة المال لا من بوابة الأفراد.
 // ============================================================
 export default async function FinanceHome() {
-  const [admin, team] = await Promise.all([isAdmin(), canSeeTeam()]);
-  if (!admin && !team) redirect("/dashboard");
+  const [fin, team] = await Promise.all([canManageFinance(), canSeeTeam()]);
+  if (!fin && !team) redirect("/dashboard");
 
   const supabase = await createClient();
 
@@ -58,16 +62,30 @@ export default async function FinanceHome() {
   let uncollectedCompany = 0;
   let cash = 0;
   let payrollDue = 0;
+  let draftPayrolls = 0;
+  let approvedPayrolls = 0;
 
-  if (admin) {
-    const [{ data: comms }, { data: sales }, money] = await Promise.all([
+  if (fin) {
+    const [{ data: comms }, { data: sales }, money, drafts, approved] =
+      await Promise.all([
       supabase.from("commissions").select("amount").is("payroll_id", null),
       supabase
         .from("sale_commissions")
         .select("company_amount")
         .is("collected_at", null),
       getMoneyOverview(),
+      supabase
+        .from("payrolls")
+        .select("*", { count: "exact", head: true })
+        .eq("state", "مسودة"),
+      supabase
+        .from("payrolls")
+        .select("*", { count: "exact", head: true })
+        .eq("state", "معتمد"),
     ]);
+
+    draftPayrolls = drafts.count ?? 0;
+    approvedPayrolls = approved.count ?? 0;
 
     pendingCommissions = (comms ?? []).reduce(
       (s: number, c: { amount: number }) => s + Number(c.amount),
@@ -108,7 +126,7 @@ export default async function FinanceHome() {
         },
       ],
     },
-    ...(admin
+    ...(fin
       ? [
           {
             href: "/dashboard/commissions",
@@ -146,6 +164,24 @@ export default async function FinanceHome() {
               },
             ],
           },
+          {
+            href: "/dashboard/hr/payroll",
+            title: "الرواتب",
+            desc: "اعتماد ما بنته الموارد البشرية، ثم دفعه وتسجيل دفعاته.",
+            icon: "payments",
+            stats: [
+              {
+                label: "مسوّدات تنتظر اعتمادك",
+                value: String(draftPayrolls),
+                tone: draftPayrolls > 0 ? "text-amber-700" : "text-green-700",
+              },
+              {
+                label: "معتمدة ولم تُدفع كاملةً",
+                value: String(approvedPayrolls),
+                tone: approvedPayrolls > 0 ? "text-brand-700" : "text-gray-600",
+              },
+            ],
+          },
         ]
       : []),
   ];
@@ -162,7 +198,7 @@ export default async function FinanceHome() {
         <div>
           <h1 className="text-xl font-bold text-brand-700">المالية</h1>
           <p className="text-sm text-gray-500">
-            {admin
+            {fin
               ? "مال الشركة كلّه من مكان واحد — ما لها وما عليها."
               : "فواتير عملاء مشروعك وتحصيلها."}
           </p>

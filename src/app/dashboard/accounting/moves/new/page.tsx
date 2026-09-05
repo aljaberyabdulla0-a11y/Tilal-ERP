@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { MoneyDirection, Partner } from "@/lib/types";
 import MoveForm from "../move-form";
 
@@ -11,7 +11,7 @@ export default async function NewMovePage({
 }: {
   searchParams: { dir?: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const supabase = await createClient();
   const { data } = await supabase.from("partners").select("*").order("created_at");

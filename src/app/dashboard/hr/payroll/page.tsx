@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance, canManageHr, canSeePayroll } from "@/lib/auth";
 import {
   PAYROLL_STATE_COLORS,
   PAYROLL_STATE_HINTS,
@@ -20,7 +20,13 @@ type PayrollRow = Payroll & { employees?: { full_name: string } | null };
 // ينقص الصندوق أو البنك ويقلّل الدَين، كاملاً أو جزئياً.
 // ============================================================
 export default async function HrPayrollPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  // يفتحها الطرفان: من يبني الكشوف ومن يعتمدها ويدفعها (sql/068).
+  const [seeAll, hrCan, finCan] = await Promise.all([
+    canSeePayroll(),
+    canManageHr(),
+    canManageFinance(),
+  ]);
+  if (!seeAll) redirect("/dashboard");
 
   const supabase = await createClient();
   const [{ data: pData }, { data: payData }] = await Promise.all([
@@ -53,8 +59,13 @@ export default async function HrPayrollPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="flex items-center gap-3 border-b bg-white px-6 py-4 shadow-sm">
-        <Link href="/dashboard/hr" className="text-sm text-gray-500 hover:text-brand-700">
-          ← الموارد البشرية
+        {/* الرجوع إلى البوابة التي جاء منها: المحاسب دخل من المال،
+            والموارد البشرية من ملفّات الأفراد. */}
+        <Link
+          href={hrCan ? "/dashboard/hr" : "/dashboard/finance"}
+          className="text-sm text-gray-500 hover:text-brand-700"
+        >
+          ← {hrCan ? "الموارد البشرية" : "المالية"}
         </Link>
         <h1 className="text-xl font-bold text-brand-700">كشوف الرواتب</h1>
       </header>
@@ -202,12 +213,15 @@ export default async function HrPayrollPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-end">
-                        <PayPayroll
-                          payrollId={p.id}
-                          employeeName={p.employees?.full_name ?? ""}
-                          period={p.period}
-                          remaining={st.remaining}
-                        />
+                        {/* الدفع صرفٌ من الصندوق — لمن يدير المال */}
+                        {finCan && (
+                          <PayPayroll
+                            payrollId={p.id}
+                            employeeName={p.employees?.full_name ?? ""}
+                            period={p.period}
+                            remaining={st.remaining}
+                          />
+                        )}
                       </td>
                     </tr>
                   );

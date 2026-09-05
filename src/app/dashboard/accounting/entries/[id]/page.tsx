@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { JournalEntry, JournalLine, formatPrice } from "@/lib/types";
 import DeleteEntryButton from "../delete-entry-button";
 
@@ -11,7 +11,7 @@ export default async function EntryDetailsPage({
 }: {
   params: { id: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const supabase = await createClient();
   const { data } = await supabase

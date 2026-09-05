@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { getAccountBalances } from "@/lib/accounting";
 import { formatPrice } from "@/lib/types";
 
 // قائمة الدخل (Income Statement): الإيرادات - المصروفات = صافي الربح
 export default async function IncomeStatementPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const balances = await getAccountBalances();
 

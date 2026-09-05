@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import { getMyEmployee } from "@/lib/hr";
 import {
   Attendance,
@@ -16,7 +16,7 @@ import AttendanceSummary from "@/components/attendance-summary";
 
 // بوابة الموظف — الصفحة الرئيسية
 export default async function MyPortalHome() {
-  const [emp, admin] = await Promise.all([getMyEmployee(), isAdmin()]);
+  const [emp, admin] = await Promise.all([getMyEmployee(), canManageHr()]);
 
   // المستخدم غير مرتبط بملف موظف
   if (!emp) {
@@ -28,7 +28,7 @@ export default async function MyPortalHome() {
           </Link>
           <h1 className="text-xl font-bold text-brand-700">HR</h1>
         </header>
-        <HrTabs active="portal" isAdmin={admin} />
+        <HrTabs active="portal" manager={admin} />
         <section className="p-6">
           <div className="rounded-2xl bg-amber-50 p-6 text-amber-900">
             <h3 className="font-bold">حسابك غير مربوط بملف موظف</h3>
@@ -129,7 +129,7 @@ export default async function MyPortalHome() {
         <span className="text-sm text-gray-600">{emp.full_name}</span>
       </header>
 
-      <HrTabs active="portal" isAdmin={admin} />
+      <HrTabs active="portal" manager={admin} />
 
       <section className="space-y-6 p-6">
         {/* تسجيل البصمة — المعفيّون (الإدارة) لا يظهر لهم */}

@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { getAccountBalances, computeNetProfit } from "@/lib/accounting";
 import { formatPrice } from "@/lib/types";
 
 // الميزانية العمومية (Balance Sheet): الأصول = الالتزامات + حقوق الملكية
 export default async function BalanceSheetPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const balances = await getAccountBalances();
   const netProfit = computeNetProfit(balances);

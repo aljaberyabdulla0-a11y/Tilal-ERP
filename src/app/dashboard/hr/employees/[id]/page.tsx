@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance, canManageHr } from "@/lib/auth";
 import {
   Employee,
   Commission,
@@ -36,7 +36,8 @@ export default async function EmployeeDetailsPage({
 }: {
   params: { id: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  const [hrCan, finCan] = await Promise.all([canManageHr(), canManageFinance()]);
+  if (!hrCan) redirect("/dashboard");
 
   const supabase = await createClient();
   const id = params.id;
@@ -308,7 +309,7 @@ export default async function EmployeeDetailsPage({
         </div>
 
         {/* السلف — تُقرأ قبل الكشوف لأن قسطها يظهر فيها */}
-        <AdvancesPanel employeeId={emp.id} advances={advances} isAdmin />
+        <AdvancesPanel employeeId={emp.id} advances={advances} manager />
 
         {/* كشوف الرواتب */}
         <div className={card}>
@@ -329,7 +330,8 @@ export default async function EmployeeDetailsPage({
                 payroll={draft}
                 lines={linesOf(draft.id)}
                 paid={paidOf(draft.id)}
-                canManage
+                canEdit={hrCan}
+                canPost={finCan}
               />
             </div>
           )}

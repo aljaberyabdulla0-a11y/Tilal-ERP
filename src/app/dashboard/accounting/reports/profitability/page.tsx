@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { formatPrice } from "@/lib/types";
 import AccTabs from "../../acc-tabs";
 
@@ -44,7 +44,7 @@ const BUCKET_COLORS: Record<string, string> = {
 // عند المطوّرين** — حساب 1250.
 // ============================================================
 export default async function ProfitabilityPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const supabase = await createClient();
   const [{ data: pData }, { data: aData }] = await Promise.all([

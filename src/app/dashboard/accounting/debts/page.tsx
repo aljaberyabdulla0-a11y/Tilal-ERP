@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { getDebtsState } from "@/lib/money";
 import { formatPrice } from "@/lib/types";
 import AccTabs from "../acc-tabs";
@@ -12,7 +12,7 @@ import DebtActions from "./debt-actions";
 // أرباح الشركة ولا تظهر في «وين تروح فلوسنا».
 // ============================================================
 export default async function DebtsPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const s = await getDebtsState();
 

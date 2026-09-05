@@ -56,6 +56,8 @@ const ar = {
     menu: "القائمة",
     tagline: "نظام إدارة الموارد",
     roleAdmin: "مدير",
+    roleAccountant: "محاسب",
+    roleHr: "موارد بشرية",
     roleSupervisor: "مشرف",
     roleFollowup: "مدير المتابعة",
     roleRm: "مدير علاقات",

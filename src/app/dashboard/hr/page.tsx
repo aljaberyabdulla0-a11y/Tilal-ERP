@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import HrTabs from "./hr-tabs";
 
 // الصفحة الرئيسية للموارد البشرية (للمدير) — غير المدير يُحوّل لبوابة الموظف
 export default async function HrHome() {
-  if (!(await isAdmin())) redirect("/dashboard/me");
+  if (!(await canManageHr())) redirect("/dashboard/me");
 
   const supabase = await createClient();
   const [{ count: empCount }, { count: pendingLeaves }] = await Promise.all([
@@ -35,7 +35,7 @@ export default async function HrHome() {
         <h1 className="text-xl font-bold text-brand-700">HR</h1>
       </header>
 
-      <HrTabs active="admin" isAdmin={true} />
+      <HrTabs active="admin" manager={true} />
 
       <section className="p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

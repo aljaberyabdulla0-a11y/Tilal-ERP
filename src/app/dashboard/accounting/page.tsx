@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { getMoneyOverview, getPartnersState } from "@/lib/money";
 import { ARM_COLORS, formatPrice } from "@/lib/types";
 import AccTabs from "./acc-tabs";
@@ -11,7 +11,7 @@ import AccTabs from "./acc-tabs";
 // وعمولات الموظفين ودفعات الفواتير معاً.
 // ============================================================
 export default async function AccountingHome() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const [o, partners] = await Promise.all([getMoneyOverview(), getPartnersState()]);
 

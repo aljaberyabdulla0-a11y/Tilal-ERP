@@ -1,15 +1,16 @@
 import Link from "next/link";
 
-// شريط تبويبات HR — يظهر تبويب "الإدارة" للمدير فقط، و"بوابة الموظف" للجميع
+// شريط تبويبات HR — تبويب «الإدارة» لمن يديرها (المدير أو الموارد
+// البشرية)، و«بوابة الموظف» للجميع.
 export default function HrTabs({
   active,
-  isAdmin,
+  manager,
 }: {
   active: string;
-  isAdmin: boolean;
+  manager: boolean;
 }) {
   const tabs = [
-    ...(isAdmin
+    ...(manager
       ? [{ key: "admin", label: "إدارة الموارد البشرية", href: "/dashboard/hr" }]
       : []),
     { key: "portal", label: "بوابة الموظف", href: "/dashboard/me" },

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import { getTeamMembers } from "@/lib/projects";
 import { AttendanceRules } from "@/lib/types";
 import AttendanceTabs from "../attendance-tabs";
@@ -16,7 +16,7 @@ import AttendanceRulesPreview from "./preview";
 // عمّا يُكتب.
 // ============================================================
 export default async function AttendanceRulesPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageHr())) redirect("/dashboard");
 
   const supabase = await createClient();
   const [{ data: settings }, members] = await Promise.all([

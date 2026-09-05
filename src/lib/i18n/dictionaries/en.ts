@@ -58,6 +58,8 @@ const en: Dictionary = {
     menu: "Menu",
     tagline: "Resource management system",
     roleAdmin: "Manager",
+    roleAccountant: "Accountant",
+    roleHr: "HR",
     roleSupervisor: "Supervisor",
     roleFollowup: "Follow-up manager",
     roleRm: "Relationship manager",

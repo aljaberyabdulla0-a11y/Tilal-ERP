@@ -23,9 +23,13 @@ import {
 export default function CloseWizard({
   period,
   rows,
+  canBuild,
+  canApprove,
 }: {
   period: string;
   rows: MonthCloseRow[];
+  canBuild: boolean;
+  canApprove: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -94,23 +98,30 @@ export default function CloseWizard({
           عرض
         </Link>
 
-        <button
-          onClick={() => run("build_all_payrolls")}
-          disabled={busy}
-          className="ms-auto flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
-        >
-          <span className="material-symbols-outlined text-[18px]">receipt_long</span>
-          {busy ? "…" : `بناء كشوف ${month}`}
-        </button>
+        {/* الزرّان لصاحبَيهما: يبني قومٌ ويعتمد آخرون (sql/068) */}
+        {canBuild && (
+          <button
+            onClick={() => run("build_all_payrolls")}
+            disabled={busy}
+            className="ms-auto flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+            {busy ? "…" : `بناء كشوف ${month}`}
+          </button>
+        )}
 
-        <button
-          onClick={() => run("approve_all_payrolls")}
-          disabled={busy || drafts === 0}
-          title={drafts === 0 ? "لا مسوّدات لاعتمادها" : undefined}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-40"
-        >
-          اعتماد {drafts > 0 ? `${drafts} مسوّدة` : "الكل"}
-        </button>
+        {canApprove && (
+          <button
+            onClick={() => run("approve_all_payrolls")}
+            disabled={busy || drafts === 0}
+            title={drafts === 0 ? "لا مسوّدات لاعتمادها" : undefined}
+            className={`rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-40 ${
+              canBuild ? "" : "ms-auto"
+            }`}
+          >
+            اعتماد {drafts > 0 ? `${drafts} مسوّدة` : "الكل"}
+          </button>
+        )}
       </div>
 
       {err && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{err}</p>}

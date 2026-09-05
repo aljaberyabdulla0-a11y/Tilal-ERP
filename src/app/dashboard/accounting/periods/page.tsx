@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { AccountingPeriod } from "@/lib/types";
 import AccTabs from "../acc-tabs";
 import PeriodsManager from "./periods-manager";
@@ -14,7 +14,7 @@ import PeriodsManager from "./periods-manager";
 // repost_* تتجاوز RLS ولا تتجاوز المحفّزات.
 // ============================================================
 export default async function AccountingPeriodsPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const supabase = await createClient();
   const { data } = await supabase.rpc("periods_overview", { p_months: 12 });

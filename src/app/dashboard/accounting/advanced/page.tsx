@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { getAccountBalances, computeNetProfit } from "@/lib/accounting";
 import { formatPrice } from "@/lib/types";
 import AccTabs from "../acc-tabs";
@@ -11,7 +11,7 @@ import AccTabs from "../acc-tabs";
 // فلا حاجة لاستخدامه في العمل اليومي.
 // ============================================================
 export default async function AdvancedAccounting() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const balances = await getAccountBalances();
   const netProfit = computeNetProfit(balances);

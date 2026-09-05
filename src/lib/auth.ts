@@ -16,6 +16,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export type UserRole =
   | "admin"
+  | "accountant"
+  | "hr"
   | "supervisor"
   | "followup_manager"
   | "relationship_manager"
@@ -24,6 +26,8 @@ export type UserRole =
 
 const ROLES: UserRole[] = [
   "admin",
+  "accountant",
+  "hr",
   "supervisor",
   "followup_manager",
   "relationship_manager",
@@ -77,6 +81,42 @@ export const isAccountActive = cache(async (): Promise<boolean> => {
 // اختصار: هل المستخدم الحالي مدير؟
 export const isAdmin = cache(async (): Promise<boolean> => {
   return (await getUserRole()) === "admin";
+});
+
+// ============================================================
+// دورا المالية والموارد البشرية — فصل الواجبات (sql/068).
+//
+// الموارد البشرية **تُحضّر** الكشف، والمحاسب **يعتمده** فيدخل
+// الدفاتر. فمن يبني الرقم لا يوقّعه، ومن يوقّعه لا يبنيه.
+//
+// ⚠️ الثلاث تطابق can_manage_finance() و can_manage_hr() و
+//    can_see_payroll() في القاعدة حرفياً. لو تغيّرت هناك فغيّرها
+//    هنا، وإلا ظهر زرٌّ لا يعمل أو اختفى زرٌّ يعمل.
+// ============================================================
+export const isAccountant = cache(async (): Promise<boolean> => {
+  return (await getUserRole()) === "accountant";
+});
+
+export const isHr = cache(async (): Promise<boolean> => {
+  return (await getUserRole()) === "hr";
+});
+
+// من يمسّ دفاتر الشركة: يعتمد، ويقفل الفترة، ويحصّل، ويصرف
+export const canManageFinance = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  return role === "admin" || role === "accountant";
+});
+
+// من يُحضّر ملفّ الموظف: الكشف والدوام والإجازة والسلفة
+export const canManageHr = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  return role === "admin" || role === "hr";
+});
+
+// من يرى أرقام الرواتب — الطرفان معاً
+export const canSeePayroll = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  return role === "admin" || role === "accountant" || role === "hr";
 });
 
 // هل هو مشرف؟ (المدير ليس مشرفاً — له صلاحياته الكاملة أصلاً)

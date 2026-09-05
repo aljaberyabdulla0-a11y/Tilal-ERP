@@ -25,17 +25,24 @@ import {
 //
 // الأزرار تتبع الحالة، والقاعدة تفرض الشيء نفسه بحرّاس (sql/051)
 // — فالإخفاء راحةٌ لا حماية.
+//
+// وصلاحيتان لا واحدة، لأنهما فعلان مختلفان بأيدٍ مختلفة (sql/068):
+//   canEdit — يبني البنود ويحذفها: الموارد البشرية.
+//   canPost — يعتمد ويعيد الفتح ويقفل: المحاسب.
+// والمدير يملك الاثنتين. ومن يبني الرقم لا يوقّعه.
 // ============================================================
 export default function PayrollDetail({
   payroll,
   lines,
   paid,
-  canManage,
+  canEdit,
+  canPost,
 }: {
   payroll: Payroll;
   lines: PayrollLine[];
   paid: number;
-  canManage: boolean;
+  canEdit: boolean;
+  canPost: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -131,7 +138,7 @@ export default function PayrollDetail({
           {minus ? "−" : "+"} {formatPrice(l.amount)}
         </span>
 
-        {draft && canManage && (
+        {draft && canEdit && (
           <button
             onClick={() =>
               call("remove_payroll_line", { p_line: l.id }, "حذف هذا البند؟")
@@ -174,7 +181,7 @@ export default function PayrollDetail({
           </span>
         )}
 
-        {canManage && (
+        {canPost && (
           <div className="ms-auto flex flex-wrap items-center gap-2">
             {draft && (
               <button
@@ -243,7 +250,7 @@ export default function PayrollDetail({
           ) : (
             earnings.map((l) => <Line key={l.id} l={l} />)
           )}
-          {draft && canManage && (
+          {draft && canEdit && (
             <button
               onClick={() => {
                 setAdding("استحقاق");
@@ -267,7 +274,7 @@ export default function PayrollDetail({
           ) : (
             deductions.map((l) => <Line key={l.id} l={l} />)
           )}
-          {draft && canManage && (
+          {draft && canEdit && (
             <button
               onClick={() => {
                 setAdding("استقطاع");

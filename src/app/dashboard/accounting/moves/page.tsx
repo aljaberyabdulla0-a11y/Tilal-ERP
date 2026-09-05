@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { ARMS, ARM_COLORS, CashMove, Partner, formatPrice } from "@/lib/types";
 import AccTabs from "../acc-tabs";
 import DeleteMoveButton from "./delete-move-button";
@@ -12,7 +12,7 @@ export default async function MovesPage({
 }: {
   searchParams: { dir?: string; arm?: string; q?: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const supabase = await createClient();
 

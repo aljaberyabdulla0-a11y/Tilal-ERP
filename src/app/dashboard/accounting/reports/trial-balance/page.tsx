@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { getAccountBalances } from "@/lib/accounting";
 import { formatPrice } from "@/lib/types";
 
 // ميزان المراجعة (Trial Balance) — يجب أن يتساوى مجموع المدين والدائن
 export default async function TrialBalancePage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const balances = await getAccountBalances();
   // نعرض فقط الحسابات ذات الحركة

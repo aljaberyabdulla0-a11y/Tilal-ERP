@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import { Employee, formatPrice } from "@/lib/types";
 
 // قائمة الموظفين (للمدير)
 export default async function EmployeesPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageHr())) redirect("/dashboard");
 
   const supabase = await createClient();
   const { data, error } = await supabase

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import { CompanySettings, Employee } from "@/lib/types";
 import { getProjects } from "@/lib/projects";
 import EmployeeForm from "../../employee-form";
@@ -11,7 +11,7 @@ export default async function EditEmployeePage({
 }: {
   params: { id: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageHr())) redirect("/dashboard");
 
   const supabase = await createClient();
   const [{ data: employee }, { data: profiles }, { data: employees }, { data: cfg }] =

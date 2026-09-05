@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import { CompanySettings } from "@/lib/types";
 import { getProjects } from "@/lib/projects";
 import EmployeeForm from "../employee-form";
@@ -20,7 +20,7 @@ async function getAvailableAccounts() {
 }
 
 export default async function NewEmployeePage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageHr())) redirect("/dashboard");
   const supabase = await createClient();
   const [accounts, { data: cfg }] = await Promise.all([
     getAvailableAccounts(),

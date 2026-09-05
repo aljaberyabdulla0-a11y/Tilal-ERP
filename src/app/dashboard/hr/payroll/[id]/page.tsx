@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance, canManageHr } from "@/lib/auth";
 import {
   Employee,
   Payroll,
@@ -27,7 +27,10 @@ export default async function PayrollPage({
 }: {
   params: { id: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  // يفتحها الطرفان: من يبني الكشف ومن يعتمده. والأزرار تنقسم
+  // بينهما داخل PayrollDetail، والقاعدة تفرض القسمة (sql/068).
+  const [hrCan, finCan] = await Promise.all([canManageHr(), canManageFinance()]);
+  if (!hrCan && !finCan) redirect("/dashboard");
 
   const supabase = await createClient();
 
@@ -82,7 +85,8 @@ export default async function PayrollPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {p.employees?.id && (
+          {/* ملفّ الموظف لمن يفتحه: المحاسب لا يدخل ملفّات الأفراد */}
+          {hrCan && p.employees?.id && (
             <Link
               href={`/dashboard/hr/employees/${p.employees.id}`}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
@@ -90,7 +94,7 @@ export default async function PayrollPage({
               ملفّ الموظف
             </Link>
           )}
-          {p.state !== "مسودة" && st.remaining > 0 && (
+          {finCan && p.state !== "مسودة" && st.remaining > 0 && (
             <PayPayroll
               payrollId={p.id}
               employeeName={name}
@@ -122,7 +126,7 @@ export default async function PayrollPage({
           </div>
         )}
 
-        <PayrollDetail payroll={p} lines={lines} paid={paid} canManage />
+        <PayrollDetail payroll={p} lines={lines} paid={paid} canEdit={hrCan} canPost={finCan} />
 
         {/* الدفعات */}
         <div className="rounded-2xl border bg-white p-5 shadow-sm">

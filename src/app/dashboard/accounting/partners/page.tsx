@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAdmin } from "@/lib/auth";
+import { canManageFinance } from "@/lib/auth";
 import { getPartnersState } from "@/lib/money";
 import { formatPrice } from "@/lib/types";
 import AccTabs from "../acc-tabs";
@@ -12,7 +12,7 @@ import DeleteRowButton from "./delete-row-button";
 // كل الأرقام تُشتق من الحركات المالية المسجّلة، فلا إدخال مزدوج.
 // ============================================================
 export default async function PartnersPage() {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageFinance())) redirect("/dashboard");
 
   const { partners, moves, settlements, positions, pool, creditor, debtor, settleAmount } =
     await getPartnersState();

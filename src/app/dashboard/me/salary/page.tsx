@@ -117,7 +117,8 @@ export default async function MySalaryPage() {
               payroll={latest}
               lines={latestLines}
               paid={paidOf(latest.id)}
-              canManage={false}
+              canEdit={false}
+              canPost={false}
             />
           </div>
         )}
@@ -170,7 +171,7 @@ export default async function MySalaryPage() {
         </div>
 
         {/* سلفي — قبل العمولات لأن الموظف يسأل عن ذمّته أولاً */}
-        <AdvancesPanel employeeId={emp.id} advances={advances} isAdmin={false} />
+        <AdvancesPanel employeeId={emp.id} advances={advances} manager={false} />
 
         {/* العمولات */}
         <div className={card}>

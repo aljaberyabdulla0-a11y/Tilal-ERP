@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canManageHr } from "@/lib/auth";
 import {
   Attendance,
   CompanySettings,
@@ -35,7 +35,7 @@ export default async function AttendanceTodayPage({
 }: {
   searchParams: { date?: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard");
+  if (!(await canManageHr())) redirect("/dashboard");
 
   const supabase = await createClient();
   const today = todayISO();

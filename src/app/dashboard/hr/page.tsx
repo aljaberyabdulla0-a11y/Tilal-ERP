@@ -20,6 +20,7 @@ export default async function HrHome() {
   const sections = [
     { href: "/dashboard/hr/employees", title: "الموظفون", desc: "بيانات الموظفين والرواتب", icon: "🧑‍💼" },
     { href: "/dashboard/attendance", title: "الدوام", desc: "بصمات اليوم وساعات العمل والتقرير الشهري", icon: "⏱️" },
+    { href: "/dashboard/hr/month-close", title: "إغلاق الشهر", desc: "ابنِ كشوف الجميع، راجع الشاذّ، ثم اعتمد دفعة واحدة", icon: "📆" },
     { href: "/dashboard/attendance/rules", title: "قواعد خصم الدوام", desc: "معاملات الغياب والتأخير، ومعاينة ما سيُخصم قبل أن يُخصم", icon: "⚖️" },
     { href: "/dashboard/hr/leaves", title: "الإجازات", desc: "طلبات الإجازات والموافقات", icon: "🏖️" },
     { href: "/dashboard/hr/payroll", title: "كشوف الرواتب", desc: "توليد ومتابعة الرواتب", icon: "💵" },

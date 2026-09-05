@@ -2383,3 +2383,46 @@ export function ruleLabel(r: EmployeeCommissionRule): string {
       : "";
   return `${r.kind} ${v}${area}`;
 }
+
+// ============================================================
+// معالج إغلاق الشهر (sql/067).
+//
+// ⚠️ الشاذّ يُؤشَّر في القاعدة لا في الشاشة — month_close_overview
+// هي التي تقرّر ما يستحقّ نظرة، فيبقى المعيار واحداً أينما عُرض.
+// ============================================================
+export type MonthCloseRow = {
+  employee_id: string;
+  full_name: string;
+  payroll_id: string | null;
+  state: string;
+  basic: number;
+  commissions: number;
+  deductions: number;
+  net: number;
+  lines: number;
+  absent_days: number;
+  open_attendance: string | null;
+  flags: string[];
+};
+
+export type EmployeeTarget = {
+  id: string;
+  employee_id: string;
+  period: string;
+  target_deals: number | null;
+  target_amount: number | null;
+  note: string | null;
+};
+
+export type BankStatementLine = {
+  id: string;
+  stmt_date: string;
+  description: string | null;
+  reference: string | null;
+  amount: number;
+  direction: "وارد" | "صادر";
+  matched_type: "cash_moves" | "payroll_payments" | "يدوي" | null;
+  matched_id: string | null;
+  matched_at: string | null;
+  note: string | null;
+};

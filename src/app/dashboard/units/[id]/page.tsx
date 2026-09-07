@@ -226,6 +226,7 @@ export default async function UnitDetailsPage({
           <DealCommission
             reservation={sold}
             saleCommission={saleCommission}
+            unitPrice={unit.price}
             canManage={canEdit}
             isAdmin={admin}
           />

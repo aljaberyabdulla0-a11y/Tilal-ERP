@@ -20,15 +20,21 @@ import { Reservation, SaleCommission, formatPrice } from "@/lib/types";
 //
 // كلتاهما بدالّة في القاعدة تفحص الصلاحية وتكتب القيد — لا حساب
 // هنا ولا كتابة في الدفاتر من المتصفّح.
+//
+// ⚠️ وسعر البيع يُدخَل في الخطوة الأولى لا قبلها (sql/069): تلال
+//    وسيطٌ لا بائع، فسعر الوحدة لا يُعرف حتى تُبرَم الصفقة. والرقم
+//    المُدخَل هنا هو أساس العمولة كلّها، ويتجمّد بالتأكيد.
 // ============================================================
 export default function DealCommission({
   reservation,
   saleCommission,
+  unitPrice,
   canManage,
   isAdmin,
 }: {
   reservation: Reservation;
   saleCommission: SaleCommission | null;
+  unitPrice: number | null; // سعر القائمة إن وُجد — يُقترح ولا يُفرض
   canManage: boolean;   // المدير أو مشرف المشروع — يؤكّد المقدمة
   isAdmin: boolean;     // المدير وحده — يسجّل التحصيل
 }) {
@@ -39,6 +45,7 @@ export default function DealCommission({
   const [err, setErr] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [amount, setAmount] = useState("");
+  const [price, setPrice] = useState("");
 
   const r = reservation;
   const sc = saleCommission;
@@ -48,10 +55,19 @@ export default function DealCommission({
   // الصفقة غير المكتملة لا مقدمة لها بعد
   if (r.status !== "بيع مكتمل") return null;
 
+  // السعر يُطلب ما دامت العمولة لم تُحسب بعد. فإن كانت محسوبة
+  // (وحدةٌ كان لها سعرٌ يوم البيع) فالأساس مجمَّد ولا يُعاد.
+  const needsPrice = !sc;
+
   async function confirmDownPayment() {
     const n = Number(amount);
     if (!n || n <= 0) {
       setErr("اكتب مبلغ المقدمة.");
+      return;
+    }
+    const p = Number(price);
+    if (needsPrice && (!p || p <= 0)) {
+      setErr("اكتب سعر بيع الوحدة — منه تُحسب العمولة.");
       return;
     }
     setBusy(true);
@@ -59,6 +75,7 @@ export default function DealCommission({
     const { error } = await supabase.rpc("confirm_down_payment", {
       p_res: r.id,
       p_amount: n,
+      p_sale_price: needsPrice ? p : null,
     });
     setBusy(false);
     if (error) {
@@ -67,6 +84,7 @@ export default function DealCommission({
     }
     setAsking(false);
     setAmount("");
+    setPrice("");
     router.refresh();
   }
 
@@ -136,10 +154,11 @@ export default function DealCommission({
         دفاترنا هو <b>عمولتنا</b> — وتُستحقّ عند تأكيد المقدمة.
       </p>
 
-      {!sc && (
-        <p className="mb-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-          لا سجلّ عمولة لهذه الصفقة — تحقّق من أن للمشروع نسبة عمولة محدَّدة،
-          ومن أن للوحدة سعراً.
+      {!sc && !confirmed && (
+        <p className="mb-4 rounded-lg bg-blue-50 p-3 text-xs leading-relaxed text-blue-900">
+          العمولة تُحسب عند تأكيد المقدمة من <b>سعر البيع</b> الذي تُدخله
+          أدناه — لا قبله. وبعد التأكيد يتجمّد السعر، والتصحيح عندها بفسخ
+          الصفقة ثم إعادتها.
         </p>
       )}
 
@@ -165,6 +184,12 @@ export default function DealCommission({
               <span className="text-xs text-gray-400" dir="ltr">
                 {r.down_payment_confirmed_at?.slice(0, 10)}
               </span>
+              {r.sale_price !== null && (
+                <p className="mt-1 text-xs text-gray-500">
+                  سعر البيع <b dir="ltr">{formatPrice(r.sale_price)}</b>{" "}
+                  <span className="text-gray-400">(مجمَّد)</span>
+                </p>
+              )}
               {sc && (
                 <p className="mt-1 text-xs text-gray-500">
                   استُحقّت عمولة الشركة{" "}
@@ -182,17 +207,50 @@ export default function DealCommission({
             </>
           ) : canManage ? (
             asking ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  type="number"
-                  min={0}
-                  dir="ltr"
-                  autoFocus
-                  placeholder="مبلغ المقدمة"
-                  className={input + " w-40 text-start"}
-                />
+              <div className="flex flex-wrap items-end gap-2">
+                {needsPrice && (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-gray-600">
+                      سعر بيع الوحدة
+                    </span>
+                    <input
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      type="number"
+                      min={0}
+                      dir="ltr"
+                      autoFocus
+                      placeholder="سعر البيع"
+                      className={input + " w-44 text-start"}
+                    />
+                    {unitPrice !== null && (
+                      <button
+                        type="button"
+                        onClick={() => setPrice(String(unitPrice))}
+                        className="mt-1 block text-[11px] text-brand-600 hover:underline"
+                      >
+                        سعر القائمة {formatPrice(unitPrice)} — اضغط لاستعماله
+                      </button>
+                    )}
+                  </label>
+                )}
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">
+                    مبلغ المقدمة المدفوع
+                  </span>
+                  <input
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    type="number"
+                    min={0}
+                    dir="ltr"
+                    autoFocus={!needsPrice}
+                    placeholder="مبلغ المقدمة"
+                    className={input + " w-40 text-start"}
+                  />
+                </label>
+
                 <button
                   onClick={confirmDownPayment}
                   disabled={busy}

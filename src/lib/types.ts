@@ -338,6 +338,10 @@ export type Reservation = {
   down_payment_amount: number | null;
   down_payment_confirmed_at: string | null;
   down_payment_confirmed_by: string | null;
+  // ===== سعر بيع هذه الصفقة (sql/069) =====
+  // ⚠️ أساس العمولة، يُدخل يدوياً عند تأكيد المقدمة ويتجمّد بها.
+  // قد يخالف units.price لأن ما بِيعت به الوحدة غير سعر القائمة.
+  sale_price: number | null;
   commission_accrual_entry_id: string | null; // مدين 1250 / دائن 4200
   commission_collect_entry_id: string | null; // مدين 1100 / دائن 1250
   // بيانات مرتبطة (تأتي من الربط مع الجداول الأخرى)

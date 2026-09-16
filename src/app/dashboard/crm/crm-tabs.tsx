@@ -12,9 +12,18 @@ export default async function CrmTabs({ active }: { active: string }) {
   const admin = role === "admin";
   const followup = role === "followup_manager";
 
+  // «يومي» أولاً عمداً: الموظف يفتح الـCRM ليعمل لا ليتصفّح قوائم.
+  // و«التوزيع» لمن يملك النقل في القاعدة (sql/073) — الإدارة ومدير
+  // المتابعة والمشرف. لا نعرض تبويباً يفتح شاشة بلا صلاحية.
+  const canDistribute = admin || followup || role === "supervisor";
+
   const tabs = [
+    { key: "today", label: "يومي", href: "/dashboard/crm/today" },
     { key: "clients", label: "العملاء", href: "/dashboard/clients" },
     { key: "activities", label: "سجلّ التواصل", href: "/dashboard/clients/activities" },
+    ...(canDistribute
+      ? [{ key: "distribution", label: "التوزيع", href: "/dashboard/crm/distribution" }]
+      : []),
     ...(admin
       ? [{ key: "reports", label: "التقارير", href: "/dashboard/crm/reports" }]
       : []),

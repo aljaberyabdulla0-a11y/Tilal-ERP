@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin, getCurrentUser, canWriteCrm } from "@/lib/auth";
+import { isAdmin, getCurrentUser, canWriteCrm, getUserRole } from "@/lib/auth";
 import {
   Client,
   PAYMENT_METHOD_COLORS,
@@ -11,8 +11,9 @@ import DeleteClientButton from "./delete-client-button";
 import CrmTabs from "../crm/crm-tabs";
 import StageSelect from "@/components/stage-select";
 import { getPipelineConfig } from "@/lib/crm-config";
-import { TEMPERATURE_STYLE, getSavedViews } from "@/lib/crm";
+import { TEMPERATURE_STYLE, getSavedViews, getEmployeesLite } from "@/lib/crm";
 import SavedViews from "@/components/saved-views";
+import ClientsTable from "./clients-table";
 
 // المُرشِّحات التي تصل من روابط «نظرة» و«الجودة» (§45): الرقم يُنقر
 // فيفتح قائمته. كلها في العنوان فالرابط قابل للمشاركة.
@@ -68,12 +69,17 @@ export default async function ClientsPage({
   // هل المستخدم الحالي مدير؟ (لإظهار أزرار التعديل والحذف)
   // ⚠️ canWrite ليس حماية — الحماية في RLS. لكن RLS تمنع صمتاً
   //    (صفر صفوف بلا خطأ)، فزرٌّ ظاهر لمن لا يملك يقول «حُفظ» كاذباً.
-  const [admin, user, views, canWrite] = await Promise.all([
+  const [admin, user, views, canWrite, role, employees] = await Promise.all([
     isAdmin(),
     getCurrentUser(),
     getSavedViews("clients"),
     canWriteCrm(),
+    getUserRole(),
+    getEmployeesLite(),
   ]);
+  // الإسناد فعلٌ محروس في القاعدة (assign_client): المدير ومدير
+  // المتابعة والمشرف في نطاقه. غيرهم يرى بقيّة الإجراءات بلا هذا.
+  const canAssign = role === "admin" || role === "followup_manager" || role === "supervisor";
   // المُرشِّحات الفعّالة كما هي في العنوان — هي ما يُحفظ باسم
   const currentFilters: Record<string, string> = {};
   if (q) currentFilters.q = q;
@@ -211,107 +217,18 @@ export default async function ClientsPage({
           </div>
         )}
 
-        {/* الجدول */}
+        {/* الجدول — مكوّن عميل لأجل الاختيار الجماعي (§47) */}
         {!error && clients.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full min-w-[1040px] text-start text-sm">
-              <thead className="border-b bg-gray-50 text-gray-600">
-                <tr>
-                  <th className="px-4 py-3 font-medium">الاسم</th>
-                  <th className="px-4 py-3 font-medium">الحالة</th>
-                  <th className="px-4 py-3 font-medium">الهاتف</th>
-                  <th className="px-4 py-3 font-medium">المحافظة</th>
-                  <th className="px-4 py-3 font-medium">المنطقة</th>
-                  <th className="px-4 py-3 font-medium">الغرض</th>
-                  <th className="px-4 py-3 font-medium">طريقة الدفع</th>
-                  <th className="px-4 py-3 font-medium">المصدر</th>
-                  <th className="px-4 py-3 font-medium">موظف المبيعات</th>
-                  <th className="px-4 py-3 font-medium">آخر تواصل</th>
-                  <th className="px-4 py-3 font-medium">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clients.map((c) => (
-                  <tr key={c.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">
-                      <Link
-                        href={`/dashboard/clients/${c.id}`}
-                        className="text-brand-700 hover:underline"
-                      >
-                        {c.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      {canWrite ? (
-                        <StageSelect clientId={c.id} stage={c.stage} stages={cfg.stages} />
-                      ) : (
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${cfg.colors[c.stage ?? "ليد"] ?? "bg-gray-100 text-gray-700"}`}>
-                          {c.stage ?? "ليد"}
-                        </span>
-                      )}
-                      {c.lead_temperature && (
-                        <span className={`ms-1 rounded px-1.5 py-0.5 text-[11px] ${TEMPERATURE_STYLE[c.lead_temperature] ?? ""}`}>
-                          {c.lead_temperature}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600" dir="ltr">
-                      {c.phone || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{c.governorate || "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.area || "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.purchase_purpose || "—"}</td>
-                    <td className="px-4 py-3">
-                      {c.payment_method ? (
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            PAYMENT_METHOD_COLORS[c.payment_method] ??
-                            "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {c.payment_method}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{c.source || "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{c.sales_employee || "—"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`font-medium ${sinceColor(c.last_contact_at, cfg.silence)}`}>
-                        {sinceLabel(c.last_contact_at)}
-                      </span>
-                      {(c.contact_count ?? 0) > 0 && (
-                        <span className="block text-xs text-gray-400">
-                          {c.contact_count} تواصل
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <Link
-                        href={`/dashboard/clients/${c.id}`}
-                        className="me-3 text-sm text-brand-700 hover:underline"
-                      >
-                        عرض
-                      </Link>
-                      {/* التعديل والحذف للمدراء فقط */}
-                      {admin && (
-                        <>
-                          <Link
-                            href={`/dashboard/clients/${c.id}/edit`}
-                            className="me-3 text-sm text-brand-700 hover:underline"
-                          >
-                            تعديل
-                          </Link>
-                          <DeleteClientButton id={c.id} name={c.name} />
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ClientsTable
+            clients={clients}
+            admin={admin}
+            canWrite={canWrite}
+            canAssign={canAssign}
+            stages={cfg.stages}
+            colors={cfg.colors}
+            silence={cfg.silence}
+            employees={employees}
+          />
         )}
 
         {/* عدّاد */}

@@ -1,6 +1,16 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
+// ⚠️ ثوابت العرض في ملف مستقل (crm-style) بلا استيراد من الخادم:
+//    مكوّن عميل يستورد قيمةً من هنا يسحب next/headers معها فيفشل
+//    البناء. يُعاد تصديرها للخادم كي لا تتغيّر استيرادات الصفحات.
+export {
+  TEMPERATURE_STYLE,
+  SEVERITY_STYLE,
+  scoreStyle,
+  fmt,
+} from "@/lib/crm-style";
+
 // ============================================================
 // طبقة الوصول إلى دوال الـCRM في القاعدة (sql/070–080).
 //
@@ -300,32 +310,6 @@ export async function getLeadScores(clientIds: string[]): Promise<Map<string, Le
   return out;
 }
 
-// ============================================================
-// العرض — ألوان ثابتة للمعاني الثابتة.
-//
-// درجة الحرارة أربع قيم تأتي من القاعدة (074). لا نحسبها هنا
-// ولا نعيد تصنيفها — نلوّنها فقط.
-// ============================================================
-export const TEMPERATURE_STYLE: Record<string, string> = {
-  "ساخن": "bg-red-100 text-red-700",
-  "دافئ": "bg-amber-100 text-amber-700",
-  "بارد": "bg-blue-100 text-blue-700",
-  "خامل": "bg-gray-100 text-gray-500",
-};
-
-export const SEVERITY_STYLE: Record<string, string> = {
-  "عالٍ": "border-red-300 bg-red-50 text-red-900",
-  "متوسط": "border-amber-300 bg-amber-50 text-amber-900",
-  "منخفض": "border-gray-300 bg-gray-50 text-gray-700",
-};
-
-// درجة الليد: لونها يتبع عتبات القاعدة نفسها (٧٠ و٤٠ في 074)
-export function scoreStyle(score: number | null | undefined): string {
-  const s = score ?? 0;
-  if (s >= 70) return "bg-brand-100 text-brand-700";
-  if (s >= 40) return "bg-amber-100 text-amber-700";
-  return "bg-gray-100 text-gray-500";
-}
 
 // ============================================================
 // ما يلي أُضيف مع الشاشات السبع الباقية.
@@ -525,10 +509,6 @@ export const getLeadScore = cache(async (clientId: string): Promise<LeadScore | 
   return m.get(clientId) ?? null;
 });
 
-export function fmt(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
-  return Number(n).toLocaleString("en-US");
-}
 
 // ============================================================
 // ملف العميل ٣٦٠ — ما يقرأه رأس الملف وتبويباته (072 · 074 · 071).
@@ -747,3 +727,6 @@ export type Campaign = {
 export const getCampaigns = cache(async () =>
   table<Campaign>("crm_campaigns", (q) => q.select("*").order("start_date", { ascending: false, nullsFirst: false }).order("name"))
 );
+
+// ===== الإجراءات الجماعية (085) =====
+export type BulkResult = { succeeded: number; failed: number; first_error: string | null };

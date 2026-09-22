@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getPipelineConfig } from "@/lib/crm-config";
 import { createClient } from "@/lib/supabase/server";
 import {
   bucketLeads,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/brokers";
 import {
   Client,
-  PIPELINE_STAGE_COLORS,
   formatPrice,
   leadDaysLeft,
   leadDeadlineColor,
@@ -24,6 +24,8 @@ import {
 // فالمهل المتبقية هي أول ما يُعرض، ثم المال.
 // ============================================================
 export default async function BrokerDashboard() {
+  // المراحل وعتبات الصمت من القاعدة (sql/070) — أو ثوابت types.ts قبلها
+  const crmCfg = await getPipelineConfig();
   const supabase = await createClient();
 
   const [company, { data: leadRows }, commissions, payments] = await Promise.all([
@@ -163,7 +165,7 @@ export default async function BrokerDashboard() {
                     <div className="flex items-center gap-2">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          PIPELINE_STAGE_COLORS[l.stage ?? "ليد"] ??
+                          crmCfg.colors[l.stage ?? "ليد"] ??
                           "bg-gray-100 text-gray-600"
                         }`}
                       >

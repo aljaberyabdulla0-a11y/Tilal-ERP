@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getPipelineConfig } from "@/lib/crm-config";
 import {
   bucketLeads,
   companyMoney,
@@ -10,7 +11,6 @@ import {
   paidByCommission,
 } from "@/lib/brokers";
 import {
-  PIPELINE_STAGE_COLORS,
   formatPrice,
   leadDaysLeft,
   leadDeadlineColor,
@@ -28,6 +28,8 @@ import TodayTasks from "@/components/today-tasks";
 // شركةٍ تحت مظلته، ثم شركة صامتة لا تتواصل مع ليداتها.
 // ============================================================
 export default async function RmDashboard() {
+  // المراحل وعتبات الصمت من القاعدة (sql/070) — أو ثوابت types.ts قبلها
+  const crmCfg = await getPipelineConfig();
   const [companies, links, leads, commissions, payments] = await Promise.all([
     getBrokerCompanies(),
     getBrokerProjects(),
@@ -210,14 +212,14 @@ export default async function RmDashboard() {
                       <span className="ms-2 text-xs text-gray-500">
                         {l.broker_companies?.name ?? ""}
                       </span>
-                      <span className={`ms-2 text-xs font-medium ${sinceColor(l.last_contact_at)}`}>
+                      <span className={`ms-2 text-xs font-medium ${sinceColor(l.last_contact_at, crmCfg.silence)}`}>
                         {sinceLabel(l.last_contact_at)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          PIPELINE_STAGE_COLORS[l.stage ?? "ليد"] ??
+                          crmCfg.colors[l.stage ?? "ليد"] ??
                           "bg-gray-100 text-gray-600"
                         }`}
                       >

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getPipelineConfig } from "@/lib/crm-config";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeBrokers, isAdmin } from "@/lib/auth";
@@ -17,7 +18,6 @@ import {
   BrokerCompanyProject,
   BrokerUser,
   COMMISSION_STATUS_COLORS,
-  PIPELINE_STAGE_COLORS,
   formatPrice,
   leadDaysLeft,
   leadDeadlineColor,
@@ -36,6 +36,8 @@ export default async function BrokerCompanyPage({
 }: {
   params: { id: string };
 }) {
+  // المراحل وعتبات الصمت من القاعدة (sql/070) — أو ثوابت types.ts قبلها
+  const crmCfg = await getPipelineConfig();
   if (!(await canSeeBrokers())) redirect("/dashboard");
 
   const supabase = await createClient();
@@ -235,7 +237,7 @@ export default async function BrokerCompanyPage({
                         <td className="px-4 py-3">
                           <span
                             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              PIPELINE_STAGE_COLORS[l.stage ?? "ليد"] ??
+                              crmCfg.colors[l.stage ?? "ليد"] ??
                               "bg-gray-100 text-gray-600"
                             }`}
                           >

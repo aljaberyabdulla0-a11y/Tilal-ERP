@@ -1,11 +1,11 @@
 import Link from "next/link";
+import { getPipelineConfig } from "@/lib/crm-config";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isBroker } from "@/lib/auth";
 import { bucketLeads } from "@/lib/brokers";
 import {
   Client,
-  PIPELINE_STAGE_COLORS,
   leadDaysLeft,
   leadDeadlineColor,
   leadDeadlineLabel,
@@ -24,6 +24,8 @@ import {
 // وحدها (sql/043).
 // ============================================================
 export default async function BrokerLeadsPage() {
+  // المراحل وعتبات الصمت من القاعدة (sql/070) — أو ثوابت types.ts قبلها
+  const crmCfg = await getPipelineConfig();
   if (!(await isBroker())) redirect("/dashboard");
 
   const supabase = await createClient();
@@ -135,7 +137,7 @@ export default async function BrokerLeadsPage() {
                       <td className="px-4 py-3">
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            PIPELINE_STAGE_COLORS[l.stage ?? "ليد"] ??
+                            crmCfg.colors[l.stage ?? "ليد"] ??
                             "bg-gray-100 text-gray-600"
                           }`}
                         >
@@ -155,7 +157,7 @@ export default async function BrokerLeadsPage() {
                           </span>
                         )}
                       </td>
-                      <td className={`px-4 py-3 text-xs font-medium ${sinceColor(l.last_contact_at)}`}>
+                      <td className={`px-4 py-3 text-xs font-medium ${sinceColor(l.last_contact_at, crmCfg.silence)}`}>
                         {sinceLabel(l.last_contact_at)}
                       </td>
                       <td className="px-4 py-3">

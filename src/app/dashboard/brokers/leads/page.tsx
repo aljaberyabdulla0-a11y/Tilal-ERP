@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getPipelineConfig } from "@/lib/crm-config";
 import { redirect } from "next/navigation";
 import { canSeeBrokers, isAdmin } from "@/lib/auth";
 import {
@@ -9,7 +10,6 @@ import {
 } from "@/lib/brokers";
 import {
   Client,
-  PIPELINE_STAGE_COLORS,
   leadDaysLeft,
   leadDeadlineColor,
   leadDeadlineLabel,
@@ -28,6 +28,8 @@ import RunScan from "./run-scan";
 //   4) بقية الليدات
 // ============================================================
 export default async function BrokerLeadsPage() {
+  // المراحل وعتبات الصمت من القاعدة (sql/070) — أو ثوابت types.ts قبلها
+  const crmCfg = await getPipelineConfig();
   if (!(await canSeeBrokers())) redirect("/dashboard");
 
   const [leads, returned, companies, admin] = await Promise.all([
@@ -98,7 +100,7 @@ export default async function BrokerLeadsPage() {
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        PIPELINE_STAGE_COLORS[l.stage ?? "ليد"] ??
+                        crmCfg.colors[l.stage ?? "ليد"] ??
                         "bg-gray-100 text-gray-600"
                       }`}
                     >

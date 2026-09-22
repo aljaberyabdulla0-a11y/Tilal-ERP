@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getPipelineConfig } from "@/lib/crm-config";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canSeeTeam, getCurrentUser } from "@/lib/auth";
@@ -8,7 +9,6 @@ import {
   Client,
   CompanySettings,
   Leave,
-  PIPELINE_STAGE_COLORS,
   formatTime,
   nameKey,
   sinceColor,
@@ -30,6 +30,8 @@ import LeaveDecision from "../hr/leave-decision";
 // عندنا مصدرا حقيقة، وأحدهما سينسى يوماً.
 // ============================================================
 export default async function TeamPage() {
+  // المراحل وعتبات الصمت من القاعدة (sql/070) — أو ثوابت types.ts قبلها
+  const crmCfg = await getPipelineConfig();
   if (!(await canSeeTeam())) redirect("/dashboard");
 
   const supabase = await createClient();
@@ -241,7 +243,7 @@ export default async function TeamPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        <span className={sinceColor(lastContact ?? null)}>
+                        <span className={sinceColor(lastContact ?? null, crmCfg.silence)}>
                           {sinceLabel(lastContact ?? null)}
                         </span>
                       </td>
@@ -273,7 +275,7 @@ export default async function TeamPage() {
                     <b className="text-gray-800">{c.name}</b>
                     <span
                       className={`ms-2 rounded-full px-2 py-0.5 text-xs ${
-                        PIPELINE_STAGE_COLORS[c.stage ?? "ليد"] ??
+                        crmCfg.colors[c.stage ?? "ليد"] ??
                         "bg-gray-100 text-gray-600"
                       }`}
                     >

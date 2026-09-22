@@ -282,3 +282,22 @@ begin
     raise warning 'اختبارات فاشلة — لا تنشر قبل معالجتها.';
   end if;
 end $$;
+
+-- ------------------------------------------------------------
+-- ⚠️ pgTAP يمنع plan() مرتين في الجلسة الواحدة، والمُشغِّلان قد
+--    يُستدعيان معاً. تُنظَّف حالة العدّاد قبل كل مُشغِّل.
+-- ------------------------------------------------------------
+create or replace function tests.reset_plan()
+returns void language plpgsql as $$
+begin
+  begin
+    delete from __tcache__;
+  exception when others then null;
+  end;
+  begin
+    perform setval('__tresults___numb_seq', 1, false);
+  exception when others then null;
+  end;
+end $$;
+
+revoke all on function tests.reset_plan() from public;

@@ -32,6 +32,23 @@ export type Client = {
   broker_deadline?: string | null;  // آخر يوم قبل العودة لتلال
   returned_at?: string | null;      // متى عاد لتلال
   returned_from?: string | null;    // من أي شركة عاد
+  // الملكية بالمفتاح (sql/071) — sales_employee مرآتها النصّية للتوافق
+  owner_id?: string | null;
+  owner_assigned_at?: string | null;
+  // التأهيل (sql/074) — كلها اختيارية؛ الدرجة والحرارة مرآتان للمحسوب
+  budget_min?: number | null;
+  budget_max?: number | null;
+  purchase_timeline?: string | null;
+  is_decision_maker?: boolean | null;
+  financing_required?: boolean | null;
+  urgency?: string | null;
+  preferred_project_id?: string | null;
+  preferred_area?: string | null;
+  preferred_unit_type?: string | null;
+  lead_score?: number | null;
+  lead_temperature?: string | null;
+  // الحذف الناعم (sql/077)
+  deleted_at?: string | null;
   // مرتبط
   broker_companies?: { name: string } | null;
   projects?: { name: string } | null;
@@ -146,12 +163,21 @@ export function sinceLabel(ts: string | null | undefined): string {
   return months === 1 ? "قبل شهر" : `قبل ${months} أشهر`;
 }
 
+// عتبات الصمت بالأيام: أخضر حتى green، كهرماني حتى amber، وبعده أحمر.
+// القيمتان ٧ و٢١ هما الافتراض القديم؛ والمصدر الحيّ crm_settings
+// (sql/070) تقرأه الصفحات عبر getPipelineConfig() وتمرّره هنا.
+export type SilenceThresholds = { green: number; amber: number };
+export const DEFAULT_SILENCE: SilenceThresholds = { green: 7, amber: 21 };
+
 // لون تحذيري كلّما طال انقطاع التواصل
-export function sinceColor(ts: string | null | undefined): string {
+export function sinceColor(
+  ts: string | null | undefined,
+  t: SilenceThresholds = DEFAULT_SILENCE
+): string {
   if (!ts) return "text-red-600";
   const days = Math.floor((Date.now() - new Date(ts).getTime()) / 86400000);
-  if (days <= 7) return "text-green-700";
-  if (days <= 21) return "text-amber-600";
+  if (days <= t.green) return "text-green-700";
+  if (days <= t.amber) return "text-amber-600";
   return "text-red-600";
 }
 
@@ -1080,6 +1106,28 @@ export type AppNotification = {
   entity_id: string | null;
   is_read: boolean;
   created_at: string;
+  // مركز الإشعارات (sql/075): الأولوية تُرتِّب، والتصنيف يُرشِّح.
+  // اختيارية — الإشعارات الأقدم بلا قيم.
+  priority?: string | null;      // حرجة | عالية | عادية | منخفضة
+  category?: string | null;      // sla | توزيع | مهمة | …
+  entity_type?: string | null;
+  read_at?: string | null;
+};
+
+export const NOTIFICATION_PRIORITY_ORDER: Record<string, number> = {
+  "حرجة": 0, "عالية": 1, "عادية": 2, "منخفضة": 3,
+};
+export const NOTIFICATION_PRIORITY_STYLE: Record<string, string> = {
+  "حرجة": "bg-red-100 text-red-700",
+  "عالية": "bg-amber-100 text-amber-700",
+  "منخفضة": "bg-gray-100 text-gray-500",
+};
+export const NOTIFICATION_CATEGORY_LABELS: Record<string, string> = {
+  sla: "مستوى الخدمة",
+  "توزيع": "التوزيع",
+  "مهمة": "المهامّ",
+  "متابعة": "المتابعات",
+  "حجز": "الحجوزات",
 };
 
 // أيقونة Material Symbols حسب نوع الإشعار

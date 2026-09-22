@@ -60,6 +60,20 @@ export default async function SettingsPage() {
         {/* مواقع العمل والبصمة */}
         <WorkLocations locations={locations} settings={settings} />
 
+        {/* قواعد الـCRM لها صفحتها: مراحل ومصادر وأسباب وعتبات (sql/070) */}
+        <Link
+          href="/dashboard/settings/crm"
+          className="flex items-center justify-between rounded-xl border bg-white p-5 shadow-sm transition hover:border-brand-300"
+        >
+          <div>
+            <h2 className="text-lg font-bold text-gray-800">إعدادات الـCRM</h2>
+            <p className="text-sm text-gray-500">
+              مراحل خطّ المبيعات واحتمالاتها، ومصادر العملاء، وأسباب الخسارة، وقواعد التقييم، وعتبات الصمت والإهمال والتصعيد.
+            </p>
+          </div>
+          <span className="material-symbols-outlined text-gray-400">chevron_left</span>
+        </Link>
+
         <h2 className="text-lg font-bold text-gray-800">المستخدمون والصلاحيات</h2>
         <p className="-mt-4 mb-4 text-sm text-gray-500">
           هنا تتحكّم بأدوار المستخدمين. <b>المدير</b> يرى كل شيء ويعدّل ويحذف.

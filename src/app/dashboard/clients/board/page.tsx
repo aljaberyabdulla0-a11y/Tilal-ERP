@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Client } from "@/lib/types";
 import CrmTabs from "../../crm/crm-tabs";
 import SalesBoard from "./sales-board";
+import { getPipelineConfig } from "@/lib/crm-config";
 
 // لوحة المبيعات (Kanban) — منظور المراحل للعملاء
 export default async function SalesBoardPage() {
@@ -13,6 +14,8 @@ export default async function SalesBoardPage() {
     .order("created_at", { ascending: false });
 
   const clients = (data ?? []) as Client[];
+  // المراحل وعتبات الصمت من القاعدة (sql/070) — أو الثوابت القديمة قبل الهجرة
+  const cfg = await getPipelineConfig();
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -43,7 +46,7 @@ export default async function SalesBoardPage() {
           تأكّد من تشغيل ملف SQL للوحة المبيعات.
         </div>
       ) : (
-        <SalesBoard initial={clients} />
+        <SalesBoard initial={clients} stages={cfg.stages} silence={cfg.silence} />
       )}
     </main>
   );

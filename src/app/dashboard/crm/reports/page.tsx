@@ -1,538 +1,437 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
-import { Client, ClientActivity, toIntlPhone } from "@/lib/types";
+import { getUserRole } from "@/lib/auth";
 import { baghdadDate } from "@/lib/time";
 import {
-  buildFunnel,
-  buildFollowUps,
-  buildKpis,
-  buildNeglected,
-  buildSources,
-  buildTeam,
-  buildTrend,
-} from "@/lib/crm-reports";
+  getCrmKpis,
+  getFunnel,
+  getSourcePerformance,
+  getTeamPerformance,
+  getLostAnalysis,
+  getVelocity,
+  getStageDurations,
+  getAttribution,
+  getSlaSummary,
+  getCampaignPerformance,
+  fmt,
+} from "@/lib/crm";
+import TrendStrip from "@/components/trend-strip";
 import CrmTabs from "../crm-tabs";
 import RunFollowupScan from "./run-scan";
+import RefreshScores from "./refresh-scores";
 
-// تدرّج لوني واحد للقمع (فاتح ← غامق كلّما تقدّمت المرحلة).
-// اخترنا تدرّجاً واحداً لا ألواناً متعددة: أسماء المراحل مكتوبة بجانب
-// كل شريط، فالهوية يحملها النص لا اللون — وهذا يبقى مقروءاً لمصابي
-// عمى الألوان (الأزرق والبنفسجي مثلاً لا يتمايزان لديهم).
-const FUNNEL_FILL = ["#6ee7b7", "#34d399", "#10b981", "#059669", "#047857"];
-
+// ============================================================
+// «التقارير» — أُعيد بناؤها كاملةً على طبقة القاعدة (sql/076).
+//
+// ما تغيّر جوهرياً عن النسخة السابقة:
+//
+//   • لا حساب في الصفحة. كانت تجلب ٥٠٠٠ عميل وتحسب القمع والمصادر
+//     والفريق في TypeScript (crm-reports.ts). الآن كل رقم يأتي من
+//     دالة واحدة في القاعدة، فلا يمكن أن يتناقض تقريران.
+//
+//   • «معدّل الإغلاق» صار تعريفاً واحداً: فائزة ÷ (فائزة + خاسرة).
+//     كان يُحسب في جدول المصادر على الإجمالي — فظهر «١٪» لمصدر
+//     نصفُ ليداته ما زال مفتوحاً.
+//
+//   • أداء الفريق يعرض «ما أُعطي» قبل «ما أُنجز»، ومعه متوسط درجة
+//     الليدات المستلَمة. من استلم ليدات ضعيفة لا يُقارَن بمن استلم
+//     ساخنة — والجدول الذي يُخفي ذلك يكذب بالحذف.
+//
+//   • أقسام جديدة: لماذا نخسر، سرعة المبيعات، الزمن في المراحل،
+//     الإسناد بأول لمسة وآخرها، وخروق مستوى الخدمة.
+//
+// المُرشِّح الزمني في العنوان (?days=30) ويسري على كل الأقسام معاً.
+// ============================================================
 export default async function CrmReportsPage({
   searchParams,
 }: {
   searchParams: { days?: string };
 }) {
-  if (!(await isAdmin())) redirect("/dashboard/clients");
+  const role = await getUserRole();
+  if (role !== "admin" && role !== "followup_manager" && role !== "supervisor") {
+    redirect("/dashboard/clients");
+  }
 
-  const periodDays = Number(searchParams.days) || 30;
-  const since = new Date(Date.now() - periodDays * 86400000).toISOString();
-  const today = baghdadDate();
+  const days = Number(searchParams.days) || 30;
+  const to = baghdadDate();
+  const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const f = { from, to };
 
-  const supabase = await createClient();
-  const [{ data: cData }, { data: aData }, { data: unmatchedData }] = await Promise.all([
-    supabase.from("clients").select("*").limit(5000),
-    supabase
-      .from("client_activities")
-      .select("*")
-      .gte("occurred_at", since)
-      .limit(5000),
-    // أسماء موظفي مبيعات بلا حساب مطابق (sql/032) — null إن لم يُشغَّل بعد
-    supabase.rpc("unmatched_sales_employees"),
-  ]);
+  const [kpis, funnel, sources, team, lost, velocity, durations, attribution, sla, campaigns] =
+    await Promise.all([
+      getCrmKpis(f),
+      getFunnel(f),
+      getSourcePerformance(f),
+      getTeamPerformance(f),
+      getLostAnalysis(f),
+      getVelocity(f),
+      getStageDurations(),
+      getAttribution(),
+      getSlaSummary(),
+      getCampaignPerformance(f),
+    ]);
 
-  const unmatched = (unmatchedData ?? []) as {
-    sales_employee: string;
-    clients: number;
-    due_followups: number;
-  }[];
-
-  const clients = (cData ?? []) as Client[];
-  const activities = (aData ?? []) as ClientActivity[];
-
-  const kpis = buildKpis(clients, activities, today);
-  const { steps, entered, lost } = buildFunnel(clients);
-  const { overdue, dueToday } = buildFollowUps(clients, today);
-  const neglected = buildNeglected(clients, 14, today);
-  const team = buildTeam(clients, activities, today);
-  const sources = buildSources(clients);
-  const trend = buildTrend(activities, 14, today);
-  const trendMax = Math.max(1, ...trend.map((t) => t.count));
-
-  const card = "rounded-2xl border bg-white p-5 shadow-sm";
-  const periods = [
-    { d: 7, label: "٧ أيام" },
-    { d: 30, label: "٣٠ يوم" },
-    { d: 90, label: "٣ أشهر" },
-  ];
-
-  // بطاقة رقم — ليست مخططاً لأن الرقم الواحد يُقرأ أسرع كرقم
-  const Stat = ({
-    label,
-    value,
-    hint,
-    tone = "gray",
-  }: {
-    label: string;
-    value: string | number;
-    hint?: string;
-    tone?: "gray" | "good" | "warn" | "bad";
-  }) => {
-    const tones = {
-      gray: "text-gray-800",
-      good: "text-green-700",
-      warn: "text-amber-600",
-      bad: "text-red-700",
-    };
-    return (
-      <div className={card}>
-        <span className="text-sm text-gray-500">{label}</span>
-        <p className={`mt-1 text-2xl font-bold ${tones[tone]}`}>{value}</p>
-        {hint && <p className="mt-0.5 text-xs text-gray-400">{hint}</p>}
-      </div>
-    );
-  };
-
-  // صف عميل في لوحة العمل — الاسم والهاتف وأزرار التواصل المباشر
-  const ActionRow = ({
-    c,
-    daysLate,
-    stalled,
-  }: {
-    c: Client;
-    daysLate: number;
-    stalled?: boolean;
-  }) => (
-    <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3 last:border-0 hover:bg-gray-50">
-      <div className="min-w-0 flex-1">
-        <Link
-          href={`/dashboard/clients/${c.id}`}
-          className="font-medium text-gray-800 hover:text-brand-600"
-        >
-          {c.name}
-        </Link>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
-          <span>{c.stage ?? "ليد"}</span>
-          {c.sales_employee && <span>{c.sales_employee}</span>}
-          {c.phone && (
-            <span dir="ltr" className="text-gray-400">
-              {c.phone}
-            </span>
-          )}
-          {stalled && (
-            <span className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700">
-              بلا تحديث
-            </span>
-          )}
-        </div>
-      </div>
-
-      <span
-        className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${
-          daysLate === 0
-            ? "bg-blue-50 text-blue-700"
-            : daysLate <= 3
-            ? "bg-amber-50 text-amber-700"
-            : "bg-red-50 text-red-700"
-        }`}
-      >
-        {daysLate === 0 ? "موعده اليوم" : `متأخر ${daysLate} يوم`}
-      </span>
-
-      {c.phone && (
-        <div className="flex gap-1.5">
-          <a
-            href={`tel:${toIntlPhone(c.phone)}`}
-            title="اتصال"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white transition hover:bg-brand-700"
-          >
-            <span className="material-symbols-outlined text-[18px]">call</span>
-          </a>
-          <a
-            href={`https://wa.me/${toIntlPhone(c.phone).replace("+", "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="واتساب"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white transition hover:bg-green-700"
-          >
-            <span className="material-symbols-outlined text-[18px]">chat</span>
-          </a>
-        </div>
-      )}
-    </div>
-  );
+  const maxReached = Math.max(1, ...funnel.map((x) => Number(x.reached)));
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-white px-6 py-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-brand-600">
-            ← لوحة التحكم
-          </Link>
-          <h1 className="text-xl font-bold text-brand-600">تقارير المبيعات</h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {periods.map((p) => (
-            <Link
-              key={p.d}
-              href={`/dashboard/crm/reports?days=${p.d}`}
-              className={
-                periodDays === p.d
-                  ? "rounded-full bg-brand-600 px-3.5 py-1.5 text-sm font-medium text-white"
-                  : "rounded-full border border-gray-300 px-3.5 py-1.5 text-sm text-gray-600 transition hover:bg-gray-100"
-              }
-            >
-              {p.label}
-            </Link>
-          ))}
-          <RunFollowupScan />
-        </div>
-      </header>
-
+    <div>
       <CrmTabs active="reports" />
 
-      <section className="space-y-6 p-6">
-        {clients.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
-            لا يوجد عملاء بعد — التقارير تظهر بمجرّد إضافة أول عميل.
-          </div>
-        )}
-
-        {/* ===== المؤشرات ===== */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-6">
-          <Stat label="إجمالي العملاء" value={kpis.total} hint={`${kpis.newThisMonth} جديد هذا الشهر`} />
-          <Stat label="صفقات مغلقة (بيع)" value={kpis.won} tone="good" hint={`${kpis.lost} فشل`} />
-          <Stat
-            label="معدّل الإغلاق"
-            value={`${kpis.winRate}%`}
-            tone={kpis.winRate >= 40 ? "good" : kpis.winRate >= 20 ? "warn" : "bad"}
-            hint="من الصفقات المغلقة"
-          />
-          <Stat
-            label="متابعات متأخرة"
-            value={kpis.overdueFollowUps}
-            tone={kpis.overdueFollowUps > 0 ? "bad" : "good"}
-            hint={`${kpis.dueTodayFollowUps} موعدها اليوم`}
-          />
-          <Stat
-            label="عملاء مهمَلون"
-            value={kpis.neglected}
-            tone={kpis.neglected > 0 ? "warn" : "good"}
-            hint="بلا تواصل +١٤ يوم"
-          />
-          <Stat
-            label="متوسط زمن الإغلاق"
-            value={kpis.avgDaysToWin === null ? "—" : `${kpis.avgDaysToWin} يوم`}
-            hint="من الإضافة حتى البيع"
-          />
-        </div>
-
-        {/* ===== تحذير: عملاء لا يراهم أي موظف ===== */}
-        {unmatched.length > 0 && (
-          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5">
-            <h2 className="flex items-center gap-2 font-bold text-amber-900">
-              <span className="material-symbols-outlined">person_alert</span>
-              عملاء لا يراهم أي موظف ({unmatched.reduce((s, r) => s + r.clients, 0)})
-            </h2>
-            <p className="mt-1 text-sm text-amber-800">
-              اسم «موظف المبيعات» المكتوب على هؤلاء العملاء لا يطابق أي حساب موظف،
-              فلا تصل متابعاتهم إلا لك. الحل: افتح ملف الموظف واربطه بحساب دخول،
-              أو صحّح اسم موظف المبيعات على العميل.
+      <div className="space-y-8 p-6">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-brand-600">تقارير المبيعات</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              تعريف واحد لكل رقم — محسوب في القاعدة لا في الصفحة.
             </p>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {unmatched.map((r) => (
-                <li
-                  key={r.sales_employee}
-                  className="rounded-full border border-amber-300 bg-white px-3 py-1 text-sm text-amber-900"
-                >
-                  {r.sales_employee} — {r.clients} عميل
-                  {r.due_followups > 0 && (
-                    <b className="text-red-700"> · {r.due_followups} متابعة مستحقة</b>
-                  )}
-                </li>
-              ))}
-            </ul>
           </div>
+          <div className="flex items-center gap-2 text-sm">
+            {[7, 30, 90, 365].map((d) => (
+              <Link
+                key={d}
+                href={`/dashboard/crm/reports?days=${d}`}
+                className={days === d ? "rounded-full bg-brand-600 px-3 py-1 text-white" : "rounded-full border border-gray-300 px-3 py-1 text-gray-600 hover:border-brand-600"}
+              >
+                {d === 365 ? "سنة" : `${d} يوماً`}
+              </Link>
+            ))}
+            {role === "admin" && (
+              <>
+                <RunFollowupScan />
+                <RefreshScores />
+              </>
+            )}
+          </div>
+        </header>
+
+        {/* ===== الاتجاه — الرقم مع مساره (§55) ===== */}
+        <TrendStrip days={Math.min(days, 90)} />
+
+        {/* ===== المؤشّرات ===== */}
+        {kpis && (
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
+            <Stat label="ليدات جديدة" value={fmt(kpis.leads)} />
+            <Stat label="فرص" value={fmt(kpis.opportunities)} />
+            <Stat label="فوز" value={fmt(kpis.won_count)} tone="brand" />
+            <Stat label="خسارة" value={fmt(kpis.lost_count)} tone="red" />
+            <Stat label="التحويل" value={`${kpis.conversion_rate}%`} />
+            <Stat label="قيمة الفوز" value={fmt(kpis.won_value)} />
+            <Stat label="الأنابيب" value={fmt(kpis.pipeline_value)} />
+            <Stat label="الموزونة" value={fmt(kpis.weighted_pipeline)} />
+            <Stat label="متوسط الصفقة" value={fmt(kpis.avg_deal_value)} />
+            <Stat label="دورة البيع" value={`${kpis.avg_sales_cycle}ي`} sub={`وسيط ${kpis.median_sales_cycle}`} />
+            <Stat label="تواصل" value={fmt(kpis.activities)} />
+            <Stat label="ساخنة الآن" value={fmt(kpis.hot_count)} tone="brand" />
+          </section>
         )}
 
-        {/* ===== لوحة عمل اليوم — أهم شاشة عملية ===== */}
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b bg-red-50 px-4 py-3">
-              <h2 className="font-bold text-red-800">
-                🔴 متابعات متأخرة ({overdue.length})
-              </h2>
-              <span className="text-xs text-red-700">اتصل بهم أولاً</span>
+        {/* ===== سرعة المبيعات ===== */}
+        {velocity && (
+          <section className="rounded-lg border border-gray-200 bg-white p-5">
+            <h2 className="font-bold text-gray-800">سرعة المبيعات</h2>
+            <p className="text-xs text-gray-500">
+              الفرص المفتوحة × متوسط الصفقة × معدّل الفوز ÷ طول الدورة = قيمة متوقّعة في اليوم
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Stat label="فرص مفتوحة" value={fmt(velocity.qualified_opps)} />
+              <Stat label="معدّل الفوز" value={`${velocity.win_rate}%`} />
+              <Stat label="طول الدورة" value={`${velocity.avg_cycle_days}ي`} />
+              <Stat label="شهرياً" value={fmt(velocity.velocity_per_month)} tone="brand" sub={`${fmt(velocity.velocity_per_week)} أسبوعياً`} />
             </div>
-            {overdue.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-gray-400">
-                ما في متابعة متأخرة — ممتاز.
-              </p>
-            ) : (
-              <div className="max-h-[420px] overflow-y-auto">
-                {overdue.slice(0, 50).map((r) => (
-                  <ActionRow
-                    key={r.client.id}
-                    c={r.client}
-                    daysLate={r.daysLate}
-                    stalled={r.stalled}
-                  />
-                ))}
-              </div>
+            {Number(velocity.avg_cycle_days) === 0 && (
+              <p className="mt-2 text-xs text-gray-400">صفرٌ لأن لا دورة مكتملة بعد في المدة — جوابٌ صادق لا عطل.</p>
             )}
-          </div>
+          </section>
+        )}
 
-          <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b bg-blue-50 px-4 py-3">
-              <h2 className="font-bold text-blue-800">
-                📅 متابعات اليوم ({dueToday.length})
-              </h2>
-              <span className="text-xs text-blue-700">{today}</span>
-            </div>
-            {dueToday.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-gray-400">
-                لا توجد متابعات مجدولة اليوم.
-              </p>
-            ) : (
-              <div className="max-h-[420px] overflow-y-auto">
-                {dueToday.slice(0, 50).map((r) => (
-                  <ActionRow key={r.client.id} c={r.client} daysLate={0} />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ===== قمع المبيعات ===== */}
-        <div className={card}>
-          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+        {/* ===== القمع + الزمن في المراحل ===== */}
+        <section className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-lg border border-gray-200 bg-white p-5">
             <h2 className="font-bold text-gray-800">قمع المبيعات</h2>
-            <span className="text-xs text-gray-500">
-              دخل القمع {entered} عميل · خرج منه {lost} بفشل البيع
-            </span>
-          </div>
-          <p className="mb-4 text-xs text-gray-400">
-            كل شريط يعرض من وصل لهذه المرحلة أو تجاوزها — فتعرف أين تتوقّف الصفقات.
-          </p>
-
-          <div className="space-y-3">
-            {steps.map((s, i) => (
-              <div key={s.stage} className="flex items-center gap-3">
-                <span className="w-28 shrink-0 text-sm text-gray-700">{s.stage}</span>
-
-                <div className="h-6 min-w-0 flex-1 rounded-md bg-gray-100">
-                  <div
-                    className="h-6 rounded-md transition-all"
-                    style={{
-                      width: `${Math.max(s.reachedPercent, s.count > 0 ? 2 : 0)}%`,
-                      backgroundColor: FUNNEL_FILL[i] ?? FUNNEL_FILL[FUNNEL_FILL.length - 1],
-                    }}
-                    title={`${s.stage}: ${s.count} عميل (${s.reachedPercent}% من الداخلين)`}
-                  />
-                </div>
-
-                <span className="w-14 shrink-0 text-end text-sm font-bold text-gray-800" dir="ltr">
-                  {s.count}
-                </span>
-                <span className="w-24 shrink-0 text-end text-xs text-gray-500" dir="ltr">
-                  {s.stepConversion === null ? "—" : `↓ ${s.stepConversion}%`}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ===== نشاط التواصل ===== */}
-        <div className={card}>
-          <h2 className="font-bold text-gray-800">نشاط التواصل — آخر ١٤ يوم</h2>
-          <p className="mb-4 text-xs text-gray-400">
-            عدد مرات التواصل المسجّلة يومياً (بلا تغييرات المرحلة التلقائية).
-          </p>
-
-          <div className="flex h-40 items-end gap-1.5">
-            {trend.map((t) => (
-              <div key={t.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                <span className="text-[10px] font-medium text-gray-500">
-                  {t.count > 0 ? t.count : ""}
-                </span>
-                <div
-                  className="w-full rounded-t-md bg-brand-600"
-                  style={{ height: `${Math.max((t.count / trendMax) * 100, t.count > 0 ? 4 : 1)}%` }}
-                  title={`${t.date}: ${t.count} تواصل`}
-                />
-                <span className="text-[10px] text-gray-400" dir="ltr">
-                  {t.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ===== أداء الفريق ===== */}
-        <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-          <div className="border-b px-5 py-4">
-            <h2 className="font-bold text-gray-800">أداء الفريق</h2>
-            <p className="mt-0.5 text-xs text-gray-400">
-              التواصل محسوب خلال آخر {periodDays} يوم، والباقي إجمالي.
-            </p>
-          </div>
-
-          {team.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-gray-400">لا توجد بيانات بعد.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-start text-sm">
-                <thead className="border-b bg-gray-50 text-gray-600">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">الموظف</th>
-                    <th className="px-4 py-3 font-medium">عملاؤه</th>
-                    <th className="px-4 py-3 font-medium">مفتوح</th>
-                    <th className="px-4 py-3 font-medium">بيع</th>
-                    <th className="px-4 py-3 font-medium">فشل</th>
-                    <th className="px-4 py-3 font-medium">معدّل الإغلاق</th>
-                    <th className="px-4 py-3 font-medium">تواصل</th>
-                    <th className="px-4 py-3 font-medium">مكالمات</th>
-                    <th className="px-4 py-3 font-medium">لقاءات</th>
-                    <th className="px-4 py-3 font-medium">متأخرة</th>
-                    <th className="px-4 py-3 font-medium">بلا تواصل</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {team.map((t) => (
-                    <tr key={t.name} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-800">{t.name}</td>
-                      <td className="px-4 py-3 text-gray-700">{t.clients}</td>
-                      <td className="px-4 py-3 text-gray-700">{t.open}</td>
-                      <td className="px-4 py-3 font-semibold text-green-700">{t.won}</td>
-                      <td className="px-4 py-3 text-gray-500">{t.lost}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-14 overflow-hidden rounded-full bg-gray-100">
-                            <div
-                              className="h-full rounded-full bg-brand-600"
-                              style={{ width: `${Math.min(t.winRate, 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs font-semibold text-gray-700">
-                            {t.winRate}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">{t.activities}</td>
-                      <td className="px-4 py-3 text-gray-500">{t.calls}</td>
-                      <td className="px-4 py-3 text-gray-500">{t.meetings}</td>
-                      <td className={`px-4 py-3 font-semibold ${t.overdue > 0 ? "text-red-700" : "text-gray-300"}`}>
-                        {t.overdue || "—"}
-                      </td>
-                      <td className={`px-4 py-3 ${t.noContact > 0 ? "text-amber-600" : "text-gray-300"}`}>
-                        {t.noContact || "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {/* ===== المصادر ===== */}
-          <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-            <div className="border-b px-5 py-4">
-              <h2 className="font-bold text-gray-800">مصادر العملاء</h2>
-              <p className="mt-0.5 text-xs text-gray-400">
-                أي مصدر يجيب صفقات فعلاً — وجّه ميزانية التسويق نحوه.
-              </p>
-            </div>
-            {sources.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-gray-400">لا توجد بيانات.</p>
-            ) : (
-              <table className="w-full text-start text-sm">
-                <thead className="border-b bg-gray-50 text-gray-600">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">المصدر</th>
-                    <th className="px-4 py-3 font-medium">عملاء</th>
-                    <th className="px-4 py-3 font-medium">بيع</th>
-                    <th className="px-4 py-3 font-medium">معدّل الإغلاق</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sources.map((s) => (
-                    <tr key={s.source} className="border-b last:border-0 hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-800">{s.source}</td>
-                      <td className="px-4 py-3 text-gray-700">{s.total}</td>
-                      <td className="px-4 py-3 font-semibold text-green-700">{s.won}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100">
-                            <div
-                              className="h-full rounded-full bg-brand-600"
-                              style={{ width: `${Math.min(s.winRate, 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-gray-600">{s.winRate}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* ===== المهمَلون ===== */}
-          <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-            <div className="border-b px-5 py-4">
-              <h2 className="font-bold text-gray-800">
-                عملاء مهمَلون ({neglected.length})
-              </h2>
-              <p className="mt-0.5 text-xs text-gray-400">
-                عملاء مفتوحون بلا تواصل منذ ١٤ يوماً فأكثر.
-              </p>
-            </div>
-            {neglected.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-gray-400">
-                ما في عميل مهمَل — أحسنتم.
-              </p>
-            ) : (
-              <div className="max-h-[400px] overflow-y-auto">
-                {neglected.slice(0, 50).map(({ client: c, days }) => (
-                  <div
-                    key={c.id}
-                    className="flex items-center gap-3 border-b px-4 py-3 last:border-0 hover:bg-gray-50"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/dashboard/clients/${c.id}`}
-                        className="font-medium text-gray-800 hover:text-brand-600"
-                      >
-                        {c.name}
-                      </Link>
-                      <div className="text-xs text-gray-500">
-                        {c.stage ?? "ليد"}
-                        {c.sales_employee ? ` · ${c.sales_employee}` : ""}
-                      </div>
-                    </div>
-                    <span className="whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                      {days === null ? "لا تواصل إطلاقاً" : `منذ ${days} يوم`}
+            <ul className="mt-4 space-y-3">
+              {funnel.map((s) => (
+                <li key={s.stage_name}>
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-gray-700">{s.stage_name}</span>
+                    <span className="text-gray-500">
+                      {s.reached} · {s.reached_pct}%
+                      {s.step_conversion !== null && <span className="ms-2 text-gray-400">↓ {s.step_conversion}%</span>}
                     </span>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="mt-1 h-2 rounded bg-gray-100">
+                    <div className="h-2 rounded bg-brand-500" style={{ width: `${(Number(s.reached) / maxReached) * 100}%` }} />
+                  </div>
+                </li>
+              ))}
+              {funnel.length === 0 && <Empty />}
+            </ul>
           </div>
-        </div>
 
-        <p className="text-xs text-gray-400">
-          التنبيهات تُفحص تلقائياً كل يوم ٩ صباحاً بتوقيت بغداد: تذكير للموظف بمتابعات
-          اليوم والمتأخرة، وتصعيد للإدارة عن كل متابعة تجاوزت ٢٤ ساعة بلا تحديث حالة
-          ولا تواصل.
+          <div className="rounded-lg border border-gray-200 bg-white p-5">
+            <h2 className="font-bold text-gray-800">الزمن في كل مرحلة</h2>
+            <p className="text-xs text-gray-500">أين يعلق الخطّ — مرتّب بالأطول</p>
+            <table className="mt-3 w-full text-right text-sm">
+              <thead className="text-xs text-gray-500">
+                <tr><th className="py-2">المرحلة</th><th>انتقالات</th><th>متوسط</th><th>وسيط</th><th>P90</th></tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {durations.map((d) => (
+                  <tr key={d.stage_name}>
+                    <td className="py-2 font-medium text-gray-700">{d.stage_name}</td>
+                    <td className="text-gray-500">{d.transitions}</td>
+                    <td className="text-gray-800">{d.avg_days}ي</td>
+                    <td className="text-gray-800">{d.median_days}ي</td>
+                    <td className={Number(d.p90_days) > 30 ? "text-red-600" : "text-gray-500"}>{d.p90_days}ي</td>
+                  </tr>
+                ))}
+                {durations.length === 0 && <tr><td colSpan={5}><Empty /></td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* ===== أداء الفريق ===== */}
+        <section className="rounded-lg border border-gray-200 bg-white">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <h2 className="font-bold text-gray-800">أداء الفريق</h2>
+            <p className="text-xs text-gray-500">ما أُعطي ← ما عُمل ← النتيجة. لا يُقرأ الثالث بلا الأول.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">الموظف</th>
+                  <th className="px-4 py-3 font-medium">استلم</th>
+                  <th className="px-4 py-3 font-medium">متوسط الدرجة</th>
+                  <th className="px-4 py-3 font-medium">عمل عليها</th>
+                  <th className="px-4 py-3 font-medium">لم يُشتغَل</th>
+                  <th className="px-4 py-3 font-medium">تواصل</th>
+                  <th className="px-4 py-3 font-medium">فرص</th>
+                  <th className="px-4 py-3 font-medium">فوز</th>
+                  <th className="px-4 py-3 font-medium">خسارة</th>
+                  <th className="px-4 py-3 font-medium">التحويل</th>
+                  <th className="px-4 py-3 font-medium">القيمة</th>
+                  <th className="px-4 py-3 font-medium">متأخر</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {team.map((r) => (
+                  <tr key={r.owner_id}>
+                    <td className="px-4 py-2 font-medium text-gray-800">{r.owner_name}</td>
+                    <td className="px-4 py-2 text-gray-600">{r.leads_received}</td>
+                    <td className="px-4 py-2 text-gray-500">{r.avg_lead_score}</td>
+                    <td className="px-4 py-2 text-gray-600">{r.leads_worked} <span className="text-xs text-gray-400">({r.contact_rate}%)</span></td>
+                    <td className={`px-4 py-2 ${Number(r.unworked) > 0 ? "text-amber-700" : "text-gray-400"}`}>{r.unworked || "—"}</td>
+                    <td className="px-4 py-2 text-gray-600">{r.activities}</td>
+                    <td className="px-4 py-2 text-gray-600">{r.opportunities}</td>
+                    <td className="px-4 py-2 font-semibold text-brand-600">{r.won}</td>
+                    <td className="px-4 py-2 text-red-600">{r.lost || "—"}</td>
+                    <td className="px-4 py-2 text-gray-800">{r.conversion_rate}%</td>
+                    <td className="px-4 py-2 text-gray-800">{fmt(r.won_value)}</td>
+                    <td className={`px-4 py-2 ${Number(r.overdue) > 0 ? "text-red-600" : "text-gray-400"}`}>{r.overdue || "—"}</td>
+                  </tr>
+                ))}
+                {team.length === 0 && <tr><td colSpan={12}><Empty /></td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* ===== المصادر + الإسناد ===== */}
+        <section className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="font-bold text-gray-800">مصادر العملاء</h2>
+              <p className="text-xs text-gray-500">مرتّبة بالمبيعات لا بعدد الليدات — العمود الأخير يُموَّل.</p>
+            </div>
+            <table className="w-full text-right text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500">
+                <tr>
+                  <th className="px-4 py-2 font-medium">المصدر</th>
+                  <th className="px-4 py-2 font-medium">ليدات</th>
+                  <th className="px-4 py-2 font-medium">مؤهَّل</th>
+                  <th className="px-4 py-2 font-medium">فوز</th>
+                  <th className="px-4 py-2 font-medium">التحويل</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {sources.map((s) => (
+                  <tr key={s.source_name}>
+                    <td className="px-4 py-2 font-medium text-gray-700">{s.source_name}</td>
+                    <td className="px-4 py-2 text-gray-600">{s.leads}</td>
+                    <td className="px-4 py-2 text-gray-600">{s.qualified}</td>
+                    <td className="px-4 py-2 font-semibold text-brand-600">{s.won}</td>
+                    <td className="px-4 py-2 text-gray-800">{s.conversion_rate}%</td>
+                  </tr>
+                ))}
+                {sources.length === 0 && <tr><td colSpan={5}><Empty /></td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="font-bold text-gray-800">أول لمسة مقابل آخرها</h2>
+              <p className="text-xs text-gray-500">قناةٌ أولُها كبير وآخرها صغير تبني الطلب ولا تُغلقه.</p>
+            </div>
+            <table className="w-full text-right text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500">
+                <tr>
+                  <th className="px-4 py-2 font-medium">المصدر</th>
+                  <th className="px-4 py-2 font-medium">أول لمسة</th>
+                  <th className="px-4 py-2 font-medium">آخر لمسة</th>
+                  <th className="px-4 py-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {attribution.map((a) => (
+                  <tr key={a.source_name}>
+                    <td className="px-4 py-2 font-medium text-gray-700">{a.source_name}</td>
+                    <td className="px-4 py-2 text-gray-600">{a.first_touch_leads} <span className="text-xs text-brand-600">({a.first_touch_won} فوز)</span></td>
+                    <td className="px-4 py-2 text-gray-600">{a.last_touch_leads} <span className="text-xs text-brand-600">({a.last_touch_won} فوز)</span></td>
+                    <td className="px-4 py-2 text-xs text-amber-700">{a.builds_demand ? "يبني الطلب" : ""}</td>
+                  </tr>
+                ))}
+                {attribution.length === 0 && <tr><td colSpan={4}><Empty /></td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* ===== لماذا نخسر + مستوى الخدمة ===== */}
+        <section className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-lg border border-gray-200 bg-white" id="lost">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="font-bold text-gray-800">لماذا نخسر</h2>
+            </div>
+            <table className="w-full text-right text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500">
+                <tr>
+                  <th className="px-4 py-2 font-medium">السبب</th>
+                  <th className="px-4 py-2 font-medium">عدد</th>
+                  <th className="px-4 py-2 font-medium">حصّة</th>
+                  <th className="px-4 py-2 font-medium">قيمة</th>
+                  <th className="px-4 py-2 font-medium">أبعد مرحلة</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {lost.map((l) => (
+                  <tr key={l.lost_reason}>
+                    <td className="px-4 py-2 font-medium text-gray-700">
+                      {l.lost_reason}
+                      <span className="ms-1 text-xs text-gray-400">{l.category}</span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-600">{l.lost_count}</td>
+                    <td className="px-4 py-2 text-gray-600">{l.share_pct}%</td>
+                    <td className="px-4 py-2 text-gray-600">{fmt(l.lost_value)}</td>
+                    <td className="px-4 py-2 text-xs text-gray-500">{l.avg_stage_reached ?? "—"}</td>
+                  </tr>
+                ))}
+                {lost.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">لا خسائر في المدة — أو بلا سبب مسجَّل.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 bg-white" id="sla">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="font-bold text-gray-800">مستوى الخدمة</h2>
+              <p className="text-xs text-gray-500">الخرق واقعة تُسجَّل وتُغلَق — لا رسالة تُنسى.</p>
+            </div>
+            <table className="w-full text-right text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500">
+                <tr>
+                  <th className="px-4 py-2 font-medium">القاعدة</th>
+                  <th className="px-4 py-2 font-medium">خروق</th>
+                  <th className="px-4 py-2 font-medium">مفتوح</th>
+                  <th className="px-4 py-2 font-medium">للمشرف</th>
+                  <th className="px-4 py-2 font-medium">للإدارة</th>
+                  <th className="px-4 py-2 font-medium">زمن المعالجة</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {sla.map((s) => (
+                  <tr key={s.rule_code}>
+                    <td className="px-4 py-2 font-medium text-gray-700">{s.rule_label}</td>
+                    <td className="px-4 py-2 text-gray-600">{s.breaches}</td>
+                    <td className={`px-4 py-2 ${Number(s.still_open) > 0 ? "font-semibold text-red-600" : "text-gray-400"}`}>{s.still_open}</td>
+                    <td className="px-4 py-2 text-gray-600">{s.escalated_l2}</td>
+                    <td className="px-4 py-2 text-gray-600">{s.escalated_l3}</td>
+                    <td className="px-4 py-2 text-gray-500">{s.avg_resolution_hours !== null ? `${s.avg_resolution_hours} ساعة` : "—"}</td>
+                  </tr>
+                ))}
+                {sla.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">لا خروق مسجَّلة.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* ===== الحملات — الكلفة والعائد لا الليدات وحدها (§29) ===== */}
+        {campaigns.length > 0 && (
+          <section className="rounded-lg border border-gray-200 bg-white" id="campaigns">
+            <div className="border-b px-5 py-4">
+              <h2 className="font-bold text-gray-800">الحملات</h2>
+              <p className="text-xs text-gray-500">
+                كلفة الليد وكلفة المؤهَّل وكلفة الاستحواذ — تُحسب من المصروف المسجَّل على الحملة، والإيراد عمولة تلال لا ثمن الوحدة.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">الحملة</th>
+                    <th className="px-4 py-3 font-medium">الوسيط</th>
+                    <th className="px-4 py-3 font-medium">المصروف</th>
+                    <th className="px-4 py-3 font-medium">ليدات</th>
+                    <th className="px-4 py-3 font-medium">مؤهَّل</th>
+                    <th className="px-4 py-3 font-medium">فرص</th>
+                    <th className="px-4 py-3 font-medium">فوز</th>
+                    <th className="px-4 py-3 font-medium">كلفة الليد</th>
+                    <th className="px-4 py-3 font-medium">الاستحواذ</th>
+                    <th className="px-4 py-3 font-medium">العائد</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {campaigns.map((c) => (
+                    <tr key={c.campaign_id}>
+                      <td className="px-4 py-2 font-medium text-gray-800">{c.campaign_name}</td>
+                      <td className="px-4 py-2 text-gray-500">{c.medium ?? "—"}</td>
+                      <td className="px-4 py-2 text-gray-600">{fmt(c.spent)}{c.budget ? <span className="text-xs text-gray-400"> / {fmt(c.budget)}</span> : null}</td>
+                      <td className="px-4 py-2">{fmt(c.leads)}</td>
+                      <td className="px-4 py-2">{fmt(c.qualified)}</td>
+                      <td className="px-4 py-2">{fmt(c.opportunities)}</td>
+                      <td className="px-4 py-2 font-semibold text-brand-700">{fmt(c.won)}</td>
+                      <td className="px-4 py-2 text-gray-600">{fmt(c.cost_per_lead)}</td>
+                      <td className="px-4 py-2 text-gray-600">{fmt(c.cac)}</td>
+                      <td className={`px-4 py-2 font-semibold ${c.roi_pct === null ? "text-gray-400" : Number(c.roi_pct) >= 0 ? "text-brand-700" : "text-red-600"}`}>
+                        {c.roi_pct === null ? "—" : `${c.roi_pct}%`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        <p className="text-xs text-gray-500">
+          التنبيهات تُفحص تلقائياً كل يوم ٩ صباحاً بتوقيت بغداد، ومستوى الخدمة ٨ صباحاً، والدرجات ٦ صباحاً، واللقطة اليومية ١١ مساءً.
         </p>
-      </section>
-    </main>
+      </div>
+    </div>
   );
+}
+
+function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "brand" | "red" }) {
+  const v = tone === "brand" ? "text-brand-700" : tone === "red" ? "text-red-700" : "text-gray-800";
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <p className={`text-lg font-bold ${v}`}>{value}</p>
+      <p className="text-xs text-gray-600">{label}</p>
+      {sub && <p className="text-xs text-gray-400">{sub}</p>}
+    </div>
+  );
+}
+
+function Empty() {
+  return <p className="px-4 py-6 text-center text-sm text-gray-400">لا بيانات — أو الهجرات لم تُشغَّل.</p>;
 }

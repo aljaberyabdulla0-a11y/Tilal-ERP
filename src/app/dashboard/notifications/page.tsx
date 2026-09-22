@@ -4,13 +4,20 @@ import { AppNotification } from "@/lib/types";
 import NotificationList from "./notification-list";
 
 // كل إشعاراتي
-export default async function NotificationsPage() {
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: { category?: string };
+}) {
   const supabase = await createClient();
-  const { data } = await supabase
+  const category = (searchParams.category ?? "").trim() || null;
+  let q = supabase
     .from("notifications")
     .select("*")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
+  if (category) q = q.eq("category", category);
+  const { data } = await q;
 
   const items = (data ?? []) as AppNotification[];
 
@@ -24,7 +31,7 @@ export default async function NotificationsPage() {
       </header>
 
       <section className="p-6">
-        <NotificationList items={items} />
+        <NotificationList items={items} category={category} />
       </section>
     </main>
   );

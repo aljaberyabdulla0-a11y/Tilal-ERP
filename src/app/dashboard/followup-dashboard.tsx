@@ -16,6 +16,7 @@ import {
 import { todayISO } from "@/lib/attendance";
 import TodayTasks from "@/components/today-tasks";
 import ClientFollowUps from "@/components/client-followups";
+import CrmAttention from "@/components/crm-attention";
 
 // ============================================================
 // لوحة مدير المتابعة — ملفّ واحد لكل ما يحتاج متابعة يومية:
@@ -143,6 +144,9 @@ export default async function FollowupDashboard() {
           </Link>
         ))}
       </section>
+
+      {/* الـCRM: التوزيع وخروق الخدمة — قبل المخزون لأن الليد المهمل يُفقَد ولا يُعوَّض */}
+      <CrmAttention />
 
       {/* أوشكت على النفاد */}
       <section className="mb-6">

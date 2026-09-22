@@ -9,6 +9,7 @@ import BrokerDashboard from "./broker-dashboard";
 import RmDashboard from "./rm-dashboard";
 import TodayTasks from "@/components/today-tasks";
 import ClientFollowUps from "@/components/client-followups";
+import CrmAttention from "@/components/crm-attention";
 
 type RecentReservation = {
   id: string;
@@ -156,6 +157,9 @@ export default async function DashboardPage() {
       </section>
 
       {/* مهام اليوم — أول ما يجب أن تراه الإدارة */}
+      {/* الـCRM: ما يحتاج تدخّل الإدارة (التوزيع، الخروق) — يظهر عند وجوده فقط */}
+      <CrmAttention />
+
       <section className="mb-6">
         <TodayTasks />
       </section>

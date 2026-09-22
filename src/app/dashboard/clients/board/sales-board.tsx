@@ -7,10 +7,20 @@ import {
   Client,
   PIPELINE_STAGES,
   PIPELINE_STAGE_COLORS,
+  DEFAULT_SILENCE,
   isClosedStage,
   sinceColor,
   sinceLabel,
+  type SilenceThresholds,
 } from "@/lib/types";
+import type { StageLite } from "@/lib/crm-config";
+
+// الافتراض القديم — حين لا تمرّر الصفحة مراحل من القاعدة
+const FALLBACK_STAGES: StageLite[] = PIPELINE_STAGES.map((name) => ({
+  name,
+  color: PIPELINE_STAGE_COLORS[name] ?? "bg-gray-100 text-gray-700",
+  closed: isClosedStage(name),
+}));
 import { baghdadDate } from "@/lib/time";
 
 const todayStr = () => baghdadDate();
@@ -26,7 +36,15 @@ const FOLLOW_UP_FILTERS = [
 ];
 
 // لوحة المبيعات (Kanban) — سحب وإفلات بين المراحل + تحكّم بتاريخ المتابعة
-export default function SalesBoard({ initial }: { initial: Client[] }) {
+export default function SalesBoard({
+  initial,
+  stages = FALLBACK_STAGES,
+  silence = DEFAULT_SILENCE,
+}: {
+  initial: Client[];
+  stages?: StageLite[];
+  silence?: SilenceThresholds;
+}) {
   const supabase = createClient();
   const [items, setItems] = useState<Client[]>(initial);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -243,7 +261,7 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
       </div>
 
       <div className="flex gap-4 overflow-x-auto p-6">
-      {PIPELINE_STAGES.map((stage) => {
+      {stages.map(({ name: stage, color: stageColor, closed }) => {
         const cards = filtered.filter((c) => (c.stage ?? "ليد") === stage);
         return (
           <div
@@ -265,9 +283,7 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
             {/* رأس العمود */}
             <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
               <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                  PIPELINE_STAGE_COLORS[stage] ?? "bg-gray-100 text-gray-700"
-                }`}
+                className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${stageColor}`}
               >
                 {stage}
               </span>
@@ -277,8 +293,7 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
             {/* البطاقات */}
             <div className="flex-1 space-y-2 p-2" style={{ minHeight: 120 }}>
               {cards.map((c) => {
-                // ملف مغلق (بيع/فشل البيع): لا متابعة ولا تأخّر
-                const closed = isClosedStage(stage);
+                // ملف مغلق (بيع/فشل البيع): لا متابعة ولا تأخّر — «مغلق» من نوع المرحلة في القاعدة
                 const overdue =
                   !closed && c.follow_up_date && c.follow_up_date < todayStr();
                 return (
@@ -311,7 +326,7 @@ export default function SalesBoard({ initial }: { initial: Client[] }) {
                         </span>
                       )}
                       <span
-                        className={`text-[11px] font-medium ${sinceColor(c.last_contact_at)}`}
+                        className={`text-[11px] font-medium ${sinceColor(c.last_contact_at, silence)}`}
                         title="آخر تواصل مسجّل"
                       >
                         ☎ {sinceLabel(c.last_contact_at)}

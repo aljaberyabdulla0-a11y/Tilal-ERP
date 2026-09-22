@@ -18,6 +18,21 @@ import LogActivity from "./log-activity";
 import ActivityTimeline from "@/components/activity-timeline";
 import StageSelect from "@/components/stage-select";
 import ReserveUnit from "./reserve-unit";
+import CrmInsights from "@/components/crm-insights";
+import CrmHistory from "@/components/crm-history";
+import { getPipelineConfig } from "@/lib/crm-config";
+import QualificationPanel from "./qualification-panel";
+import NewOpportunity from "./new-opportunity";
+import InterestsPanel from "./interests-panel";
+import {
+  getQualification,
+  getProjectsLite,
+  getStages,
+  getClientInterests,
+  getOwnerName,
+  getClientOpportunities,
+  TEMPERATURE_STYLE,
+} from "@/lib/crm";
 
 // صفحة تفاصيل عميل واحد — تعرض كل المعلومات المسجّلة
 export default async function ClientDetailsPage({
@@ -44,6 +59,21 @@ export default async function ClientDetailsPage({
 
   if (!data) notFound();
   const c = data as Client;
+
+  // طبقة الـCRM الجديدة (070–080): تُقرأ بعد التأكّد من وجود العميل،
+  // وكلها تُرجع فراغاً بلا خطأ إن لم تُشغَّل الهجرات بعد.
+  const [qualification, projects, stages, interests, ownerName, cfg, opps] = await Promise.all([
+    getQualification(c.id),
+    getProjectsLite(),
+    getStages(),
+    getClientInterests(c.id),
+    getOwnerName(c.owner_id),
+    getPipelineConfig(),
+    getClientOpportunities(c.id),
+  ]);
+  const openOpps = opps
+    .filter((o) => o.stage_type === "open")
+    .map((o) => ({ id: o.id, title: `${o.project_name ?? "بلا مشروع"} · ${o.stage_name}` }));
   const activities = (acts ?? []) as ClientActivity[];
   const reservations = (resv ?? []) as Reservation[];
 
@@ -95,10 +125,10 @@ export default async function ClientDetailsPage({
         <div className="space-y-6">
         {/* شريط حالة سريع */}
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-          <StageSelect clientId={c.id} stage={c.stage} size="md" />
+          <StageSelect clientId={c.id} stage={c.stage} size="md" stages={cfg.stages} />
           <span className="text-sm text-gray-500">
             آخر تواصل:{" "}
-            <b className={sinceColor(c.last_contact_at)}>
+            <b className={sinceColor(c.last_contact_at, cfg.silence)}>
               {sinceLabel(c.last_contact_at)}
             </b>
           </span>
@@ -108,6 +138,18 @@ export default async function ClientDetailsPage({
           {c.follow_up_date && (
             <span className="rounded-full bg-amber-50 px-3 py-1 text-sm text-amber-800">
               متابعة قادمة: <b dir="ltr">{c.follow_up_date}</b>
+            </span>
+          )}
+          {/* رأس الـCRM: المالك بالمفتاح، والحرارة، والدرجة — إن وُجدت */}
+          {(ownerName ?? c.sales_employee) && (
+            <span className="text-sm text-gray-500">
+              المالك: <b className="text-gray-800">{ownerName ?? c.sales_employee}</b>
+            </span>
+          )}
+          {c.lead_temperature && (
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${TEMPERATURE_STYLE[c.lead_temperature] ?? "bg-gray-100 text-gray-500"}`}>
+              {c.lead_temperature}
+              {c.lead_score !== null && c.lead_score !== undefined && ` · ${c.lead_score}`}
             </span>
           )}
           {c.phone && (
@@ -131,6 +173,28 @@ export default async function ClientDetailsPage({
             </a>
           )}
         </div>
+
+        {/* رؤى الـCRM: الإجراء التالي، الدرجة بأسبابها، الفرص، الوحدات
+            المطابقة. تُعرض فوق الحجز لأن القرار يسبق الفعل. */}
+        <CrmInsights clientId={c.id} />
+
+        {/* التأهيل — ما يفرّق الليد عن الفرصة، وأثره يظهر في الدرجة فوراً */}
+        {stages.length > 0 && (
+          <QualificationPanel client={c} qualification={qualification} projects={projects} />
+        )}
+
+        {/* فتح فرصة من الملف: الصفقة كيانٌ مستقل عن الشخص (sql/072) */}
+        <NewOpportunity
+          clientId={c.id}
+          projects={projects}
+          stages={stages}
+          defaultProjectId={c.preferred_project_id ?? c.project_id}
+          defaultPaymentMethod={c.payment_method}
+        />
+
+        {stages.length > 0 && (
+          <InterestsPanel clientId={c.id} interests={interests} projects={projects} />
+        )}
 
         {/* الحجز من ملفّ العميل: الموظف جالس معه فيحجز من مكانه،
             بدل أن يفتح المخزون ويبحث عن الوحدة ثم يعود لاختياره */}
@@ -195,7 +259,7 @@ export default async function ClientDetailsPage({
 
         {/* ===== العمود الثاني: سجلّ التواصل ===== */}
         <div className="space-y-4">
-          <LogActivity clientId={c.id} stage={c.stage} />
+          <LogActivity clientId={c.id} stage={c.stage} opportunities={openOpps} />
 
           <div>
             <div className="mb-3 flex items-center justify-between">
@@ -210,6 +274,9 @@ export default async function ClientDetailsPage({
               clientStage={c.stage}
             />
           </div>
+
+          {/* الملكية والمراحل — سجلٌّ يكتبه المحفّز لا الواجهة */}
+          <CrmHistory clientId={c.id} />
         </div>
       </section>
     </main>

@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import { isAdmin } from "@/lib/auth";
 import { getSalesEmployeeNames } from "@/lib/hr";
 import { CLIENT_COLUMNS, TEMPLATE_SAMPLE_ROWS } from "@/lib/clients-excel";
+import { getPipelineConfig } from "@/lib/crm-config";
 import {
   makeSheet,
   writeHeader,
@@ -28,11 +29,16 @@ export async function GET() {
 
   // أسماء الموظفين تصير قائمة منسدلة في عمود «موظف المبيعات»،
   // حتى يطابق الاسم ملف الموظفين حرفياً فتشتغل صلاحية رؤية العميل.
-  const employeeNames = await getSalesEmployeeNames();
+  const [employeeNames, cfg] = await Promise.all([getSalesEmployeeNames(), getPipelineConfig()]);
+  // المصادر والمراحل من القاعدة (sql/070) كي يطابق القالب ما يقبله الاستيراد
   const columns = CLIENT_COLUMNS.map((c) =>
     c.key === "sales_employee" && employeeNames.length > 0
       ? { ...c, list: employeeNames }
-      : c
+      : c.key === "source"
+        ? { ...c, list: cfg.sources }
+        : c.key === "stage"
+          ? { ...c, list: cfg.stageNames }
+          : c
   );
 
   const wb = new ExcelJS.Workbook();

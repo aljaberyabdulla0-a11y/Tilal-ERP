@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { getSalesEmployeeNames } from "@/lib/hr";
 import ClientForm from "../client-form";
+import { getPipelineConfig } from "@/lib/crm-config";
 
 // صفحة إضافة عميل جديد — تستخدم النموذج المشترك
 export default async function NewClientPage() {
-  const employeeNames = await getSalesEmployeeNames();
+  const [employeeNames, cfg] = await Promise.all([getSalesEmployeeNames(), getPipelineConfig()]);
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -19,7 +20,7 @@ export default async function NewClientPage() {
       </header>
 
       <section className="p-6">
-        <ClientForm employeeNames={employeeNames} />
+        <ClientForm employeeNames={employeeNames} sources={cfg.sources} />
       </section>
     </main>
   );

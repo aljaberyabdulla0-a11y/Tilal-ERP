@@ -16,17 +16,27 @@ import {
 // الاستخدام المقصود: اضغط نوع التواصل (مكالمة/واتساب/اجتماع...) فيفتح
 // نموذج مختصر مملوء بوقت الآن، تكتب ملخّصاً وتحدّد موعد المتابعة وتحفظ.
 // ============================================================
+export type OpenOpportunity = { id: string; title: string };
+
 export default function LogActivity({
   clientId,
   stage,
+  opportunities = [],
 }: {
   clientId: string;
   stage?: string | null;
+  // الفرص المفتوحة للعميل (sql/072): التواصل يُنسب إلى صفقته فيُحدَّث
+  // «آخر نشاط» و«الخطوة القادمة» عليها بمحفّز. فرصة واحدة = تُختار
+  // تلقائياً؛ أكثر = يختار الموظف؛ لا شيء = لا يظهر الحقل.
+  opportunities?: OpenOpportunity[];
 }) {
   const router = useRouter();
   const supabase = createClient();
 
   const [form, setForm] = useState<ActivityFormState | null>(null);
+  const [opportunityId, setOpportunityId] = useState<string>(
+    opportunities.length === 1 ? opportunities[0].id : ""
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +68,7 @@ export default function LogActivity({
     const { error } = await supabase.from("client_activities").insert({
       client_id: clientId,
       created_by: user?.id ?? null,
+      ...(opportunityId ? { opportunity_id: opportunityId } : {}),
       ...result.payload,
     });
     setSaving(false);
@@ -107,6 +118,22 @@ export default function LogActivity({
           </div>
 
           <ActivityFields value={form} onChange={setForm} stage={stage} />
+
+          {opportunities.length > 1 && (
+            <label className="block">
+              <span className="text-sm text-gray-600">على أي فرصة؟</span>
+              <select
+                value={opportunityId}
+                onChange={(e) => setOpportunityId(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">— العميل عموماً —</option>
+                {opportunities.map((o) => (
+                  <option key={o.id} value={o.id}>{o.title}</option>
+                ))}
+              </select>
+            </label>
+          )}
 
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>

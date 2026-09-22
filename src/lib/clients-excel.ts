@@ -127,6 +127,20 @@ export function normalizePhone(raw: string): string {
   return p;
 }
 
+// مفتاح الهاتف العراقي الموحّد — يطابق public.normalize_iraqi_phone
+// (sql/071) حرفياً: 07701234567 و+9647701234567 و009647701234567 كلها
+// «9647701234567». null لما لا يطابق الشكل — لا نخترع مفتاحاً.
+// ⚠️ لا تغيّر أحدهما بلا الآخر: القاعدة تكشف التكرار بهذا المفتاح،
+//    والاستيراد يكشفه قبل الحفظ بالمفتاح نفسه.
+export function phoneKey(raw: string | null | undefined): string | null {
+  const d = (raw ?? "").replace(/[^0-9]/g, "");
+  let n = d;
+  if (d.startsWith("00964")) n = d.slice(5);
+  else if (d.startsWith("964")) n = d.slice(3);
+  else if (d.startsWith("0")) n = d.slice(1);
+  return /^7[0-9]{9}$/.test(n) ? "964" + n : null;
+}
+
 // التاريخ قد يجي نصاً بصيغ مختلفة — نقبل الشائع منها
 export function normalizeDate(raw: string): string | null {
   const s = raw.trim();
@@ -160,18 +174,24 @@ export type ParsedRow = {
   duplicate?: boolean;                // رقم هاتفه موجود مسبقاً في النظام
 };
 
+// القوائم المسموحة حين تأتي من القاعدة (crm_sources, crm_stages — sql/070)
+// بدل الثوابت. المفتاح اسم العمود.
+export type ColumnLists = Partial<Record<string, readonly string[]>>;
+
 export function validateRow(
   rowNumber: number,
   raw: Record<string, string>,
   // أسماء الموظفين المسموحة في عمود «موظف المبيعات».
   // مهمّة للأمان: حماية الصفوف تربط العميل بموظفه بمطابقة الاسم حرفياً،
   // فلو كُتب الاسم ناقصاً ما راح يشوف الموظف عميله أبداً.
-  employeeNames?: string[]
+  employeeNames?: string[],
+  lists: ColumnLists = {}
 ): ParsedRow {
   const errors: string[] = [];
   const values: Record<string, string | null> = {};
 
-  for (const col of CLIENT_COLUMNS) {
+  for (const col0 of CLIENT_COLUMNS) {
+    const col = lists[col0.key] ? { ...col0, list: lists[col0.key] } : col0;
     const text = (raw[col.key] ?? "").trim();
 
     if (!text) {

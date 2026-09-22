@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getSalesEmployeeNames } from "@/lib/hr";
-import { CLIENT_COLUMNS, validateRow } from "@/lib/clients-excel";
+import { CLIENT_COLUMNS, ParsedRow, validateRow } from "@/lib/clients-excel";
+import { markDuplicates } from "@/lib/import-duplicates";
+import { getPipelineConfig } from "@/lib/crm-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,23 +40,29 @@ export async function POST(req: NextRequest) {
   }
 
   // إعادة تحقّق كاملة من جهة الخادم
-  const employeeNames = await getSalesEmployeeNames();
+  const [employeeNames, cfg] = await Promise.all([getSalesEmployeeNames(), getPipelineConfig()]);
+  const lists = { source: cfg.sources, stage: cfg.stageNames };
   const payload: Record<string, string | null>[] = [];
   const rejected: { rowNumber: number; errors: string[] }[] = [];
 
-  incoming.forEach((row, i) => {
+  const checkedRows: ParsedRow[] = incoming.map((row, i) => {
     const raw: Record<string, string> = {};
     for (const col of CLIENT_COLUMNS) {
       const v = row.values?.[col.key];
       raw[col.key] = v === null || v === undefined ? "" : String(v);
     }
-    const checked = validateRow(row.rowNumber ?? i + 2, raw, employeeNames);
+    return validateRow(row.rowNumber ?? i + 2, raw, employeeNames, lists);
+  });
+  // التكرار يُرفض هنا أيضاً لا في المعاينة وحدها — المعاينة تُعرض،
+  // والالتزام هو الحارس (§48)
+  await markDuplicates(checkedRows);
+  for (const checked of checkedRows) {
     if (checked.errors.length > 0) {
       rejected.push({ rowNumber: checked.rowNumber, errors: checked.errors });
-      return;
+      continue;
     }
     payload.push(checked.values);
-  });
+  }
 
   if (payload.length === 0) {
     return NextResponse.json(

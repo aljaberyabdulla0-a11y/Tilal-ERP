@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin, getCurrentUser } from "@/lib/auth";
 import {
   Client,
   PAYMENT_METHOD_COLORS,
@@ -10,23 +10,48 @@ import {
 import DeleteClientButton from "./delete-client-button";
 import CrmTabs from "../crm/crm-tabs";
 import StageSelect from "@/components/stage-select";
+import { getPipelineConfig } from "@/lib/crm-config";
+import { TEMPERATURE_STYLE, getSavedViews } from "@/lib/crm";
+import SavedViews from "@/components/saved-views";
+
+// المُرشِّحات التي تصل من روابط «نظرة» و«الجودة» (§45): الرقم يُنقر
+// فيفتح قائمته. كلها في العنوان فالرابط قابل للمشاركة.
+const QUALITY_FILTERS: Record<string, { label: string; apply: (q: any) => any }> = {
+  no_phone: { label: "بلا رقم هاتف", apply: (q) => q.or("phone.is.null,phone.eq.") },
+  no_source: { label: "بلا مصدر", apply: (q) => q.or("source.is.null,source.eq.") },
+  no_budget: { label: "بلا ميزانية", apply: (q) => q.is("budget_min", null).is("budget_max", null) },
+  no_owner: { label: "بلا مالك", apply: (q) => q.is("owner_id", null) },
+};
 
 // صفحة قائمة العملاء (CRM)
 // تقرأ العملاء من قاعدة البيانات وتعرضهم في جدول، مع بحث بالاسم أو الجوال
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: { q?: string; filter?: string; temperature?: string; stage?: string };
 }) {
   const supabase = await createClient();
+  const cfg = await getPipelineConfig();
 
   // نص البحث — ننظّفه من الرموز التي قد تكسر الاستعلام
   const q = (searchParams.q ?? "").trim().replace(/[%,()]/g, "");
+  const filter = searchParams.filter && QUALITY_FILTERS[searchParams.filter] ? searchParams.filter : null;
+  const temperature = searchParams.temperature && TEMPERATURE_STYLE[searchParams.temperature] ? searchParams.temperature : null;
+  const stage = searchParams.stage && cfg.colors[searchParams.stage] ? searchParams.stage : null;
 
   let query = supabase
     .from("clients")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (filter) query = QUALITY_FILTERS[filter].apply(query);
+  if (temperature) query = query.eq("lead_temperature", temperature);
+  if (stage) query = query.eq("stage", stage);
+  const activeFilters = [
+    filter ? QUALITY_FILTERS[filter].label : null,
+    temperature ? `حرارة: ${temperature}` : null,
+    stage ? `مرحلة: ${stage}` : null,
+  ].filter(Boolean) as string[];
 
   // البحث يشمل جهة الاتصال البديلة أيضاً: حين يتصل القريب أو مدير
   // الأعمال من رقمه هو، يجب أن يصل الموظف لملف العميل برقم المتصل.
@@ -41,7 +66,13 @@ export default async function ClientsPage({
   const clients = (data ?? []) as Client[];
 
   // هل المستخدم الحالي مدير؟ (لإظهار أزرار التعديل والحذف)
-  const admin = await isAdmin();
+  const [admin, user, views] = await Promise.all([isAdmin(), getCurrentUser(), getSavedViews("clients")]);
+  // المُرشِّحات الفعّالة كما هي في العنوان — هي ما يُحفظ باسم
+  const currentFilters: Record<string, string> = {};
+  if (q) currentFilters.q = q;
+  if (filter) currentFilters.filter = filter;
+  if (temperature) currentFilters.temperature = temperature;
+  if (stage) currentFilters.stage = stage;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -126,7 +157,7 @@ export default async function ClientsPage({
           >
             بحث
           </button>
-          {q && (
+          {(q || activeFilters.length > 0) && (
             <Link
               href="/dashboard/clients"
               className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
@@ -135,6 +166,25 @@ export default async function ClientsPage({
             </Link>
           )}
         </form>
+
+        {/* العروض المحفوظة — المُرشِّح باسمٍ يُنقر (§46) */}
+        <SavedViews
+          entity="clients"
+          basePath="/dashboard/clients"
+          current={currentFilters}
+          views={views}
+          userId={user?.id ?? null}
+        />
+
+        {/* مُرشِّح وصل من رابط: يُعرض باسمه كي يعرف القارئ لماذا القائمة أقصر */}
+        {activeFilters.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-gray-500">مُرشَّح:</span>
+            {activeFilters.map((f) => (
+              <span key={f} className="rounded-full bg-brand-50 px-3 py-1 text-brand-800">{f}</span>
+            ))}
+          </div>
+        )}
 
         {/* رسالة خطأ إن فشل جلب البيانات (غالباً: الجدول غير محدّث بعد) */}
         {error && (
@@ -148,7 +198,7 @@ export default async function ClientsPage({
         {/* لا يوجد عملاء */}
         {!error && clients.length === 0 && (
           <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
-            {q ? "لا يوجد عميل مطابق للبحث." : "لا يوجد عملاء بعد — أضف أول عميل."}
+            {q || activeFilters.length > 0 ? "لا يوجد عميل مطابق." : "لا يوجد عملاء بعد — أضف أول عميل."}
           </div>
         )}
 
@@ -183,7 +233,12 @@ export default async function ClientsPage({
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <StageSelect clientId={c.id} stage={c.stage} />
+                      <StageSelect clientId={c.id} stage={c.stage} stages={cfg.stages} />
+                      {c.lead_temperature && (
+                        <span className={`ms-1 rounded px-1.5 py-0.5 text-[11px] ${TEMPERATURE_STYLE[c.lead_temperature] ?? ""}`}>
+                          {c.lead_temperature}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-600" dir="ltr">
                       {c.phone || "—"}
@@ -208,7 +263,7 @@ export default async function ClientsPage({
                     <td className="px-4 py-3 text-gray-600">{c.source || "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{c.sales_employee || "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={`font-medium ${sinceColor(c.last_contact_at)}`}>
+                      <span className={`font-medium ${sinceColor(c.last_contact_at, cfg.silence)}`}>
                         {sinceLabel(c.last_contact_at)}
                       </span>
                       {(c.contact_count ?? 0) > 0 && (

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
-import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { getSalesEmployeeNames } from "@/lib/hr";
 import { CLIENT_COLUMNS, ParsedRow, cellToText, validateRow } from "@/lib/clients-excel";
+import { markDuplicates } from "@/lib/import-duplicates";
+import { getPipelineConfig } from "@/lib/crm-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,7 +83,8 @@ export async function POST(req: NextRequest) {
   }
 
   // قراءة الصفوف
-  const employeeNames = await getSalesEmployeeNames();
+  const [employeeNames, cfg] = await Promise.all([getSalesEmployeeNames(), getPipelineConfig()]);
+  const lists = { source: cfg.sources, stage: cfg.stageNames };
   const rows: ParsedRow[] = [];
   let truncated = false;
 
@@ -103,7 +105,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (!hasAnyValue) return; // صف فارغ تماماً
-    rows.push(validateRow(rowNumber, raw, employeeNames));
+    rows.push(validateRow(rowNumber, raw, employeeNames, lists));
   });
 
   if (rows.length === 0) {
@@ -113,36 +115,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // كشف التكرار: مقابل أرقام موجودة في النظام، ومقابل الملف نفسه
-  const phones = rows
-    .map((r) => r.values.phone)
-    .filter((p): p is string => Boolean(p));
-
-  const existing = new Set<string>();
-  if (phones.length > 0) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("clients")
-      .select("phone")
-      .in("phone", Array.from(new Set(phones)));
-    (data ?? []).forEach((c: { phone: string | null }) => {
-      if (c.phone) existing.add(c.phone);
-    });
-  }
-
-  const seenInFile = new Set<string>();
-  for (const r of rows) {
-    const phone = r.values.phone;
-    if (!phone) continue;
-    if (existing.has(phone)) {
-      r.duplicate = true;
-      r.errors.push(`رقم الهاتف ${phone} موجود مسبقاً في النظام.`);
-    } else if (seenInFile.has(phone)) {
-      r.duplicate = true;
-      r.errors.push(`رقم الهاتف ${phone} مكرّر داخل الملف نفسه.`);
-    }
-    seenInFile.add(phone);
-  }
+  // كشف التكرار بالمفتاح المطبّع: مقابل النظام ومقابل الملف نفسه
+  await markDuplicates(rows);
 
   const valid = rows.filter((r) => r.errors.length === 0).length;
 

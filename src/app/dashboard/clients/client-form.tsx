@@ -27,12 +27,15 @@ export default function ClientForm({
   initial,
   clientId,
   employeeNames = [],
+  sources,
 }: {
   initial?: Partial<Client>;
   clientId?: string;
   // أسماء الموظفين المتاحة — الاسم هنا يحدّد من يشوف هذا العميل،
   // فلازم يطابق ملف الموظفين حرفياً (لذلك قائمة وليس كتابة حرة)
   employeeNames?: string[];
+  // مصادر العملاء من crm_sources (sql/070) — تسقط إلى الثابت القديم
+  sources?: string[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -70,6 +73,10 @@ export default function ClientForm({
   // لموظف قديم لم يعد في القائمة، حتى لا تضيع عند التعديل
   const options = Array.from(
     new Set([...employeeNames, form.sales_employee].filter(Boolean))
+  );
+  // المصدر المحفوظ سابقاً يبقى في القائمة ولو عُطّل لاحقاً
+  const sourceOptions = Array.from(
+    new Set([...(sources && sources.length > 0 ? sources : CLIENT_SOURCES), form.source].filter(Boolean))
   );
 
   async function handleSubmit(e: React.FormEvent) {
@@ -301,7 +308,7 @@ export default function ClientForm({
             className={inputClass}
           >
             <option value="">— اختر المصدر —</option>
-            {CLIENT_SOURCES.map((s) => (
+            {sourceOptions.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>

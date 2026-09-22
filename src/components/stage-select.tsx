@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PIPELINE_STAGES, PIPELINE_STAGE_COLORS } from "@/lib/types";
 
+export type StageOption = { name: string; color: string };
+
+// الافتراض القديم — يُستعمل حين لا تمرّر الصفحة مراحل من القاعدة
+const FALLBACK_STAGES: StageOption[] = PIPELINE_STAGES.map((name) => ({
+  name,
+  color: PIPELINE_STAGE_COLORS[name] ?? "bg-gray-100 text-gray-700",
+}));
+
 // ============================================================
 // تغيير مرحلة العميل من أي مكان (القائمة، صفحة العميل...) —
 // بلا فتح لوحة المبيعات. تغيير المرحلة يُسجَّل تلقائياً في سجلّ
@@ -14,11 +22,15 @@ export default function StageSelect({
   clientId,
   stage,
   size = "sm",
+  stages,
 }: {
   clientId: string;
   stage: string | null | undefined;
   size?: "sm" | "md";
+  // من crm_stages (sql/070) عبر getPipelineConfig() — اختيارية للتوافق
+  stages?: StageOption[];
 }) {
+  const options = stages && stages.length > 0 ? stages : FALLBACK_STAGES;
   const router = useRouter();
   const supabase = createClient();
 
@@ -48,7 +60,12 @@ export default function StageSelect({
     router.refresh();
   }
 
-  const color = PIPELINE_STAGE_COLORS[value] ?? "bg-gray-100 text-gray-700";
+  const color =
+    options.find((s) => s.name === value)?.color ??
+    PIPELINE_STAGE_COLORS[value] ??
+    "bg-gray-100 text-gray-700";
+  // المرحلة المحفوظة قد تكون معطَّلة الآن — تبقى ظاهرة كي لا يُفقد الخيار الحالي
+  const shown = options.some((s) => s.name === value) ? options : [...options, { name: value, color }];
   const sizing =
     size === "md" ? "px-3 py-1.5 text-sm" : "px-2.5 py-1 text-xs";
 
@@ -62,9 +79,9 @@ export default function StageSelect({
         aria-label="حالة العميل"
         className={`cursor-pointer rounded-full border-0 font-medium outline-none transition focus:ring-2 focus:ring-brand-500 disabled:opacity-50 ${color} ${sizing}`}
       >
-        {PIPELINE_STAGES.map((s) => (
-          <option key={s} value={s} className="bg-white text-gray-800">
-            {s}
+        {shown.map((s) => (
+          <option key={s.name} value={s.name} className="bg-white text-gray-800">
+            {s.name}
           </option>
         ))}
       </select>

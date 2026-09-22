@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getUserRole } from "@/lib/auth";
 
 // شريط تبويبات CRM — يظهر أعلى أقسام العملاء والوحدات والحجوزات.
-// تبويب «التقارير» للإدارة فقط.
 //
 // مدير المتابعة يرى العملاء وسجلّ التواصل فقط: الوحدات والحجوزات
 // خارج نطاقه في القاعدة (sql/040)، فلا نعرض له تبويباً يفتح شاشة
@@ -11,21 +10,34 @@ export default async function CrmTabs({ active }: { active: string }) {
   const role = await getUserRole();
   const admin = role === "admin";
   const followup = role === "followup_manager";
+  const supervisor = role === "supervisor";
 
   // «يومي» أولاً عمداً: الموظف يفتح الـCRM ليعمل لا ليتصفّح قوائم.
-  // و«التوزيع» لمن يملك النقل في القاعدة (sql/073) — الإدارة ومدير
-  // المتابعة والمشرف. لا نعرض تبويباً يفتح شاشة بلا صلاحية.
-  const canDistribute = admin || followup || role === "supervisor";
+  //
+  // ثلاث طبقات من التبويبات بحسب من يفتحها:
+  //   الجميع        يومي · العملاء · الفرص · سجلّ التواصل
+  //   من يدير       + نظرة · التوزيع · التقارير · التنبؤ
+  //   المدير وحده   + الجودة (الدمج والحذف من صلاحيته في sql/077)
+  //
+  // لا نعرض تبويباً يفتح شاشة بلا صلاحية — الصفحة نفسها تُعيد
+  // التوجيه، لكن الأفضل ألّا يظهر الباب أصلاً.
+  const manages = admin || followup || supervisor;
 
   const tabs = [
     { key: "today", label: "يومي", href: "/dashboard/crm/today" },
+    ...(manages ? [{ key: "overview", label: "نظرة", href: "/dashboard/crm/overview" }] : []),
     { key: "clients", label: "العملاء", href: "/dashboard/clients" },
+    { key: "opportunities", label: "الفرص", href: "/dashboard/crm/opportunities" },
     { key: "activities", label: "سجلّ التواصل", href: "/dashboard/clients/activities" },
-    ...(canDistribute
-      ? [{ key: "distribution", label: "التوزيع", href: "/dashboard/crm/distribution" }]
+    ...(manages
+      ? [
+          { key: "distribution", label: "التوزيع", href: "/dashboard/crm/distribution" },
+          { key: "reports", label: "التقارير", href: "/dashboard/crm/reports" },
+          { key: "forecast", label: "التنبؤ", href: "/dashboard/crm/forecast" },
+        ]
       : []),
-    ...(admin
-      ? [{ key: "reports", label: "التقارير", href: "/dashboard/crm/reports" }]
+    ...(admin || followup
+      ? [{ key: "data-quality", label: "الجودة", href: "/dashboard/crm/data-quality" }]
       : []),
     ...(followup
       ? []

@@ -730,3 +730,24 @@ export const getCampaigns = cache(async () =>
 
 // ===== الإجراءات الجماعية (085) =====
 export type BulkResult = { succeeded: number; failed: number; first_error: string | null };
+
+// ===== مستندات العميل (087) =====
+export type ClientDocument = {
+  id: string;
+  client_id: string;
+  opportunity_id: string | null;
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  doc_type: string;
+  notes: string | null;
+  uploaded_by_name: string | null;
+  created_at: string;
+};
+
+export const getClientDocuments = cache(async (clientId: string) =>
+  table<ClientDocument>("client_documents", (q) =>
+    q.select("*").eq("client_id", clientId).is("deleted_at", null).order("created_at", { ascending: false })
+  )
+);

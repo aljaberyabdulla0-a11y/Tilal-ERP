@@ -24,6 +24,7 @@ import { getPipelineConfig } from "@/lib/crm-config";
 import QualificationPanel from "./qualification-panel";
 import NewOpportunity from "./new-opportunity";
 import InterestsPanel from "./interests-panel";
+import DocumentsPanel from "./documents-panel";
 import {
   getQualification,
   getProjectsLite,
@@ -31,6 +32,7 @@ import {
   getClientInterests,
   getOwnerName,
   getClientOpportunities,
+  getClientDocuments,
   TEMPERATURE_STYLE,
 } from "@/lib/crm";
 
@@ -73,6 +75,7 @@ export default async function ClientDetailsPage({
     getPipelineConfig(),
     getClientOpportunities(c.id),
   ]);
+  const documents = await getClientDocuments(c.id);
   const openOpps = opps
     .filter((o) => o.stage_type === "open")
     .map((o) => ({ id: o.id, title: `${o.project_name ?? "بلا مشروع"} · ${o.stage_name}` }));
@@ -203,6 +206,9 @@ export default async function ClientDetailsPage({
         {canWrite && stages.length > 0 && (
           <InterestsPanel clientId={c.id} interests={interests} projects={projects} />
         )}
+
+        {/* المستندات — خاصّة، وتُفتح برابط موقَّع ينتهي (sql/087) */}
+        <DocumentsPanel clientId={c.id} documents={documents} canWrite={canWrite} />
 
         {/* الحجز من ملفّ العميل: الموظف جالس معه فيحجز من مكانه،
             بدل أن يفتح المخزون ويبحث عن الوحدة ثم يعود لاختياره */}

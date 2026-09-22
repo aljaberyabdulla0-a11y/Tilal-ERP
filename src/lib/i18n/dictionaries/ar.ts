@@ -62,6 +62,8 @@ const ar = {
     roleFollowup: "مدير المتابعة",
     roleRm: "مدير علاقات",
     roleBroker: "شركة وسيطة",
+    roleMarketing: "تسويق",
+    roleViewer: "مُطالِع",
     roleEmployee: "موظف",
     language: "اللغة",
     myTeam: "فريقي",

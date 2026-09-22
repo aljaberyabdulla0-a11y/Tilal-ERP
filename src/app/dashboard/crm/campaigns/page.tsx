@@ -24,10 +24,12 @@ import CampaignForm from "./campaign-form";
 // ============================================================
 export default async function CampaignsPage() {
   const role = await getUserRole();
-  if (role !== "admin" && role !== "followup_manager" && role !== "supervisor") {
+  const READERS = ["admin", "followup_manager", "supervisor", "marketing", "viewer"];
+  if (!READERS.includes(role)) {
     redirect("/dashboard/crm/today");
   }
-  const admin = role === "admin";
+  // التسويق يكتب الحملات ومصروفها — تطابق سياسة 084
+  const canWrite = role === "admin" || role === "marketing";
 
   const [campaigns, perf, sources, projects] = await Promise.all([
     getCampaigns(),
@@ -72,7 +74,7 @@ export default async function CampaignsPage() {
           </section>
         )}
 
-        {admin && <CampaignForm sources={sources} projects={projects} />}
+        {canWrite && <CampaignForm sources={sources} projects={projects} />}
 
         <section className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="w-full text-right text-sm">

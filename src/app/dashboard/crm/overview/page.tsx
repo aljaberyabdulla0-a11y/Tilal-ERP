@@ -29,7 +29,8 @@ import CrmTabs from "../crm-tabs";
 // ============================================================
 export default async function CrmOverviewPage() {
   const role = await getUserRole();
-  if (role !== "admin" && role !== "followup_manager" && role !== "supervisor") {
+  const READERS = ["admin", "followup_manager", "supervisor", "marketing", "viewer"];
+  if (!READERS.includes(role)) {
     redirect("/dashboard/crm/today");
   }
 

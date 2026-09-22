@@ -22,6 +22,8 @@ export type UserRole =
   | "followup_manager"
   | "relationship_manager"
   | "broker"
+  | "marketing"
+  | "viewer"
   | "employee";
 
 const ROLES: UserRole[] = [
@@ -32,8 +34,13 @@ const ROLES: UserRole[] = [
   "followup_manager",
   "relationship_manager",
   "broker",
+  "marketing",
+  "viewer",
   "employee",
 ];
+
+// ⚠️ لا دور باسم "finance": المالية هي accountant منذ sql/068. دوران
+//    بنفس العمل يفترقان مع الوقت فتُمنح صلاحية لأحدهما وتُنسى للآخر.
 
 // المستخدم الحالي — استدعاء واحد لخادم المصادقة لكل طلب
 export const getCurrentUser = cache(async () => {
@@ -150,6 +157,35 @@ export const isRelationshipManager = cache(async (): Promise<boolean> => {
 export const canSeeBrokers = cache(async (): Promise<boolean> => {
   const role = await getUserRole();
   return role === "admin" || role === "relationship_manager";
+});
+
+// ============================================================
+// التسويق والمُطالِع — قراءة بلا كتابة (sql/084).
+//
+// ⚠️ إخفاء الأزرار هنا ليس حمايةً بل صدقاً مع المستخدم. الحماية في
+//    القاعدة، لكن لها خاصيّة يجب معرفتها: RLS تمنع التعديل **صمتاً**
+//    — صفر صفوف بلا خطأ. فزرٌّ ظاهر لمن لا يملك يُظهر «حُفظ» ولم
+//    يُحفظ شيء. لذلك يُخفى الزرّ، لا لأن إظهاره ثغرة بل لأنه كذب.
+// ============================================================
+export const isMarketing = cache(async (): Promise<boolean> => {
+  return (await getUserRole()) === "marketing";
+});
+
+export const isViewer = cache(async (): Promise<boolean> => {
+  return (await getUserRole()) === "viewer";
+});
+
+// يقرأ الـCRM كلّه ولا يكتب فيه — يطابق can_read_all_crm() في القاعدة
+export const canReadAllCrm = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  return role === "marketing" || role === "viewer";
+});
+
+// من يملك تعديل بيانات العملاء والفرص. الموظف يملكها على عملائه،
+// والتسويق والمُطالِع لا يملكانها على أحد.
+export const canWriteCrm = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  return role !== "marketing" && role !== "viewer" && role !== "broker";
 });
 
 // من يدخل قسم المخزون ويعدّل فيه — يطابق can_manage_inventory() في القاعدة.

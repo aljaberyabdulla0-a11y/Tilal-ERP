@@ -22,8 +22,20 @@ export default async function CrmTabs({ active }: { active: string }) {
   // لا نعرض تبويباً يفتح شاشة بلا صلاحية — الصفحة نفسها تُعيد
   // التوجيه، لكن الأفضل ألّا يظهر الباب أصلاً.
   const manages = admin || followup || supervisor;
+  // التسويق والمُطالِع يقرآن ولا يعملون: لا «يومي» (لا ليدات لهما)،
+  // ولا توزيع (فعل)، ولا جودة (قرارات دمج وحذف). تطابق 084.
+  const readOnly = role === "marketing" || role === "viewer";
 
-  const tabs = [
+  const tabs = readOnly
+    ? [
+        { key: "overview", label: "نظرة", href: "/dashboard/crm/overview" },
+        { key: "clients", label: "العملاء", href: "/dashboard/clients" },
+        { key: "opportunities", label: "الفرص", href: "/dashboard/crm/opportunities" },
+        { key: "reports", label: "التقارير", href: "/dashboard/crm/reports" },
+        { key: "forecast", label: "التنبؤ", href: "/dashboard/crm/forecast" },
+        { key: "campaigns", label: "الحملات", href: "/dashboard/crm/campaigns" },
+      ]
+    : [
     { key: "today", label: "يومي", href: "/dashboard/crm/today" },
     ...(manages ? [{ key: "overview", label: "نظرة", href: "/dashboard/crm/overview" }] : []),
     { key: "clients", label: "العملاء", href: "/dashboard/clients" },

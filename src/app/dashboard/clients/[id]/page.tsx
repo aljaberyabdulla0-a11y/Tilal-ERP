@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin, canWriteCrm } from "@/lib/auth";
 import {
   Client,
   ClientActivity,
@@ -56,6 +56,8 @@ export default async function ClientDetailsPage({
       .order("created_at", { ascending: false }),
     isAdmin(),
   ]);
+  // من لا يكتب لا يُعرض له زرّ يكتب — RLS تمنعه صمتاً فيظنّ أنه حفظ
+  const canWrite = await canWriteCrm();
 
   if (!data) notFound();
   const c = data as Client;
@@ -125,7 +127,13 @@ export default async function ClientDetailsPage({
         <div className="space-y-6">
         {/* شريط حالة سريع */}
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-          <StageSelect clientId={c.id} stage={c.stage} size="md" stages={cfg.stages} />
+          {canWrite ? (
+            <StageSelect clientId={c.id} stage={c.stage} size="md" stages={cfg.stages} />
+          ) : (
+            <span className={`rounded-full px-3 py-1.5 text-sm font-medium ${cfg.colors[c.stage ?? "ليد"] ?? "bg-gray-100 text-gray-700"}`}>
+              {c.stage ?? "ليد"}
+            </span>
+          )}
           <span className="text-sm text-gray-500">
             آخر تواصل:{" "}
             <b className={sinceColor(c.last_contact_at, cfg.silence)}>
@@ -179,30 +187,32 @@ export default async function ClientDetailsPage({
         <CrmInsights clientId={c.id} />
 
         {/* التأهيل — ما يفرّق الليد عن الفرصة، وأثره يظهر في الدرجة فوراً */}
-        {stages.length > 0 && (
+        {canWrite && stages.length > 0 && (
           <QualificationPanel client={c} qualification={qualification} projects={projects} />
         )}
 
         {/* فتح فرصة من الملف: الصفقة كيانٌ مستقل عن الشخص (sql/072) */}
-        <NewOpportunity
+        {canWrite && <NewOpportunity
           clientId={c.id}
           projects={projects}
           stages={stages}
           defaultProjectId={c.preferred_project_id ?? c.project_id}
           defaultPaymentMethod={c.payment_method}
-        />
+        />}
 
-        {stages.length > 0 && (
+        {canWrite && stages.length > 0 && (
           <InterestsPanel clientId={c.id} interests={interests} projects={projects} />
         )}
 
         {/* الحجز من ملفّ العميل: الموظف جالس معه فيحجز من مكانه،
             بدل أن يفتح المخزون ويبحث عن الوحدة ثم يعود لاختياره */}
-        <ReserveUnit
-          clientId={c.id}
-          clientName={c.name}
-          existing={reservations}
-        />
+        {canWrite && (
+          <ReserveUnit
+            clientId={c.id}
+            clientName={c.name}
+            existing={reservations}
+          />
+        )}
 
         <div className="rounded-2xl bg-white p-8 shadow-sm">
           <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
@@ -240,12 +250,12 @@ export default async function ClientDetailsPage({
 
           {/* من ينوب عن العميل — يضيفه الموظف من هنا بلا إذن مدير.
               الرقم يصله وهو جالس مع عميله، فيُكتب في حينه لا بعده. */}
-          <AltContact
+          {canWrite && <AltContact
             clientId={c.id}
             name={c.alt_contact_name}
             phone={c.alt_contact_phone}
             relation={c.alt_contact_relation}
-          />
+          />}
 
           {/* الملاحظات في مساحة عريضة */}
           <div className="mt-4">
@@ -259,7 +269,9 @@ export default async function ClientDetailsPage({
 
         {/* ===== العمود الثاني: سجلّ التواصل ===== */}
         <div className="space-y-4">
-          <LogActivity clientId={c.id} stage={c.stage} opportunities={openOpps} />
+          {canWrite && (
+            <LogActivity clientId={c.id} stage={c.stage} opportunities={openOpps} />
+          )}
 
           <div>
             <div className="mb-3 flex items-center justify-between">

@@ -1340,6 +1340,8 @@ export const ROLE_LABELS: Record<string, string> = {
   followup_manager: "مدير المتابعة",
   relationship_manager: "مدير علاقات",
   broker: "شركة وسيطة",
+  marketing: "تسويق",
+  viewer: "مُطالِع",
   employee: "موظف",
 };
 
@@ -1351,6 +1353,8 @@ export const ROLE_COLORS: Record<string, string> = {
   followup_manager: "bg-purple-100 text-purple-700",
   relationship_manager: "bg-teal-100 text-teal-700",
   broker: "bg-orange-100 text-orange-700",
+  marketing: "bg-pink-100 text-pink-700",
+  viewer: "bg-slate-100 text-slate-600",
   employee: "bg-gray-100 text-gray-600",
 };
 

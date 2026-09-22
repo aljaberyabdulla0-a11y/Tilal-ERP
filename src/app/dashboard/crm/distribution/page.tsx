@@ -38,6 +38,7 @@ import { createClient } from "@/lib/supabase/server";
 // ============================================================
 export default async function DistributionPage() {
   const role = await getUserRole();
+  // ⚠️ التوزيع فعلٌ لا تقرير: التسويق والمُطالِع خارجه عمداً
   if (role !== "admin" && role !== "followup_manager" && role !== "supervisor") {
     redirect("/dashboard");
   }

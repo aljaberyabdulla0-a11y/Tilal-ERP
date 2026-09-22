@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getOpportunities, getStages, TEMPERATURE_STYLE, fmt, type OpportunityRow } from "@/lib/crm";
+import { canWriteCrm } from "@/lib/auth";
 import CrmTabs from "../crm-tabs";
 import OpportunityStage from "./opportunity-stage";
 
@@ -25,7 +26,13 @@ export default async function OpportunitiesPage({
     : null) as "open" | "won" | "lost" | null;
   const view = searchParams.view === "list" ? "list" : "board";
 
-  const [all, stages] = await Promise.all([getOpportunities({ stageType: type }), getStages()]);
+  // من لا يكتب يرى المرحلة شارةً لا قائمة: RLS تمنعه صمتاً، وقائمةٌ
+  // تُغلق بلا أثر أسوأ من شارة تقول الحقيقة.
+  const [all, stages, canWrite] = await Promise.all([
+    getOpportunities({ stageType: type }),
+    getStages(),
+    canWriteCrm(),
+  ]);
   const opps = searchParams.client ? all.filter((o) => o.client_id === searchParams.client) : all;
 
   const visibleStages = stages.filter(
@@ -87,7 +94,7 @@ export default async function OpportunitiesPage({
                   </div>
                   <div className="min-h-[200px] space-y-2 rounded-b-lg border border-t-0 border-gray-200 bg-gray-50 p-2">
                     {col.map((o) => (
-                      <Card key={o.id} o={o} stages={stages} />
+                      <Card key={o.id} o={o} stages={stages} canWrite={canWrite} />
                     ))}
                   </div>
                 </div>
@@ -119,7 +126,11 @@ export default async function OpportunitiesPage({
                     </td>
                     <td className="px-4 py-2 text-gray-600">{o.project_name ?? "—"}</td>
                     <td className="px-4 py-2">
-                      <OpportunityStage id={o.id} stageId={o.stage_id} stages={stages} />
+                      {canWrite ? (
+                        <OpportunityStage id={o.id} stageId={o.stage_id} stages={stages} />
+                      ) : (
+                        <StageBadge stages={stages} stageId={o.stage_id} />
+                      )}
                     </td>
                     <td className="px-4 py-2 text-gray-800">{fmt(o.expected_value)}</td>
                     <td className="px-4 py-2 text-gray-500">{o.probability ?? "—"}%</td>
@@ -155,7 +166,16 @@ function Filter({ href, on, label }: { href: string; on: boolean; label: string 
   );
 }
 
-function Card({ o, stages }: { o: OpportunityRow; stages: { id: string; name: string; stage_type: string; required_fields: string[] }[] }) {
+function StageBadge({ stages, stageId }: { stages: { id: string; name: string; color?: string | null }[]; stageId: string }) {
+  const s = stages.find((x) => x.id === stageId);
+  return (
+    <span className={`rounded px-2 py-0.5 text-xs font-medium ${s?.color ?? "bg-gray-100 text-gray-700"}`}>
+      {s?.name ?? "—"}
+    </span>
+  );
+}
+
+function Card({ o, stages, canWrite }: { o: OpportunityRow; stages: { id: string; name: string; stage_type: string; required_fields: string[]; color?: string | null }[]; canWrite: boolean }) {
   const silent = Math.round(Number(o.days_silent));
   return (
     <div className={`rounded-lg border bg-white p-3 shadow-sm ${o.is_overdue ? "border-red-300" : "border-gray-200"}`}>
@@ -171,7 +191,11 @@ function Card({ o, stages }: { o: OpportunityRow; stages: { id: string; name: st
         <span className={silent > 14 ? "text-red-600" : "text-gray-400"}>صامت {silent}ي</span>
       </div>
       <div className="mt-2">
-        <OpportunityStage id={o.id} stageId={o.stage_id} stages={stages} compact />
+        {canWrite ? (
+          <OpportunityStage id={o.id} stageId={o.stage_id} stages={stages} compact />
+        ) : (
+          <StageBadge stages={stages} stageId={o.stage_id} />
+        )}
       </div>
       {o.owner_name && <p className="mt-1 text-xs text-gray-400">{o.owner_name}</p>}
     </div>

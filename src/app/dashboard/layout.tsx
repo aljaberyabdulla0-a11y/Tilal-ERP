@@ -87,6 +87,12 @@ export default async function DashboardLayout({
   const rm = role === "relationship_manager";
   const accountant = role === "accountant";
   const hr = role === "hr";
+  const marketing = role === "marketing";
+  const viewer = role === "viewer";
+
+  // ⚠️ تطابق can_read_all_crm() في القاعدة (sql/084): يقرآن الـCRM
+  //    كلّه ولا يكتبان فيه حرفاً.
+  const readOnlyCrm = marketing || viewer;
 
   // ⚠️ تطابق can_manage_finance() في القاعدة.
   const finance = admin || accountant;
@@ -109,6 +115,61 @@ export default async function DashboardLayout({
       <AppShell nav={brokerNav} userEmail={user?.email ?? ""} roleLabel={t.nav.roleBroker}>
         {children}
         {/* لا نافذة محادثات: المحادثات الداخلية بين موظفي تلال */}
+      </AppShell>
+    );
+  }
+
+  const roleLabel = admin
+    ? t.nav.roleAdmin
+    : accountant
+    ? t.nav.roleAccountant
+    : hr
+    ? t.nav.roleHr
+    : supervisor
+    ? t.nav.roleSupervisor
+    : followup
+    ? t.nav.roleFollowup
+    : rm
+    ? t.nav.roleRm
+    : marketing
+    ? t.nav.roleMarketing
+    : viewer
+    ? t.nav.roleViewer
+    : t.nav.roleEmployee;
+
+  // ============================================================
+  // التسويق والمُطالِع: قائمة مستقلة — لنفس سبب الوسيط.
+  //
+  // أكثر قائمة الموظفين لا يخصّهما: لا مهامّ، ولا مخزون، ولا موارد
+  // بشرية، ولا مشاريع تُدار. وما يخصّهما هو الـCRM قراءةً. وبناؤها
+  // بشروط داخل تلك القائمة يعني ستّة شروط جديدة، وشرطٌ يُنسى يوماً
+  // فيظهر لهما بابٌ ليس لهما.
+  //
+  // والفرق بينهما: التسويق موظّف في الشركة — له محادثاته وبوّابته
+  // الشخصية؛ والمُطالِع قد يكون مراجعاً خارجياً فلا محادثات له.
+  // ============================================================
+  if (readOnlyCrm) {
+    const readOnlyNav: NavItem[] = [
+      { href: "/dashboard", label: t.nav.dashboard, icon: "dashboard", prefixes: ["/dashboard"], exact: true },
+      {
+        href: "/dashboard/crm",
+        label: t.nav.crm,
+        icon: "groups",
+        prefixes: ["/dashboard/crm", "/dashboard/clients", "/dashboard/units"],
+      },
+      ...(marketing
+        ? [
+            { href: "/dashboard/chat", label: t.nav.chat, icon: "chat", prefixes: ["/dashboard/chat"], badge: "chat" as const },
+            { href: "/dashboard/me", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/me"] },
+          ]
+        : []),
+      { href: "/dashboard/account", label: t.nav.settings, icon: "settings", prefixes: ["/dashboard/account"] },
+    ];
+
+    return (
+      <AppShell nav={readOnlyNav} userEmail={user?.email ?? ""} roleLabel={roleLabel}>
+        {children}
+        {marketing && <ChatWidget myUserId={user?.id ?? ""} isAdmin={false} />}
       </AppShell>
     );
   }
@@ -235,19 +296,6 @@ export default async function DashboardLayout({
       : { href: "/dashboard/account", label: t.nav.settings, icon: "settings", prefixes: ["/dashboard/account"] },
   ];
 
-  const roleLabel = admin
-    ? t.nav.roleAdmin
-    : accountant
-    ? t.nav.roleAccountant
-    : hr
-    ? t.nav.roleHr
-    : supervisor
-    ? t.nav.roleSupervisor
-    : followup
-    ? t.nav.roleFollowup
-    : rm
-    ? t.nav.roleRm
-    : t.nav.roleEmployee;
 
   return (
     <AppShell nav={nav} userEmail={user?.email ?? ""} roleLabel={roleLabel}>

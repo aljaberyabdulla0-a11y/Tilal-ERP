@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin, getCurrentUser } from "@/lib/auth";
+import { isAdmin, getCurrentUser, canWriteCrm } from "@/lib/auth";
 import {
   Client,
   PAYMENT_METHOD_COLORS,
@@ -66,7 +66,14 @@ export default async function ClientsPage({
   const clients = (data ?? []) as Client[];
 
   // هل المستخدم الحالي مدير؟ (لإظهار أزرار التعديل والحذف)
-  const [admin, user, views] = await Promise.all([isAdmin(), getCurrentUser(), getSavedViews("clients")]);
+  // ⚠️ canWrite ليس حماية — الحماية في RLS. لكن RLS تمنع صمتاً
+  //    (صفر صفوف بلا خطأ)، فزرٌّ ظاهر لمن لا يملك يقول «حُفظ» كاذباً.
+  const [admin, user, views, canWrite] = await Promise.all([
+    isAdmin(),
+    getCurrentUser(),
+    getSavedViews("clients"),
+    canWriteCrm(),
+  ]);
   // المُرشِّحات الفعّالة كما هي في العنوان — هي ما يُحفظ باسم
   const currentFilters: Record<string, string> = {};
   if (q) currentFilters.q = q;
@@ -119,12 +126,14 @@ export default async function ClientsPage({
               </a>
             </>
           )}
-          <Link
-            href="/dashboard/clients/new"
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
-          >
-            + عميل جديد
-          </Link>
+          {canWrite && (
+            <Link
+              href="/dashboard/clients/new"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              + عميل جديد
+            </Link>
+          )}
         </div>
       </header>
 
@@ -233,7 +242,13 @@ export default async function ClientsPage({
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <StageSelect clientId={c.id} stage={c.stage} stages={cfg.stages} />
+                      {canWrite ? (
+                        <StageSelect clientId={c.id} stage={c.stage} stages={cfg.stages} />
+                      ) : (
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${cfg.colors[c.stage ?? "ليد"] ?? "bg-gray-100 text-gray-700"}`}>
+                          {c.stage ?? "ليد"}
+                        </span>
+                      )}
                       {c.lead_temperature && (
                         <span className={`ms-1 rounded px-1.5 py-0.5 text-[11px] ${TEMPERATURE_STYLE[c.lead_temperature] ?? ""}`}>
                           {c.lead_temperature}

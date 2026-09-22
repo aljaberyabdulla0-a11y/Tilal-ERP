@@ -64,6 +64,8 @@ const en: Dictionary = {
     roleFollowup: "Follow-up manager",
     roleRm: "Relationship manager",
     roleBroker: "Broker company",
+    roleMarketing: "Marketing",
+    roleViewer: "Viewer",
     roleEmployee: "Employee",
     language: "Language",
     myTeam: "My team",

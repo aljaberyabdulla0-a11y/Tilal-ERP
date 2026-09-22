@@ -226,10 +226,12 @@ begin
     return 0;   -- صُعِّد لهذا المستوى سابقاً
   end if;
 
+  -- الوجهة ملف العميل دائماً: فيه الفرص والإجراء التالي، ولا مسار
+  -- مستقل للفرصة الواحدة في الواجهة.
   deeplink := case
-                when b.entity_type = 'opportunity'
-                  then '/dashboard/crm/opportunities/' || b.entity_id
-                else '/dashboard/clients/' || coalesce(b.client_id, b.entity_id)
+                when b.client_id is not null then '/dashboard/clients/' || b.client_id
+                when b.entity_type = 'opportunity' then '/dashboard/crm/opportunities'
+                else '/dashboard/clients/' || b.entity_id
               end;
 
   msg := r.label || ' — ' || coalesce(b.owner_name, 'بلا مالك')
@@ -257,7 +259,7 @@ begin
     for target in
       select p.id uid, public.display_name(p.id) nm
         from public.employees me
-        join public.teams t     on t.id = me.team_id
+        join public.projects t  on t.id = me.project_id   -- الفريق = المشروع (sql/037)
         join public.employees s on s.id = t.supervisor_id
         join public.profiles p  on p.id = s.user_id
        where me.id = b.owner_id
@@ -303,7 +305,14 @@ end $$;
 -- الترتيب مقصود: **نُغلق المعالَج قبل أن نفتح الجديد**. بلا ذلك
 -- يُصعَّد خرقٌ عولج البارحة لأن الفحص رآه مفتوحاً.
 -- ------------------------------------------------------------
-create or replace function public.scan_crm_sla()
+--
+-- p_notify = false: **خطّ الأساس** عند التفعيل الأول. الخروق القائمة قبل
+-- تشغيل 075 تُسجَّل كاملةً (فتظهر في التقارير ومساحة العمل) لكن بلا
+-- إشعار فردي — ٢١٢ خرقاً قديماً في صباح واحد يدفن الإشارة الحقيقية
+-- ويُفقد الإشعارات مصداقيتها. تُختم بالمستوى ٣ وسببٍ صريح كي لا تُقرأ
+-- في التقارير كتصعيدات فعلية، وتُبلَّغ الإدارة بإشعار واحد جامع.
+-- ما يُفتح بعد ذلك يُنبَّه عليه ويُصعَّد كالمعتاد.
+create or replace function public.scan_crm_sla(p_notify boolean default true)
 returns table (opened int, escalated int, resolved int)
 language plpgsql security definer set search_path = public as $$
 declare
@@ -311,6 +320,9 @@ declare
   r      record;
   bid    uuid;
   fc_h   int := public.crm_setting_int('first_contact_sla_hours', 24);
+
+  -- تصعيد أو ختم — بحسب الوضع
+  procedure_note text := 'خرق قائم قبل تفعيل مستوى الخدمة (075) — سُجِّل بلا تنبيه فردي';
 begin
   -- ===== (أ) إغلاق ما عولج =====
 
@@ -375,7 +387,15 @@ begin
   loop
     bid := public.open_sla_breach('first_contact', 'client', r.id, r.id, r.owner_id, r.due);
     n_open := n_open + 1;
-    n_esc := n_esc + public.escalate_breach(bid);
+    if p_notify then
+      n_esc := n_esc + public.escalate_breach(bid);
+    else
+      update public.crm_sla_breaches set escalation_level = 3
+       where id = bid and escalation_level = 0;
+      insert into public.crm_escalations (breach_id, level, to_user_id, to_name, reason)
+      values (bid, 3, null, 'النظام', procedure_note)
+      on conflict do nothing;
+    end if;
   end loop;
 
   -- متابعة فات موعدها
@@ -388,7 +408,15 @@ begin
   loop
     bid := public.open_sla_breach('followup_overdue', 'client', r.id, r.id, r.owner_id, r.due);
     n_open := n_open + 1;
-    n_esc := n_esc + public.escalate_breach(bid);
+    if p_notify then
+      n_esc := n_esc + public.escalate_breach(bid);
+    else
+      update public.crm_sla_breaches set escalation_level = 3
+       where id = bid and escalation_level = 0;
+      insert into public.crm_escalations (breach_id, level, to_user_id, to_name, reason)
+      values (bid, 3, null, 'النظام', procedure_note)
+      on conflict do nothing;
+    end if;
   end loop;
 
   -- فرصة مفتوحة بلا خطوة قادمة
@@ -404,7 +432,15 @@ begin
     bid := public.open_sla_breach('no_next_action', 'opportunity', r.id, r.client_id,
                                   r.owner_id, r.due);
     n_open := n_open + 1;
-    n_esc := n_esc + public.escalate_breach(bid);
+    if p_notify then
+      n_esc := n_esc + public.escalate_breach(bid);
+    else
+      update public.crm_sla_breaches set escalation_level = 3
+       where id = bid and escalation_level = 0;
+      insert into public.crm_escalations (breach_id, level, to_user_id, to_name, reason)
+      values (bid, 3, null, 'النظام', procedure_note)
+      on conflict do nothing;
+    end if;
   end loop;
 
   -- فرصة عالقة: مهلة مرحلتها إن وُجدت، وإلا ٣٠ يوماً
@@ -419,16 +455,26 @@ begin
     bid := public.open_sla_breach('stage_stalled', 'opportunity', r.id, r.client_id,
                                   r.owner_id, r.due);
     n_open := n_open + 1;
-    n_esc := n_esc + public.escalate_breach(bid);
+    if p_notify then
+      n_esc := n_esc + public.escalate_breach(bid);
+    else
+      update public.crm_sla_breaches set escalation_level = 3
+       where id = bid and escalation_level = 0;
+      insert into public.crm_escalations (breach_id, level, to_user_id, to_name, reason)
+      values (bid, 3, null, 'النظام', procedure_note)
+      on conflict do nothing;
+    end if;
   end loop;
 
   -- ===== (ج) تصعيد الخروق المفتوحة التي شاخت =====
-  for r in
-    select id from public.crm_sla_breaches
-     where resolved_at is null and escalation_level < 3
-  loop
-    n_esc := n_esc + public.escalate_breach(r.id);
-  end loop;
+  if p_notify then
+    for r in
+      select id from public.crm_sla_breaches
+       where resolved_at is null and escalation_level < 3
+    loop
+      n_esc := n_esc + public.escalate_breach(r.id);
+    end loop;
+  end if;
 
   return query select n_open, n_esc, n_res;
 end $$;
@@ -536,11 +582,11 @@ create policy "ack escalations" on public.crm_escalations
 
 revoke all on function public.open_sla_breach(text, text, uuid, uuid, uuid, timestamptz) from public;
 revoke all on function public.escalate_breach(uuid)    from public;
-revoke all on function public.scan_crm_sla()           from public;
+revoke all on function public.scan_crm_sla(boolean)    from public;
 revoke all on function public.run_crm_sla_scan()       from public;
 revoke all on function public.crm_sla_summary(date, date) from public;
 
-grant execute on function public.scan_crm_sla()              to service_role;
+grant execute on function public.scan_crm_sla(boolean)       to service_role;
 grant execute on function public.run_crm_sla_scan()          to service_role;
 grant execute on function public.open_sla_breach(text, text, uuid, uuid, uuid, timestamptz)
   to service_role;
@@ -555,9 +601,20 @@ declare s record; r record;
 begin
   raise notice '--- 075 مستوى الخدمة والتصعيد ---';
 
-  select * into s from public.scan_crm_sla();
-  raise notice 'الفحص الأول: فُتح % خرقاً · صُعِّد % إشعاراً · أُغلق %',
-    s.opened, s.escalated, s.resolved;
+  -- خطّ الأساس: يُسجَّل القائم بلا تنبيهات فردية (انظر تعليق scan_crm_sla)
+  select * into s from public.scan_crm_sla(false);
+  raise notice 'خطّ الأساس: سُجِّل % خرقاً قائماً بلا تنبيه فردي · أُغلق %',
+    s.opened, s.resolved;
+
+  if s.opened > 0 then
+    insert into public.notifications (user_id, title, body, link, kind, category, priority)
+    select p.id,
+           'تفعيل مستوى الخدمة',
+           s.opened || ' خرقاً قائماً سُجِّل عند التفعيل بلا تنبيهات فردية — راجع ملخّص مستوى الخدمة في التقارير.',
+           '/dashboard/crm/reports#sla', 'عام', 'sla', 'عالية'
+      from public.profiles p
+     where p.role in ('admin', 'followup_manager');
+  end if;
 
   for r in select * from public.crm_sla_summary() loop
     raise notice '  % — % خرقاً (مفتوح %) | صُعِّد للمشرف % وللإدارة %',

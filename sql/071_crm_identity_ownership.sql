@@ -191,7 +191,8 @@ begin
     if new.sales_employee is null or btrim(new.sales_employee) = '' then
       new.owner_id := null;
     else
-      select count(*), min(e.id) into n_match, emp_id
+      -- min(uuid) غير موجودة في Postgres — أول عنصر من array_agg
+      select count(*), (array_agg(e.id order by e.id))[1] into n_match, emp_id
         from public.employees e
        where public.name_key(e.full_name) = public.name_key(new.sales_employee);
       if n_match = 1 then

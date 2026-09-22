@@ -60,7 +60,8 @@ create table if not exists public.crm_assignment_rules (
   match_project_id uuid references public.projects(id)   on delete cascade,
   match_governorate text,
   -- المستفيدون
-  target_team_id  uuid references public.teams(id)     on delete cascade,
+  -- «الفريق» هو المشروع منذ sql/037 (employees.project_id) — لا جدول teams
+  target_team_id  uuid references public.projects(id)  on delete cascade,
   target_owner_id uuid references public.employees(id) on delete cascade,
   priority   int not null default 100,   -- الأصغر يُفحص أولاً
   is_active  boolean not null default true,
@@ -107,7 +108,7 @@ language sql stable security definer set search_path = public as $$
      and e.status = 'active'
      and e.end_date is null          -- من أُنهيت خدمته لا يستلم ليداً
      and (r.target_owner_id is null or e.id = r.target_owner_id)
-     and (r.target_team_id  is null or e.team_id = r.target_team_id)
+     and (r.target_team_id  is null or e.project_id = r.target_team_id)
    group by e.id, e.full_name
    order by e.full_name;
 $$;

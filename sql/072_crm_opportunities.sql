@@ -258,7 +258,8 @@ select
   -- المغلقة: لا نعرف لحظة الإغلاق الحقيقية، فنستعمل آخر تواصل
   -- ثم تاريخ الإنشاء. تقريبٌ معلَن خيرٌ من عمود فارغ يُفسد دورة البيع.
   case when g.stage_type in ('won','lost')
-       then coalesce(c.last_contact_at, c.created_at) end,
+       -- ⚠️ greatest: آخر تواصل قد يسبق الإنشاء في المستورد، والإغلاق قبل الفتح مستحيل
+       then greatest(coalesce(c.last_contact_at, c.created_at), c.created_at) end,
   'فرصة مُرحَّلة تلقائياً من مرحلة العميل (072).'
 from public.clients c
 join public.crm_stages g on g.name = coalesce(c.stage, 'ليد')
@@ -470,20 +471,24 @@ begin
      round(extract(epoch from (now() - old.stage_entered_at)) / 86400.0, 2),
      auth.uid(), actor);
 
-  -- التسلسل الزمني للعميل يبقى مكاناً واحداً يُقرأ منه كل شيء
-  insert into public.client_activities
-    (client_id, opportunity_id, activity_type, summary, stage_from, stage_to, actor_name)
-  values
-    (new.client_id, new.id, 'تغيير مرحلة',
-     coalesce(new.title, 'فرصة') || ': ' || coalesce(from_name, '—') || ' ← ' || to_name,
-     from_name, to_name, actor);
-
-  -- ===== المرآة: عند اليقين فقط =====
   select count(*) into n_open
     from public.opportunities o
    where o.client_id = new.client_id and o.deleted_at is null;
 
-  if n_open = 1 then
+  -- ⚠️ لا ازدواج في التسلسل: محفّز العميل (sql/017) يسجّل «تغيير مرحلة»
+  --    كلما تغيّر clients.stage. حين يملك العميل فرصة واحدة تتزامن
+  --    المرحلتان بالمرآة، فيكفي سجلّه (يعمل قبل المرآة إن جاء التغيير
+  --    من الكانبان، وبعدها إن جاء من الفرصة). نسجّل هنا فقط حين لا
+  --    مرآة — صفر فرص أو أكثر من واحدة.
+  if n_open <> 1 then
+    insert into public.client_activities
+      (client_id, opportunity_id, activity_type, summary, stage_from, stage_to, actor_name)
+    values
+      (new.client_id, new.id, 'تغيير مرحلة',
+       coalesce(new.title, 'فرصة') || ': ' || coalesce(from_name, '—') || ' ← ' || to_name,
+       from_name, to_name, actor);
+  else
+    -- ===== المرآة: عند اليقين فقط =====
     select name into the_stage from public.crm_stages where id = new.stage_id;
     update public.clients
        set stage = the_stage
@@ -522,7 +527,8 @@ begin
     return null;
   end if;
 
-  select count(*), min(o.id) into n_opp, the_opp
+  -- min(uuid) غير موجودة في Postgres — أول عنصر من array_agg
+  select count(*), (array_agg(o.id order by o.created_at))[1] into n_opp, the_opp
     from public.opportunities o
    where o.client_id = new.id and o.deleted_at is null;
 
@@ -560,7 +566,25 @@ create trigger trg_mirror_client_stage
 --
 -- الحجز حدثٌ في دورة البيع لا خارجها: يثبّت الوحدة على الفرصة،
 -- ويسجّل نشاطاً، ويغلقها فوزاً عند اكتمال البيع.
+--
+-- ⚠️ النشاط المسجَّل من نوع «حجز» — نوعٌ نظامي (is_system_activity)
+--    لا «ملاحظة». السبب: enforce_activity_followup (sql/028) يرفض أي
+--    نشاط غير نظامي بلا موعد متابعة على عميل مفتوح، والحجز يُنشأ
+--    غالباً على عميل مفتوح — فكان الإدخال سيُسقط الحجز كله. والحجز
+--    حدثٌ يكتبه النظام لا تواصلٌ يقوم به موظف، فلا يُحتسب في عدّاد
+--    الاتصالات — كما «تغيير مرحلة» و«تسليم» (sql/045).
+--    ⚠️ يقابله SYSTEM_ACTIVITY_TYPES في src/lib/types.ts.
 -- ------------------------------------------------------------
+create or replace function public.is_system_activity(p_type text)
+returns boolean language sql immutable as $$
+  select p_type in ('تغيير مرحلة', 'تسليم', 'حجز');
+$$;
+
+insert into public.crm_activity_types
+  (name, icon, color, has_direction, has_duration, is_system, counts_as_contact, sort_order)
+values ('حجز', 'bookmark_added', 'bg-emerald-100 text-emerald-700', false, false, true, false, 910)
+on conflict (name) do nothing;
+
 create or replace function public.sync_opportunity_from_reservation()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
@@ -589,7 +613,7 @@ begin
   insert into public.client_activities
     (client_id, opportunity_id, activity_type, summary, actor_name)
   values
-    (new.client_id, o.id, 'ملاحظة',
+    (new.client_id, o.id, 'حجز',
      case when tg_op = 'INSERT' then 'حجز وحدة — ' else 'تحديث حجز — ' end
      || coalesce(new.status, ''),
      coalesce(public.my_employee_name(), 'النظام'));

@@ -159,7 +159,7 @@ language sql stable set search_path = public as $$
     from t
     join actual a on a.tid = t.id
     left join public.employees e on e.id = t.scope_id and t.scope = 'موظف'
-    left join public.teams tm    on tm.id = t.scope_id and t.scope = 'فريق'
+    left join public.projects tm on tm.id = t.scope_id and t.scope = 'فريق'   -- الفريق = المشروع
     left join public.projects pr on pr.id = t.scope_id and t.scope = 'مشروع'
    order by t.scope, coalesce(e.full_name, tm.name, pr.name, '');
 $$;
@@ -262,7 +262,7 @@ begin
            when 'موظف'  then v.owner_name
            when 'مشروع' then v.project_name
            when 'مصدر'  then v.source_name
-           else (select t.name from public.teams t where t.id = v.team_id) end, 'غير محدّد'),
+           else (select t.name from public.projects t where t.id = v.team_id) end, 'غير محدّد'),
          count(*),
          round(coalesce(sum(v.expected_value), 0)),
          round(coalesce(sum(v.weighted_value), 0)),
@@ -359,7 +359,7 @@ create policy "read targets" on public.sales_targets
     or (scope = 'شركة')
     or (scope = 'موظف' and scope_id in (select s.id from public.my_scope_employees() s))
     or (scope = 'فريق'
-        and scope_id in (select t.id from public.my_supervised_teams() t))
+        and scope_id in (select t.id from public.my_supervised_projects() t))
   );
 
 drop policy if exists "admin writes targets" on public.sales_targets;

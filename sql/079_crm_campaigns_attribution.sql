@@ -118,6 +118,20 @@ update public.clients c
 -- «متى تأهّل» و«متى ربحنا» لحظتان لا تُستخرجان لاحقاً بدقّة، فتُختمان
 -- حين تقعان. بلا ذلك يصير حساب «زمن التأهيل» تخميناً بأثر رجعي.
 -- ------------------------------------------------------------
+-- الأثر التاريخي: من بيع قبل 079 له won_at من إغلاق فرصته، ومن بلغ
+-- درجة التأهيل له qualified_at من لحظة احتسابها — وإلا عميت
+-- تقارير الإسناد عن كل ما سبق.
+update public.clients c
+   set won_at = coalesce(c.won_at, o.closed_at, c.last_contact_at, c.created_at)
+  from public.opportunities o
+  join public.crm_stages g on g.id = o.stage_id
+ where o.client_id = c.id and g.stage_type = 'won' and c.won_at is null;
+
+update public.clients c
+   set qualified_at = coalesce(c.qualified_at, s.computed_at)
+  from public.crm_lead_scores s
+ where s.client_id = c.id and s.score >= 40 and c.qualified_at is null;
+
 create or replace function public.stamp_client_attribution()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare s_id uuid;
@@ -249,11 +263,14 @@ begin
            campaign_id      = coalesce(campaign_id, camp_id)
      where id = dup_id;
 
+    -- ⚠️ بموعد متابعة اليوم: enforce_activity_followup (sql/028) يرفض
+    --    نشاطاً غير نظامي بلا موعد على عميل مفتوح — والعائد يستحقّ
+    --    اتصالاً اليوم أصلاً.
     insert into public.client_activities
-      (client_id, activity_type, summary, actor_name)
+      (client_id, activity_type, summary, actor_name, next_action, next_action_date)
     values (dup_id, 'ملاحظة',
             'عاد عبر ' || it.provider || coalesce(' — حملة ' || it.campaign_ref, ''),
-            'النظام');
+            'النظام', 'عميل عائد — تواصل اليوم', public.baghdad_today());
 
     update public.crm_lead_intake
        set status = 'مكرّر', client_id = dup_id, processed_at = now()

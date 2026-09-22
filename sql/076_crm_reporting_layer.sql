@@ -67,7 +67,7 @@ select
   c.source           as client_source,
   o.owner_id,
   e.full_name        as owner_name,
-  e.team_id,
+  e.project_id       as team_id,        -- الفريق = مشروع الموظف (sql/037)
   o.project_id,
   p.name             as project_name,
   o.unit_id,
@@ -202,9 +202,10 @@ language sql stable set search_path = public as $$
     round(coalesce(sum(f.won_value) filter (where f.stage_type = 'won'), 0)),
     round(coalesce(avg(f.won_value) filter (where f.stage_type = 'won'), 0)),
     round(coalesce(avg(f.sales_cycle_days) filter (where f.stage_type = 'won'), 0), 1),
+    -- percentile_cont تُرجع double precision و round(dp, int) غير موجودة — نحوّل إلى numeric أولاً
     round(coalesce(
-      percentile_cont(0.5) within group (order by f.sales_cycle_days::double precision)
-        filter (where f.stage_type = 'won'), 0), 1),
+      (percentile_cont(0.5) within group (order by f.sales_cycle_days::double precision)
+        filter (where f.stage_type = 'won'))::numeric, 0), 1),
     count(*) filter (where f.stage_type = 'open' and f.is_overdue),
     count(*) filter (where f.stage_type = 'open'
                        and f.days_silent > (select d from neglect)),
@@ -243,13 +244,30 @@ create or replace function public.crm_funnel(
   value_here      numeric
 )
 language sql stable set search_path = public as $$
-  with f as (
+  with f0 as (
     select * from public.v_crm_opportunities v
      where (p_from is null or v.created_at::date >= p_from)
        and (p_to   is null or v.created_at::date <= p_to)
        and (p_owner_id   is null or v.owner_id   = p_owner_id)
        and (p_project_id is null or v.project_id = p_project_id)
        and (p_source_id  is null or v.source_id  = p_source_id)
+  ),
+  -- ⚠️ الخاسرة (ترتيبها ٦) لا تُحسب «وصلت» إلى كل ما قبلها — بل حتى
+  --    المرحلة التي خُسرت منها (من تاريخ المراحل)، وإن لم يُعرف فـ«ليد»
+  --    فقط. بلا هذا كانت ٣٢٤ خسارة تُقرأ كأنها بلغت «بيع».
+  f as (
+    select f0.*,
+           case
+             when f0.stage_type = 'lost' then
+               coalesce((select max(g2.sort_order)
+                           from public.opportunity_stage_history h
+                           join public.crm_stages g2 on g2.name = h.from_stage
+                          where h.opportunity_id = f0.id
+                            and g2.stage_type = 'open'),
+                        (select min(g3.sort_order) from public.crm_stages g3 where g3.stage_type = 'open'))
+             else f0.stage_order
+           end as reached_order
+      from f0
   ),
   entered as (select count(*) n from f),
   stages as (
@@ -260,8 +278,8 @@ language sql stable set search_path = public as $$
   ),
   counts as (
     select s.name, s.sort_order,
-           (select count(*) from f where f.stage_order >= s.sort_order) as reached,
-           (select count(*) from f where f.stage_order  = s.sort_order) as still_here,
+           (select count(*) from f where f.reached_order >= s.sort_order) as reached,
+           (select count(*) from f where f.stage_order = s.sort_order and f.stage_type <> 'lost') as still_here,
            (select round(avg(h.days_in_from), 1)
               from public.opportunity_stage_history h
              where h.from_stage = s.name and h.days_in_from is not null) as avg_days,
@@ -269,7 +287,7 @@ language sql stable set search_path = public as $$
               from public.opportunity_stage_history h
              where h.from_stage = s.name and h.days_in_from is not null) as median_days,
            (select round(coalesce(sum(f.expected_value), 0))
-              from f where f.stage_order = s.sort_order) as value_here
+              from f where f.stage_order = s.sort_order and f.stage_type <> 'lost') as value_here
       from stages s
   )
   select c.name, c.sort_order::int, c.reached, c.still_here,

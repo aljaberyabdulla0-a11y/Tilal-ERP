@@ -108,7 +108,14 @@ export const HANDOVER_TYPE: ActivityTypeMeta = {
   color: "bg-indigo-100 text-indigo-700",
 };
 
-export const SYSTEM_ACTIVITY_TYPES = [STAGE_CHANGE_TYPE, HANDOVER_TYPE];
+// الحجز حدثٌ يكتبه محفّز sql/072 حين يُنشأ حجز أو يتغيّر — لا تواصل
+export const RESERVATION_TYPE: ActivityTypeMeta = {
+  key: "حجز",
+  icon: "bookmark_added",
+  color: "bg-emerald-100 text-emerald-700",
+};
+
+export const SYSTEM_ACTIVITY_TYPES = [STAGE_CHANGE_TYPE, HANDOVER_TYPE, RESERVATION_TYPE];
 
 /**
  * حدثٌ كتبه النظام لا تواصلٌ قام به موظف — لا يُحتسب في عدّاد

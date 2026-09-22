@@ -261,7 +261,7 @@ begin
   if n_open = 0 then
     return query select 2, 'افتح فرصة',
       'العميل في مرحلة «' || c.stage || '» ولا فرصة مسجّلة — لا يظهر في خطّ الأنابيب.',
-      '/dashboard/crm/opportunities/new?client=' || p_client_id::text;
+      '/dashboard/clients/' || p_client_id::text || '#opportunity';   -- زرّ «فرصة جديدة» في ملف العميل
     return;
   end if;
 
@@ -269,7 +269,7 @@ begin
   if c.budget_min is null and c.budget_max is null then
     return query select 2, 'اسأل عن الميزانية',
       'بلا ميزانية لا تُطابَق وحدة ولا تُقاس جدّية الطلب.',
-      '/dashboard/clients/' || p_client_id::text || '/edit';
+      '/dashboard/clients/' || p_client_id::text || '#qualification';   -- لوحة التأهيل في الملف — لا صفحة التعديل (للمدير وحده)
     return;
   end if;
 

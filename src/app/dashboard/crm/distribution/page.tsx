@@ -4,10 +4,16 @@ import {
   getOwnerLoad,
   getDistributionAlerts,
   getUnworkedLeads,
+  getAssignmentRules,
+  getEmployeesLite,
+  getProjectsLite,
+  getSources,
   SEVERITY_STYLE,
 } from "@/lib/crm";
 import CrmTabs from "../crm-tabs";
 import RedistributePanel from "./redistribute-panel";
+import RulesPanel from "./rules-panel";
+import { createClient } from "@/lib/supabase/server";
 
 // ============================================================
 // «مركز توزيع الليدات»
@@ -36,11 +42,24 @@ export default async function DistributionPage() {
     redirect("/dashboard");
   }
 
-  const [load, alerts, unworked] = await Promise.all([
-    getOwnerLoad(),
-    getDistributionAlerts(),
-    getUnworkedLeads(),
-  ]);
+  const supabase = await createClient();
+  const [load, alerts, unworked, rules, employees, projects, sources, ownerlessRes] =
+    await Promise.all([
+      getOwnerLoad(),
+      getDistributionAlerts(),
+      getUnworkedLeads(),
+      getAssignmentRules(),
+      getEmployeesLite(),
+      getProjectsLite(),
+      getSources(),
+      // المفتوحة بلا مالك وحدها — المغلق لا يُوزَّع (sql/081)
+      supabase
+        .from("clients")
+        .select("id", { count: "exact", head: true })
+        .is("owner_id", null)
+        .not("stage", "in", '("بيع","فشل البيع")'),
+    ]);
+  const ownerless = ownerlessRes.count ?? 0;
 
   const totalOpen = load.reduce((s, r) => s + Number(r.open_leads), 0);
 
@@ -176,6 +195,20 @@ export default async function DistributionPage() {
 
         {/* ===== ٣) الفعل ===== */}
         <RedistributePanel owners={load} unworked={unworked} />
+
+        {/* ===== ٤) القواعد — التوزيع قبل أن يحتاج إعادة توزيع =====
+            إعادة التوزيع علاج، والقاعدة وقاية: ليدٌ يُسنَد بالأقلّ حِملاً
+            لا يصنع تركّزاً يُعالَج لاحقاً. للإدارة ومدير المتابعة وحدهما
+            (القاعدة تفرض ذلك في سياسة crm_assignment_rules). */}
+        {(role === "admin" || role === "followup_manager") && (
+          <RulesPanel
+            rules={rules}
+            employees={employees}
+            projects={projects}
+            sources={sources}
+            ownerless={ownerless}
+          />
+        )}
       </div>
     </div>
   );

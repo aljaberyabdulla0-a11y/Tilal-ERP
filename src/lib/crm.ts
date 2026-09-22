@@ -698,3 +698,52 @@ export const getSavedViews = cache(async (entity: "clients" | "opportunities") =
     q.select("id,user_id,name,entity,filters,is_shared,is_default").eq("entity", entity).order("sort_order").order("name")
   )
 );
+
+// ===== قواعد الإسناد التلقائي (073) =====
+
+export type AssignmentRule = {
+  id: string;
+  name: string;
+  strategy: "دوري" | "الأقل حِملاً" | "ثابت";
+  match_source_id: string | null;
+  match_project_id: string | null;
+  match_governorate: string | null;
+  target_team_id: string | null;
+  target_owner_id: string | null;
+  priority: number;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type EmployeeLite = { id: string; full_name: string; project_id: string | null };
+
+export const getAssignmentRules = cache(async () =>
+  table<AssignmentRule>("crm_assignment_rules", (q) => q.select("*").order("priority").order("created_at"))
+);
+
+export const getEmployeesLite = cache(async () =>
+  table<EmployeeLite>("employees", (q) =>
+    q.select("id, full_name, project_id").eq("status", "active").is("end_date", null).order("full_name")
+  )
+);
+
+// ===== الحملات (079) =====
+
+export type Campaign = {
+  id: string;
+  name: string;
+  source_id: string | null;
+  project_id: string | null;
+  medium: string | null;
+  content: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  budget: number | null;
+  spent: number | null;
+  is_active: boolean;
+  notes: string | null;
+};
+
+export const getCampaigns = cache(async () =>
+  table<Campaign>("crm_campaigns", (q) => q.select("*").order("start_date", { ascending: false, nullsFirst: false }).order("name"))
+);

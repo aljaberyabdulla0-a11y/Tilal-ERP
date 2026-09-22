@@ -34,6 +34,7 @@ export default async function CrmTabs({ active }: { active: string }) {
           { key: "distribution", label: "التوزيع", href: "/dashboard/crm/distribution" },
           { key: "reports", label: "التقارير", href: "/dashboard/crm/reports" },
           { key: "forecast", label: "التنبؤ", href: "/dashboard/crm/forecast" },
+          { key: "campaigns", label: "الحملات", href: "/dashboard/crm/campaigns" },
         ]
       : []),
     ...(admin || followup

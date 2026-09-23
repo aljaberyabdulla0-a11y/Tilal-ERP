@@ -14,6 +14,14 @@ import { getPipelineConfig } from "@/lib/crm-config";
 import { TEMPERATURE_STYLE, getSavedViews, getEmployeesLite } from "@/lib/crm";
 import SavedViews from "@/components/saved-views";
 import ClientsTable from "./clients-table";
+import Pager from "@/components/pager";
+
+// ============================================================
+// حجم الصفحة (§62). خمسون صفّاً: ما يُقرأ بالنظر لا بالتمرير، وما
+// يُختار جماعةً بمراجعة لا بثقة. ورفعه يعني جلب آلاف الصفوف إلى
+// المتصفّح — وهو ما نُصلحه هنا لا ما نُعيده.
+// ============================================================
+const PAGE_SIZE = 50;
 
 // المُرشِّحات التي تصل من روابط «نظرة» و«الجودة» (§45): الرقم يُنقر
 // فيفتح قائمته. كلها في العنوان فالرابط قابل للمشاركة.
@@ -29,7 +37,7 @@ const QUALITY_FILTERS: Record<string, { label: string; apply: (q: any) => any }>
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; filter?: string; temperature?: string; stage?: string };
+  searchParams: { q?: string; filter?: string; temperature?: string; stage?: string; page?: string };
 }) {
   const supabase = await createClient();
   const cfg = await getPipelineConfig();
@@ -40,9 +48,13 @@ export default async function ClientsPage({
   const temperature = searchParams.temperature && TEMPERATURE_STYLE[searchParams.temperature] ? searchParams.temperature : null;
   const stage = searchParams.stage && cfg.colors[searchParams.stage] ? searchParams.stage : null;
 
+  const page = Math.max(1, Number(searchParams.page) || 1);
+
+  // count: "exact" يُرجع الإجمالي مع الصفحة في رحلة واحدة — فيُعرض
+  // العدد الحقيقي لا عدد المعروض.
   let query = supabase
     .from("clients")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("created_at", { ascending: false });
 
   if (filter) query = QUALITY_FILTERS[filter].apply(query);
@@ -63,8 +75,9 @@ export default async function ClientsPage({
     );
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   const clients = (data ?? []) as Client[];
+  const total = count ?? clients.length;
 
   // هل المستخدم الحالي مدير؟ (لإظهار أزرار التعديل والحذف)
   // ⚠️ canWrite ليس حماية — الحماية في RLS. لكن RLS تمنع صمتاً
@@ -231,11 +244,16 @@ export default async function ClientsPage({
           />
         )}
 
-        {/* عدّاد */}
-        {!error && clients.length > 0 && (
-          <p className="mt-3 text-sm text-gray-500">
-            الإجمالي: {clients.length} عميل
-          </p>
+        {/* الترقيم — يعرض الإجمالي الحقيقي لا عدد المعروض (§62) */}
+        {!error && (
+          <Pager
+            total={total}
+            page={page}
+            pageSize={PAGE_SIZE}
+            basePath="/dashboard/clients"
+            params={currentFilters}
+            unit="عميلاً"
+          />
         )}
       </section>
     </main>

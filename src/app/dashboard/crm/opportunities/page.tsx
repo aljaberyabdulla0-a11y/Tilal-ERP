@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getOpportunities, getStages, TEMPERATURE_STYLE, fmt, type OpportunityRow } from "@/lib/crm";
+import { getOpportunities, countOpportunities, getStages, TEMPERATURE_STYLE, fmt, type OpportunityRow } from "@/lib/crm";
+
+const BOARD_LIMIT = 500;
 import { canWriteCrm } from "@/lib/auth";
 import CrmTabs from "../crm-tabs";
 import OpportunityStage from "./opportunity-stage";
@@ -28,11 +30,14 @@ export default async function OpportunitiesPage({
 
   // من لا يكتب يرى المرحلة شارةً لا قائمة: RLS تمنعه صمتاً، وقائمةٌ
   // تُغلق بلا أثر أسوأ من شارة تقول الحقيقة.
-  const [all, stages, canWrite] = await Promise.all([
-    getOpportunities({ stageType: type }),
+  const [all, stages, canWrite, totalCount] = await Promise.all([
+    getOpportunities({ stageType: type, limit: BOARD_LIMIT }),
     getStages(),
     canWriteCrm(),
+    countOpportunities(type),
   ]);
+  // القطع يُعلَن: من يخطّط على «٥٠٠ فرصة» وهي ألف يبني على نصف الصورة
+  const truncated = totalCount > all.length;
   const opps = searchParams.client ? all.filter((o) => o.client_id === searchParams.client) : all;
 
   const visibleStages = stages.filter(
@@ -60,6 +65,12 @@ export default async function OpportunitiesPage({
             <p className="mt-1 text-sm text-gray-500">
               {opps.length} فرصة · القيمة {fmt(totalValue)} · الموزونة {fmt(weighted)}
             </p>
+            {truncated && (
+              <p className="mt-1 text-xs text-amber-700">
+                معروضٌ {all.length} من {fmt(totalCount)} — اللوحة تُقطع عند {BOARD_LIMIT}.
+                ضيّق بالمُرشِّحات أعلاه لترى ما يعنيك كاملاً.
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
             <Filter href={qs({ type: null })} on={type === null} label="الكل" />

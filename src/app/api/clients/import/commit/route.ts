@@ -27,8 +27,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = (await req.json().catch(() => null)) as { rows?: IncomingRow[] } | null;
+  const body = (await req.json().catch(() => null)) as
+    | { rows?: IncomingRow[]; fileName?: string }
+    | null;
   const incoming = body?.rows;
+  const fileName = typeof body?.fileName === "string" ? body.fileName.slice(0, 255) : null;
   if (!Array.isArray(incoming) || incoming.length === 0) {
     return NextResponse.json({ error: "لا توجد صفوف للحفظ." }, { status: 400 });
   }
@@ -74,6 +77,32 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const user = await getCurrentUser();
 
+  // ============================================================
+  // سجلّ الاستيراد (§48 · sql/089).
+  //
+  // يُكتب **بعد** المحاولة لا قبلها، ومهما كانت النتيجة: نجاحاً
+  // كاملاً أو جزئياً أو توقّفاً في المنتصف. فبعد شهر يُعرف من رفع
+  // ولماذا رُفض ما رُفض — وتُنزَّل أسبابه لتُصحَّح ويُعاد الملفّ.
+  //
+  // وفشل كتابة السجلّ لا يُسقط استيراداً نجح: يُطبع في سجلّ الخادم
+  // ويمضي. سجلٌّ ناقص أهون من رفض عملٍ تمّ.
+  // ============================================================
+  const duplicates = rejected.filter((r) =>
+    r.errors.some((e) => e.includes("مكرّر") || e.includes("موجود مسبقاً"))
+  ).length;
+
+  const logRun = async (insertedRows: number) => {
+    const { error: logErr } = await supabase.from("crm_import_runs").insert({
+      file_name: fileName ?? null,
+      rows_total: incoming.length,
+      rows_inserted: insertedRows,
+      rows_rejected: rejected.length,
+      rows_duplicate: duplicates,
+      rejections: rejected,
+    });
+    if (logErr) console.error("[import] تعذّر حفظ سجلّ الاستيراد:", logErr.message);
+  };
+
   let inserted = 0;
   for (let i = 0; i < payload.length; i += CHUNK) {
     const chunk = payload
@@ -85,6 +114,8 @@ export async function POST(req: NextRequest) {
       .insert(chunk, { count: "exact" });
 
     if (error) {
+      // التوقّف في المنتصف يُسجَّل كما يُسجَّل النجاح — وهو أولى
+      await logRun(inserted);
       return NextResponse.json(
         {
           error: `توقّف الحفظ بعد ${inserted} عميل بسبب: ${error.message}`,
@@ -97,5 +128,6 @@ export async function POST(req: NextRequest) {
     inserted += count ?? chunk.length;
   }
 
+  await logRun(inserted);
   return NextResponse.json({ inserted, rejected });
 }

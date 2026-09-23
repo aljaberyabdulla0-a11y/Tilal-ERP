@@ -73,7 +73,8 @@ export default function ImportClients() {
       const res = await fetch("/api/clients/import/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows: good }),
+        // اسم الملفّ يُرسَل ليُحفظ في سجلّ الاستيراد (§48)
+        body: JSON.stringify({ rows: good, fileName: preview.fileName }),
       });
       const json = await res.json();
       if (!res.ok) {

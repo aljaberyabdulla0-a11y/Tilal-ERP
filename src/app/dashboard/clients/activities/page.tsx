@@ -11,6 +11,11 @@ import {
 import { baghdadDate } from "@/lib/time";
 import CrmTabs from "../../crm/crm-tabs";
 import ActivityTimeline from "@/components/activity-timeline";
+import Pager from "@/components/pager";
+
+// ⚠️ كان الحدّ ٢٠٠ حدثاً بلا ترقيم: من أراد ما قبلها لم يكن له سبيل،
+//    و«(أحدث ٢٠٠)» تقول إن هناك مزيداً ولا تقول كيف يُبلَغ (§62).
+const PAGE_SIZE = 50;
 
 // عدد الأيام التي يغطيها كل خيار في فلتر الفترة
 const PERIODS = [
@@ -27,7 +32,7 @@ const PERIODS = [
 export default async function ActivitiesPage({
   searchParams,
 }: {
-  searchParams: { type?: string; outcome?: string; period?: string };
+  searchParams: { type?: string; outcome?: string; period?: string; page?: string };
 }) {
   const supabase = await createClient();
   const admin = await isAdmin();
@@ -36,11 +41,12 @@ export default async function ActivitiesPage({
   const outcome = searchParams.outcome ?? "";
   const period = searchParams.period ?? "30";
 
+  const page = Math.max(1, Number(searchParams.page) || 1);
+
   let query = supabase
     .from("client_activities")
-    .select("*, clients(name, phone, stage)")
-    .order("occurred_at", { ascending: false })
-    .limit(200);
+    .select("*, clients(name, phone, stage)", { count: "exact" })
+    .order("occurred_at", { ascending: false });
 
   if (type) query = query.eq("activity_type", type);
   if (outcome) query = query.eq("outcome", outcome);
@@ -50,8 +56,15 @@ export default async function ActivitiesPage({
     query = query.gte("occurred_at", from);
   }
 
-  const { data } = await query;
+  const { data, count } = await query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   const activities = (data ?? []) as ClientActivity[];
+  const total = count ?? activities.length;
+
+  // المُرشِّحات تُحمَل مع التنقّل فلا يعود المتصفِّح إلى البداية
+  const pagerParams: Record<string, string> = {};
+  if (type) pagerParams.type = type;
+  if (outcome) pagerParams.outcome = outcome;
+  if (period !== "30") pagerParams.period = period;
 
   // مؤشرات سريعة
   const today = baghdadDate();
@@ -156,12 +169,16 @@ export default async function ActivitiesPage({
           </div>
         </div>
 
-        <p className="text-sm text-gray-500">
-          {activities.length} حدث
-          {activities.length === 200 && " (أحدث 200)"}
-        </p>
-
         <ActivityTimeline activities={activities} showClient canManage={admin} />
+
+        <Pager
+          total={total}
+          page={page}
+          pageSize={PAGE_SIZE}
+          basePath="/dashboard/clients/activities"
+          params={pagerParams}
+          unit="حدثاً"
+        />
       </section>
     </main>
   );

@@ -484,6 +484,21 @@ export const getOpportunities = cache(async (opts: { stageType?: "open" | "won" 
   })
 );
 
+// ⚠️ العدد الحقيقي مستقلاً عن الحدّ: لوحة الأعمدة لا تُرقَّم (العمود
+//    يفقد معناه مقطوعاً)، فتُقطع عند ٥٠٠ — والقطع يُعلَن لا يُخفى.
+//    شاشةٌ تعرض ٥٠٠ من ألف بلا أن تقول ذلك تكذب على من يخطّط عليها.
+export const countOpportunities = cache(async (stageType: "open" | "won" | "lost" | null = null): Promise<number> => {
+  const supabase = await createClient();
+  let q = supabase.from("v_crm_opportunities").select("id", { count: "exact", head: true });
+  if (stageType) q = q.eq("stage_type", stageType);
+  const { count, error } = await q;
+  if (error) {
+    console.error("[crm] فشل عدّ الفرص:", error.message);
+    return 0;
+  }
+  return count ?? 0;
+});
+
 export const getClientOpportunities = cache(async (clientId: string) =>
   table<OpportunityRow>("v_crm_opportunities", (q) => q.select("*").eq("client_id", clientId).order("created_at", { ascending: false }))
 );

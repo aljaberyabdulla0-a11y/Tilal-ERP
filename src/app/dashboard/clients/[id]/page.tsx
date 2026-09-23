@@ -25,6 +25,7 @@ import QualificationPanel from "./qualification-panel";
 import NewOpportunity from "./new-opportunity";
 import InterestsPanel from "./interests-panel";
 import DocumentsPanel from "./documents-panel";
+import ClientTabs, { type ClientTab } from "./client-tabs";
 import {
   getQualification,
   getProjectsLite,
@@ -35,12 +36,17 @@ import {
   getClientDocuments,
   TEMPERATURE_STYLE,
 } from "@/lib/crm";
+import type { Stage, ProjectLite, ClientInterest, ClientDocument } from "@/lib/crm";
 
 // صفحة تفاصيل عميل واحد — تعرض كل المعلومات المسجّلة
 export default async function ClientDetailsPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  // ?tab= يفتح تبويباً بعينه — تستعمله روابط «الإجراء التالي» (080):
+  // «اعرض عليه وحدات» تفتح تبويب العقار لا الصفحة من أولها.
+  searchParams: { tab?: string };
 }) {
   const supabase = await createClient();
   const [{ data }, { data: acts }, { data: resv }, admin] = await Promise.all([
@@ -87,17 +93,11 @@ export default async function ClientDetailsPage({
     (a) => !isSystemActivity(a.activity_type)
   ).length;
 
-  // صفّان للهاتف: المحلي والدولي معاً للسهولة
-  const phoneLocal = c.phone ? toLocalPhone(c.phone) : null;
-  const phoneIntl = c.phone ? toIntlPhone(c.phone) : null;
-
-  // مكوّن صغير لعرض حقل (عنوان + قيمة)
-  const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
-    <div className="border-b border-gray-100 py-3">
-      <dt className="text-sm text-gray-500">{label}</dt>
-      <dd className="mt-0.5 font-medium text-gray-800">{value || "—"}</dd>
-    </div>
-  );
+  const tabs = buildTabs({
+    c, canWrite, admin, stages, projects, interests, documents,
+    qualification, activities, openOpps, reservations,
+    oppCount: opps.length,
+  });
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -125,10 +125,14 @@ export default async function ClientDetailsPage({
         )}
       </header>
 
-      <section className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        {/* ===== العمود الأول: بيانات العميل ===== */}
-        <div className="space-y-6">
-        {/* شريط حالة سريع */}
+      {/* ============================================================
+          شريط الحالة يبقى فوق التبويبات دائماً (§34).
+
+          ما فيه هو ما يُسأل عنه في كل زيارة: المرحلة، وآخر تواصل،
+          والمالك، والحرارة، وزرّا الاتصال والواتساب. وإخفاؤه خلف
+          تبويب يعني نقرةً قبل كل مكالمة.
+          ============================================================ */}
+      <div className="px-6 pt-6">
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
           {canWrite ? (
             <StageSelect clientId={c.id} stage={c.stage} size="md" stages={cfg.stages} />
@@ -184,43 +188,161 @@ export default async function ClientDetailsPage({
             </a>
           )}
         </div>
+      </div>
 
-        {/* رؤى الـCRM: الإجراء التالي، الدرجة بأسبابها، الفرص، الوحدات
-            المطابقة. تُعرض فوق الحجز لأن القرار يسبق الفعل. */}
-        <CrmInsights clientId={c.id} />
+      <ClientTabs initial={searchParams.tab} tabs={tabs} />
+    </main>
+  );
+}
 
-        {/* التأهيل — ما يفرّق الليد عن الفرصة، وأثره يظهر في الدرجة فوراً */}
-        {canWrite && stages.length > 0 && (
-          <QualificationPanel client={c} qualification={qualification} projects={projects} />
-        )}
+// مكوّن صغير لعرض حقل (عنوان + قيمة)
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="border-b border-gray-100 py-3">
+      <dt className="text-sm text-gray-500">{label}</dt>
+      <dd className="mt-0.5 font-medium text-gray-800">{value || "—"}</dd>
+    </div>
+  );
+}
 
-        {/* فتح فرصة من الملف: الصفقة كيانٌ مستقل عن الشخص (sql/072) */}
-        {canWrite && <NewOpportunity
-          clientId={c.id}
-          projects={projects}
-          stages={stages}
-          defaultProjectId={c.preferred_project_id ?? c.project_id}
-          defaultPaymentMethod={c.payment_method}
-        />}
+type TabArgs = {
+  c: Client;
+  canWrite: boolean;
+  admin: boolean;
+  stages: Stage[];
+  projects: ProjectLite[];
+  interests: ClientInterest[];
+  documents: ClientDocument[];
+  qualification: string | null;
+  activities: ClientActivity[];
+  openOpps: { id: string; title: string }[];
+  reservations: Reservation[];
+  oppCount: number;
+};
 
-        {canWrite && stages.length > 0 && (
-          <InterestsPanel clientId={c.id} interests={interests} projects={projects} />
-        )}
+// ============================================================
+// بناء التبويبات — دالة مستقلة كي تبقى الصفحة أعلاه مقروءة.
+//
+// الترتيب هو ترتيب الاستعمال لا ترتيب البناء: «نظرة» أولاً لأنها
+// ما يُقرأ في كل مرة، ثم «التواصل» لأنه ما يُفعل في كل مرة، ثم
+// الباقي بحسب ندرته.
+// ============================================================
+function buildTabs(a: TabArgs): ClientTab[] {
+  const { c, canWrite, admin, stages, projects, interests, documents,
+          qualification, activities, openOpps, reservations, oppCount } = a;
 
-        {/* المستندات — خاصّة، وتُفتح برابط موقَّع ينتهي (sql/087) */}
-        <DocumentsPanel clientId={c.id} documents={documents} canWrite={canWrite} />
+  // صفّان للهاتف: المحلي والدولي معاً للسهولة
+  const phoneLocal = c.phone ? toLocalPhone(c.phone) : null;
+  const phoneIntl = c.phone ? toIntlPhone(c.phone) : null;
 
-        {/* الحجز من ملفّ العميل: الموظف جالس معه فيحجز من مكانه،
-            بدل أن يفتح المخزون ويبحث عن الوحدة ثم يعود لاختياره */}
-        {canWrite && (
-          <ReserveUnit
-            clientId={c.id}
-            clientName={c.name}
-            existing={reservations}
-          />
-        )}
+  return [
+    {
+      key: "overview",
+      label: "نظرة",
+      icon: "dashboard",
+      content: (
+        <div className="space-y-6">
+          {/* رؤى الـCRM: الإجراء التالي، الدرجة بأسبابها، الفرص،
+              الوحدات المطابقة. القرار يسبق الفعل. */}
+          <CrmInsights clientId={c.id} />
 
-        <div className="rounded-2xl bg-white p-8 shadow-sm">
+        </div>
+      ),
+    },
+
+    // ——— التواصل: ما يُفعل في كل زيارة ———
+    {
+      key: "activity",
+      label: "التواصل",
+      icon: "call",
+      badge: activities.length,
+      content: (
+        <div className="mx-auto max-w-3xl space-y-4">
+          {canWrite && (
+            <LogActivity clientId={c.id} stage={c.stage} opportunities={openOpps} />
+          )}
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-semibold text-gray-800">سجلّ التواصل</h3>
+              <span className="text-xs text-gray-400">{activities.length} حدث</span>
+            </div>
+            <ActivityTimeline
+              activities={activities}
+              canManage={admin}
+              clientStage={c.stage}
+            />
+          </div>
+        </div>
+      ),
+    },
+
+    // ——— التأهيل والصفقات ———
+    {
+      key: "deals",
+      label: "الصفقات",
+      icon: "handshake",
+      badge: oppCount,
+      content: (
+        <div className="mx-auto max-w-3xl space-y-6">
+          {/* التأهيل — ما يفرّق الليد عن الفرصة، وأثره في الدرجة فوراً */}
+          {canWrite && stages.length > 0 && (
+            <QualificationPanel client={c} qualification={qualification} projects={projects} />
+          )}
+
+          {/* فتح فرصة من الملف: الصفقة كيانٌ مستقل عن الشخص (sql/072) */}
+          {canWrite && (
+            <NewOpportunity
+              clientId={c.id}
+              projects={projects}
+              stages={stages}
+              defaultProjectId={c.preferred_project_id ?? c.project_id}
+              defaultPaymentMethod={c.payment_method}
+            />
+          )}
+        </div>
+      ),
+    },
+
+    // ——— العقار: ما يهتم به وما يُعرض عليه وما حجزه ———
+    {
+      key: "property",
+      label: "العقار",
+      icon: "apartment",
+      content: (
+        <div className="mx-auto max-w-3xl space-y-6">
+          {canWrite && stages.length > 0 && (
+            <InterestsPanel clientId={c.id} interests={interests} projects={projects} />
+          )}
+
+          {/* الحجز من ملفّ العميل: الموظف جالس معه فيحجز من مكانه،
+              بدل أن يفتح المخزون ويبحث عن الوحدة ثم يعود لاختياره */}
+          {canWrite && (
+            <ReserveUnit clientId={c.id} clientName={c.name} existing={reservations} />
+          )}
+        </div>
+      ),
+    },
+
+    // ——— المستندات ———
+    {
+      key: "documents",
+      label: "المستندات",
+      icon: "folder",
+      badge: documents.length,
+      content: (
+        <div className="mx-auto max-w-3xl">
+          <DocumentsPanel clientId={c.id} documents={documents} canWrite={canWrite} />
+        </div>
+      ),
+    },
+
+    // ——— البيانات ———
+    {
+      key: "data",
+      label: "البيانات",
+      icon: "badge",
+      content: (
+        <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 shadow-sm">
           <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
             <Field label="الاسم" value={c.name} />
             <Field
@@ -271,32 +393,19 @@ export default async function ClientDetailsPage({
             </dd>
           </div>
         </div>
-        </div>
+      ),
+    },
 
-        {/* ===== العمود الثاني: سجلّ التواصل ===== */}
-        <div className="space-y-4">
-          {canWrite && (
-            <LogActivity clientId={c.id} stage={c.stage} opportunities={openOpps} />
-          )}
-
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-800">سجلّ التواصل</h3>
-              <span className="text-xs text-gray-400">
-                {activities.length} حدث
-              </span>
-            </div>
-            <ActivityTimeline
-              activities={activities}
-              canManage={admin}
-              clientStage={c.stage}
-            />
-          </div>
-
-          {/* الملكية والمراحل — سجلٌّ يكتبه المحفّز لا الواجهة */}
+    // ——— التاريخ: الملكية والمراحل، يكتبه المحفّز لا الواجهة ———
+    {
+      key: "history",
+      label: "التاريخ",
+      icon: "history",
+      content: (
+        <div className="mx-auto max-w-3xl">
           <CrmHistory clientId={c.id} />
         </div>
-      </section>
-    </main>
-  );
+      ),
+    },
+  ];
 }

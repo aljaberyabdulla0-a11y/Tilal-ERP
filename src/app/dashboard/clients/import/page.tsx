@@ -15,6 +15,13 @@ export default async function ImportClientsPage() {
           ← العملاء
         </Link>
         <h1 className="text-xl font-bold text-brand-700">استيراد عملاء من اكسل</h1>
+        <Link
+          href="/dashboard/clients/import/history"
+          className="ms-auto flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 transition hover:border-brand-600 hover:text-brand-600"
+        >
+          <span className="material-symbols-outlined text-[18px]">history</span>
+          سجلّ الاستيراد
+        </Link>
       </header>
 
       <CrmTabs active="clients" />

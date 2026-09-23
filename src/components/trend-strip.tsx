@@ -1,4 +1,4 @@
-import { getTrend, fmt, type TrendMetric } from "@/lib/crm";
+import { getTrend, fmt, type TrendMetric, type TrendScope } from "@/lib/crm";
 
 // ============================================================
 // شريط الاتجاهات — الرقم مع اتجاهه لا الرقم وحده (§55).
@@ -19,14 +19,27 @@ const METRICS: { key: TrendMetric; label: string; goodWhen: "up" | "down"; pct?:
   { key: "neglected_count", label: "مهملة", goodWhen: "down" },
 ];
 
-export default async function TrendStrip({ days = 30 }: { days?: number }) {
-  const series = await Promise.all(METRICS.map((m) => getTrend(m.key, days)));
+export default async function TrendStrip({
+  days = 30,
+  scope = "كلي",
+  scopeId = null,
+  scopeName,
+}: {
+  days?: number;
+  scope?: TrendScope["scope"];
+  scopeId?: string | null;
+  /** اسم الفريق في العنوان — فلا يُقرأ رقم فريقٍ على أنه رقم الشركة */
+  scopeName?: string;
+}) {
+  const series = await Promise.all(METRICS.map((m) => getTrend(m.key, days, scope, scopeId)));
   if (series.every((s) => s.length < 2)) return null;
 
   return (
     <section>
       <div className="flex items-baseline justify-between">
-        <h2 className="font-bold text-gray-800">الاتجاه — آخر {days} يوماً</h2>
+        <h2 className="font-bold text-gray-800">
+          الاتجاه — آخر {days} يوماً{scopeName ? ` · ${scopeName}` : ""}
+        </h2>
         <span className="text-xs text-gray-400">من اللقطة اليومية (١١ مساءً)</span>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">

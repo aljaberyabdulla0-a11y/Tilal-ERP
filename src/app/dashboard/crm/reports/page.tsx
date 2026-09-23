@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/auth";
+import { getMySupervisedProjects } from "@/lib/projects";
 import {
   getCrmKpis,
   getFunnel,
@@ -72,6 +73,14 @@ export default async function CrmReportsPage({
       getCampaignPerformance(f),
     ]);
 
+  // المشرف يرى اتجاه فريق مشروعه لا الشركة (095). بقية الأقسام تحصرها
+  // RLS في نطاقه أصلاً، أما الشريط فيقرأ لقطات — ولقطة الشركة ممنوعة عليه.
+  let trendTeam: { id: string; name: string } | null = null;
+  if (role === "supervisor") {
+    const mine = await getMySupervisedProjects();
+    trendTeam = mine.find((p) => p.id === f.teamId) ?? mine[0] ?? null;
+  }
+
   const maxReached = Math.max(1, ...funnel.map((x) => Number(x.reached)));
 
   return (
@@ -98,7 +107,11 @@ export default async function CrmReportsPage({
         <CrmFilterBar basePath="/dashboard/crm/reports" parsed={parsed} />
 
         {/* ===== الاتجاه — الرقم مع مساره (§55) ===== */}
-        <TrendStrip days={Math.min(days, 90)} />
+        {role !== "supervisor" ? (
+          <TrendStrip days={Math.min(days, 90)} />
+        ) : trendTeam ? (
+          <TrendStrip days={Math.min(days, 90)} scope="فريق" scopeId={trendTeam.id} scopeName={trendTeam.name} />
+        ) : null}
 
         {/* ===== المؤشّرات ===== */}
         {kpis && (

@@ -622,7 +622,7 @@ export const getProjectsLite = cache(async () =>
 
 export const getOwnerName = cache(async (ownerId: string | null | undefined): Promise<string | null> => {
   if (!ownerId) return null;
-  const rows = await table<{ full_name: string }>("employees", (q) => q.select("full_name").eq("id", ownerId).limit(1));
+  const rows = await table<{ full_name: string }>("team_members", (q) => q.select("full_name").eq("id", ownerId).limit(1));
   return rows[0]?.full_name ?? null;
 });
 
@@ -665,8 +665,13 @@ export type TrendMetric =
 
 // الاتجاه يُقرأ من اللقطات اليومية (crm_snapshots) — لا يُعاد حسابه
 // من الحالة الراهنة، فالسؤال «كيف كان الأسبوع الماضي؟» لا يُجاب من اليوم.
-export const getTrend = cache(async (metric: TrendMetric, days = 30) =>
-  rpc<TrendPoint>("crm_trend", { p_metric: metric, p_days: days, p_scope: "كلي", p_scope_id: null })
+// النطاق «كلي» للشركة و«فريق» لفريق مشروع (095). ولقطة الشركة لا
+// يقرأها المشرف أصلاً — فشريطه يطلب لقطة فريقه، وإلا عاد فارغاً.
+export type TrendScope = { scope: "كلي" | "فريق"; scopeId: string | null };
+
+export const getTrend = cache(
+  async (metric: TrendMetric, days = 30, scope: TrendScope["scope"] = "كلي", scopeId: string | null = null) =>
+    rpc<TrendPoint>("crm_trend", { p_metric: metric, p_days: days, p_scope: scope, p_scope_id: scopeId })
 );
 
 export const getCampaignPerformance = cache(async (f: CrmFilters = {}) =>
@@ -716,9 +721,12 @@ export const getAssignmentRules = cache(async () =>
   table<AssignmentRule>("crm_assignment_rules", (q) => q.select("*").order("priority").order("created_at"))
 );
 
+// من المنظور الآمن team_members لا من employees: المشرف ممنوع من
+// employees (الرواتب — 037)، فكانت قائمة الموظف عنده اسمه وحده.
+// المنظور يُرجع لكلٍّ نطاقه: المدير الكل، والمشرف فريقه.
 export const getEmployeesLite = cache(async () =>
-  table<EmployeeLite>("employees", (q) =>
-    q.select("id, full_name, project_id").eq("status", "active").is("end_date", null).order("full_name")
+  table<EmployeeLite>("team_members", (q) =>
+    q.select("id, full_name, project_id").eq("status", "active").order("full_name")
   )
 );
 

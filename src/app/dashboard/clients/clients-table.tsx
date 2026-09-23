@@ -9,7 +9,7 @@ import {
   sinceLabel,
   type SilenceThresholds,
 } from "@/lib/types";
-import type { EmployeeLite } from "@/lib/crm";
+import type { EmployeeLite, Tag } from "@/lib/crm";
 import { TEMPERATURE_STYLE } from "@/lib/crm-style";
 import type { StageLite } from "@/lib/crm-config";
 import DeleteClientButton from "./delete-client-button";
@@ -30,20 +30,28 @@ export default function ClientsTable({
   admin,
   canWrite,
   canAssign,
+  canExport,
   stages,
   colors,
   silence,
   employees,
+  tags,
+  tagsByClient,
 }: {
   clients: Client[];
   admin: boolean;
   canWrite: boolean;
   canAssign: boolean;
+  canExport: boolean;
   stages: StageLite[];
   colors: Record<string, string>;
   silence: SilenceThresholds;
   employees: EmployeeLite[];
+  tags: Tag[];
+  // معرّفات وسوم كل عميل — تُجلب دفعةً لا صفّاً صفّاً (N+1)
+  tagsByClient: Record<string, string[]>;
 }) {
+  const tagById = new Map(tags.map((t) => [t.id, t]));
   const [selected, setSelected] = useState<string[]>([]);
 
   const allOnPage = clients.map((c) => c.id);
@@ -61,7 +69,10 @@ export default function ClientsTable({
           onDone={() => setSelected([])}
           employees={employees}
           stages={stages}
+          tags={tags}
           canAssign={canAssign}
+          canExport={canExport}
+          rows={clients}
         />
       )}
 
@@ -81,6 +92,7 @@ export default function ClientsTable({
                 </th>
               )}
               <th className="px-4 py-3 font-medium">الاسم</th>
+              <th className="px-4 py-3 font-medium">الوسوم</th>
               <th className="px-4 py-3 font-medium">الحالة</th>
               <th className="px-4 py-3 font-medium">الهاتف</th>
               <th className="px-4 py-3 font-medium">المحافظة</th>
@@ -115,6 +127,22 @@ export default function ClientsTable({
                     <Link href={`/dashboard/clients/${c.id}`} className="text-brand-700 hover:underline">
                       {c.name}
                     </Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {(tagsByClient[c.id] ?? []).map((id) => {
+                        const t = tagById.get(id);
+                        if (!t) return null;
+                        return (
+                          <span key={id} className={`rounded px-1.5 py-0.5 text-[11px] ${t.color}`}>
+                            {t.name}
+                          </span>
+                        );
+                      })}
+                      {(tagsByClient[c.id] ?? []).length === 0 && (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {canWrite ? (

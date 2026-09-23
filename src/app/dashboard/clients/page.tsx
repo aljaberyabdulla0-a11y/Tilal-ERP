@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin, getCurrentUser, canWriteCrm, getUserRole } from "@/lib/auth";
 import {
@@ -11,7 +12,7 @@ import DeleteClientButton from "./delete-client-button";
 import CrmTabs from "../crm/crm-tabs";
 import StageSelect from "@/components/stage-select";
 import { getPipelineConfig } from "@/lib/crm-config";
-import { TEMPERATURE_STYLE, getSavedViews, getEmployeesLite } from "@/lib/crm";
+import { TEMPERATURE_STYLE, getSavedViews, getEmployeesLite, getTags, getTagsForClients } from "@/lib/crm";
 import SavedViews from "@/components/saved-views";
 import ClientsTable from "./clients-table";
 import Pager from "@/components/pager";
@@ -37,10 +38,16 @@ const QUALITY_FILTERS: Record<string, { label: string; apply: (q: any) => any }>
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; filter?: string; temperature?: string; stage?: string; page?: string };
+  searchParams: { q?: string; filter?: string; temperature?: string; stage?: string; tag?: string; page?: string };
 }) {
+  // ⚠️ التسويق لا يتصفّح الأشخاص (092). الحارس هنا لا في الرابط وحده:
+  //    من يعرف المسار يكتبه.
+  if ((await getUserRole()) === "marketing") redirect("/dashboard/crm/overview");
+
   const supabase = await createClient();
   const cfg = await getPipelineConfig();
+  // قائمة الوسوم تُجلب مبكراً: يُرشَّح بها وتُعرض أسماؤها في شريط المُرشِّحات
+  const tags = await getTags();
 
   // نص البحث — ننظّفه من الرموز التي قد تكسر الاستعلام
   const q = (searchParams.q ?? "").trim().replace(/[%,()]/g, "");
@@ -58,10 +65,21 @@ export default async function ClientsPage({
     .order("created_at", { ascending: false });
 
   if (filter) query = QUALITY_FILTERS[filter].apply(query);
+  // المُرشِّح بالوسم: نجلب معرّفات عملائه أولاً — الربط في جدول ثانٍ
+  // فلا يُرشَّح عليه في نفس الاستعلام.
+  const tagId = searchParams.tag ?? null;
+  if (tagId) {
+    const { data: links } = await supabase
+      .from("client_tags").select("client_id").eq("tag_id", tagId).limit(5000);
+    const ids = (links ?? []).map((l: { client_id: string }) => l.client_id);
+    // قائمة فارغة تعني «لا أحد» لا «الكل» — لذلك معرّف مستحيل
+    query = query.in("id", ids.length > 0 ? ids : ["00000000-0000-0000-0000-000000000000"]);
+  }
   if (temperature) query = query.eq("lead_temperature", temperature);
   if (stage) query = query.eq("stage", stage);
   const activeFilters = [
     filter ? QUALITY_FILTERS[filter].label : null,
+    tagId ? `وسم: ${tags.find((t) => t.id === tagId)?.name ?? tagId}` : null,
     temperature ? `حرارة: ${temperature}` : null,
     stage ? `مرحلة: ${stage}` : null,
   ].filter(Boolean) as string[];
@@ -90,6 +108,9 @@ export default async function ClientsPage({
     getUserRole(),
     getEmployeesLite(),
   ]);
+  // وسوم الصفحة المعروضة دفعةً واحدة — لا استعلام لكل صفّ (§62)
+  const tagsMap = await getTagsForClients(clients.map((c) => c.id));
+  const tagsByClient = Object.fromEntries(tagsMap);
   // الإسناد فعلٌ محروس في القاعدة (assign_client): المدير ومدير
   // المتابعة والمشرف في نطاقه. غيرهم يرى بقيّة الإجراءات بلا هذا.
   const canAssign = role === "admin" || role === "followup_manager" || role === "supervisor";
@@ -99,6 +120,7 @@ export default async function ClientsPage({
   if (filter) currentFilters.filter = filter;
   if (temperature) currentFilters.temperature = temperature;
   if (stage) currentFilters.stage = stage;
+  if (tagId) currentFilters.tag = tagId;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -241,6 +263,9 @@ export default async function ClientsPage({
             colors={cfg.colors}
             silence={cfg.silence}
             employees={employees}
+            canExport={admin}
+            tags={tags}
+            tagsByClient={tagsByClient}
           />
         )}
 

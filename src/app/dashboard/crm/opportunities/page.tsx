@@ -2,7 +2,8 @@ import Link from "next/link";
 import { getOpportunities, countOpportunities, getStages, TEMPERATURE_STYLE, fmt, type OpportunityRow } from "@/lib/crm";
 
 const BOARD_LIMIT = 500;
-import { canWriteCrm } from "@/lib/auth";
+import { canWriteCrm, getUserRole } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import CrmTabs from "../crm-tabs";
 import OpportunityStage from "./opportunity-stage";
 
@@ -30,6 +31,9 @@ export default async function OpportunitiesPage({
 
   // من لا يكتب يرى المرحلة شارةً لا قائمة: RLS تمنعه صمتاً، وقائمةٌ
   // تُغلق بلا أثر أسوأ من شارة تقول الحقيقة.
+  // التسويق لا يتصفّح الصفقات فرداً فرداً (092) — عمله القنوات
+  if ((await getUserRole()) === "marketing") redirect("/dashboard/crm/overview");
+
   const [all, stages, canWrite, totalCount] = await Promise.all([
     getOpportunities({ stageType: type, limit: BOARD_LIMIT }),
     getStages(),

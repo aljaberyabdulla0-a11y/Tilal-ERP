@@ -25,12 +25,20 @@ export default async function CrmTabs({ active }: { active: string }) {
   // التسويق والمُطالِع يقرآن ولا يعملون: لا «يومي» (لا ليدات لهما)،
   // ولا توزيع (فعل)، ولا جودة (قرارات دمج وحذف). تطابق 084.
   const readOnly = role === "marketing" || role === "viewer";
+  // ⚠️ التسويق لا يتصفّح الأشخاص (092): عمله القنوات لا الأفراد،
+  //    وأسماؤهم وهواتفهم مُقنَّعة له أصلاً في كل ما يعرضه النظام.
+  //    والمُطالِع مراجعةٌ داخلية فيرى ما يراجعه.
+  const marketing = role === "marketing";
 
   const tabs = readOnly
     ? [
         { key: "overview", label: "نظرة", href: "/dashboard/crm/overview" },
-        { key: "clients", label: "العملاء", href: "/dashboard/clients" },
-        { key: "opportunities", label: "الفرص", href: "/dashboard/crm/opportunities" },
+        ...(marketing
+          ? []
+          : [
+              { key: "clients", label: "العملاء", href: "/dashboard/clients" },
+              { key: "opportunities", label: "الفرص", href: "/dashboard/crm/opportunities" },
+            ]),
         { key: "reports", label: "التقارير", href: "/dashboard/crm/reports" },
         { key: "forecast", label: "التنبؤ", href: "/dashboard/crm/forecast" },
         { key: "campaigns", label: "الحملات", href: "/dashboard/crm/campaigns" },

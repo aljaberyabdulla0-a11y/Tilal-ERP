@@ -12,6 +12,8 @@ import {
   fmt,
 } from "@/lib/crm";
 import CrmTabs from "../crm-tabs";
+import CrmFilterBar from "@/components/crm-filter-bar";
+import { parseCrmFilters, type CrmSearchParams } from "@/lib/crm-filters";
 
 // ============================================================
 // «نظرة» — لوحة الإدارة.
@@ -27,16 +29,24 @@ import CrmTabs from "../crm-tabs";
 // رابطٌ إلى قائمته (§45): «٦٢ مهملاً» يُفتح فيعرض الاثنين والستين.
 // رقمٌ لا يُنقر رقمٌ للزينة.
 // ============================================================
-export default async function CrmOverviewPage() {
+export default async function CrmOverviewPage({
+  searchParams,
+}: {
+  searchParams: CrmSearchParams;
+}) {
   const role = await getUserRole();
   const READERS = ["admin", "followup_manager", "supervisor", "marketing", "viewer"];
   if (!READERS.includes(role)) {
     redirect("/dashboard/crm/today");
   }
 
+  // نفس مفردات التقارير: الانتقال بينهما لا يُسقط المُرشِّح (§44)
+  const parsed = await parseCrmFilters(searchParams);
+  const f = parsed.filters;
+
   const [kpis, funnel, alerts, forecast, dq, sla] = await Promise.all([
-    getCrmKpis(),
-    getFunnel(),
+    getCrmKpis(f),
+    getFunnel(f),
     getDistributionAlerts(),
     getForecast(3),
     getDataQuality(),
@@ -57,6 +67,8 @@ export default async function CrmOverviewPage() {
           <h1 className="text-xl font-bold text-brand-600">نظرة</h1>
           <p className="mt-1 text-sm text-gray-500">ما يحتاج انتباهاً، ثم ما يحدث، ثم لماذا.</p>
         </header>
+
+        <CrmFilterBar basePath="/dashboard/crm/overview" parsed={parsed} />
 
         {/* ===== ١) ما يحتاج انتباهاً ===== */}
         {(alerts.length > 0 || highDq.length > 0 || openBreaches > 0) && (

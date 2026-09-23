@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
-import { getSettings, getStages, getSources, getLostReasons, getScoreRules } from "@/lib/crm";
+import { getSettings, getStages, getSources, getLostReasons, getScoreRules, getTags } from "@/lib/crm";
 import SettingsEditor from "./settings-editor";
 import StagesEditor from "./stages-editor";
 import ListEditor from "./list-editor";
@@ -22,12 +22,13 @@ import ScoreRulesEditor from "./score-rules-editor";
 export default async function CrmSettingsPage() {
   if (!(await isAdmin())) redirect("/dashboard");
 
-  const [settings, stages, sources, reasons, rules] = await Promise.all([
+  const [settings, stages, sources, reasons, rules, tags] = await Promise.all([
     getSettings(),
     getStages(),
     getSources(),
     getLostReasons(),
     getScoreRules(),
+    getTags(),
   ]);
 
   const unavailable = settings.length === 0 && stages.length === 0;
@@ -88,6 +89,19 @@ export default async function CrmSettingsPage() {
                 withNote
               />
             </div>
+          </div>
+
+          <div>
+            <h2 className="text-lg font-bold text-gray-800">الوسوم</h2>
+            <p className="mb-4 text-sm text-gray-500">
+              لما لا يُحسب ولا يُشتقّ — لا المرحلة ولا الحرارة ولا المصدر. والقائمة مغلقة عمداً:
+              نصٌّ حرّ يصير «VIP» و«vip» و«في آي بي» ثلاثةً لا يعرف أحد أيّها المقصود.
+            </p>
+            <ListEditor
+              table="crm_tags"
+              rows={tags.map((t) => ({ ...t, category: null }))}
+              categories={[]}
+            />
           </div>
 
           <div>

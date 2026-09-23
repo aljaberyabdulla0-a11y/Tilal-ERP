@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin, canWriteCrm } from "@/lib/auth";
+import { isAdmin, canWriteCrm, getUserRole } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import {
   Client,
   ClientActivity,
@@ -48,6 +49,9 @@ export default async function ClientDetailsPage({
   // «اعرض عليه وحدات» تفتح تبويب العقار لا الصفحة من أولها.
   searchParams: { tab?: string };
 }) {
+  // التسويق لا يفتح ملفّ شخص (092)
+  if ((await getUserRole()) === "marketing") redirect("/dashboard/crm/overview");
+
   const supabase = await createClient();
   const [{ data }, { data: acts }, { data: resv }, admin] = await Promise.all([
     supabase.from("clients").select("*").eq("id", params.id).single(),

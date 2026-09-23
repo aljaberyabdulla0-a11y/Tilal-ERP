@@ -766,3 +766,38 @@ export const getClientDocuments = cache(async (clientId: string) =>
     q.select("*").eq("client_id", clientId).is("deleted_at", null).order("created_at", { ascending: false })
   )
 );
+
+// ===== الوسوم (091) =====
+export type Tag = {
+  id: string;
+  name: string;
+  color: string;
+  is_active: boolean;
+  sort_order: number;
+};
+
+export type ClientTagLink = { client_id: string; tag_id: string };
+
+export const getTags = cache(async () =>
+  table<Tag>("crm_tags", (q) => q.select("*").order("sort_order").order("name"))
+);
+
+// وسوم مجموعة عملاء دفعةً — لا استعلام لكل صفّ (N+1)
+export async function getTagsForClients(clientIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (clientIds.length === 0) return out;
+  const rows = await table<ClientTagLink>("client_tags", (q) =>
+    q.select("client_id, tag_id").in("client_id", clientIds)
+  );
+  for (const r of rows) {
+    const list = out.get(r.client_id) ?? [];
+    list.push(r.tag_id);
+    out.set(r.client_id, list);
+  }
+  return out;
+}
+
+export const getClientTags = cache(async (clientId: string): Promise<string[]> => {
+  const m = await getTagsForClients([clientId]);
+  return m.get(clientId) ?? [];
+});

@@ -152,10 +152,13 @@ export default async function DashboardLayout({
     const readOnlyNav: NavItem[] = [
       { href: "/dashboard", label: t.nav.dashboard, icon: "dashboard", prefixes: ["/dashboard"], exact: true },
       {
-        href: "/dashboard/crm",
+        // التسويق يدخل على «نظرة»: لا شاشات أشخاص في قائمته (092)
+        href: marketing ? "/dashboard/crm/overview" : "/dashboard/crm",
         label: t.nav.crm,
         icon: "groups",
-        prefixes: ["/dashboard/crm", "/dashboard/clients", "/dashboard/units"],
+        prefixes: marketing
+          ? ["/dashboard/crm"]
+          : ["/dashboard/crm", "/dashboard/clients", "/dashboard/units"],
       },
       ...(marketing
         ? [

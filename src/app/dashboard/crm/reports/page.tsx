@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/auth";
-import { baghdadDate } from "@/lib/time";
 import {
   getCrmKpis,
   getFunnel,
@@ -16,6 +14,8 @@ import {
   fmt,
 } from "@/lib/crm";
 import TrendStrip from "@/components/trend-strip";
+import CrmFilterBar from "@/components/crm-filter-bar";
+import { parseCrmFilters, type CrmSearchParams } from "@/lib/crm-filters";
 import CrmTabs from "../crm-tabs";
 import RunFollowupScan from "./run-scan";
 import RefreshScores from "./refresh-scores";
@@ -45,7 +45,7 @@ import RefreshScores from "./refresh-scores";
 export default async function CrmReportsPage({
   searchParams,
 }: {
-  searchParams: { days?: string };
+  searchParams: CrmSearchParams;
 }) {
   const role = await getUserRole();
   const READERS = ["admin", "followup_manager", "supervisor", "marketing", "viewer"];
@@ -53,10 +53,10 @@ export default async function CrmReportsPage({
     redirect("/dashboard/clients");
   }
 
-  const days = Number(searchParams.days) || 30;
-  const to = baghdadDate();
-  const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  const f = { from, to };
+  // مفردات المُرشِّحات واحدة عبر اللوحات (§44) — تنتقل في الرابط
+  const parsed = await parseCrmFilters(searchParams);
+  const f = parsed.filters;
+  const days = parsed.days ?? 30;
 
   const [kpis, funnel, sources, team, lost, velocity, durations, attribution, sla, campaigns] =
     await Promise.all([
@@ -86,24 +86,16 @@ export default async function CrmReportsPage({
               تعريف واحد لكل رقم — محسوب في القاعدة لا في الصفحة.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            {[7, 30, 90, 365].map((d) => (
-              <Link
-                key={d}
-                href={`/dashboard/crm/reports?days=${d}`}
-                className={days === d ? "rounded-full bg-brand-600 px-3 py-1 text-white" : "rounded-full border border-gray-300 px-3 py-1 text-gray-600 hover:border-brand-600"}
-              >
-                {d === 365 ? "سنة" : `${d} يوماً`}
-              </Link>
-            ))}
-            {role === "admin" && (
-              <>
-                <RunFollowupScan />
-                <RefreshScores />
-              </>
-            )}
-          </div>
+          {role === "admin" && (
+            <div className="flex items-center gap-2 text-sm">
+              <RunFollowupScan />
+              <RefreshScores />
+            </div>
+          )}
         </header>
+
+        {/* شريط المُرشِّحات الموحّد — نفس المفردات في كل لوحة (§44) */}
+        <CrmFilterBar basePath="/dashboard/crm/reports" parsed={parsed} />
 
         {/* ===== الاتجاه — الرقم مع مساره (§55) ===== */}
         <TrendStrip days={Math.min(days, 90)} />

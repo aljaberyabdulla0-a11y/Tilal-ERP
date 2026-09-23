@@ -1,0 +1,120 @@
+name: فحص
+
+# ============================================================
+# ما يمنع العطل من الوصول إلى main (§65).
+#
+# ثلاث طبقات، كلٌّ تمسك ما لا تمسكه الأخرى — والترتيب هو ترتيب
+# السرعة: الأسرع أولاً كي يفشل الفحص باكراً:
+#
+#   tsc      يمسك الأنواع — دقائق معدودة
+#   vitest   يمسك المنطق الخالص (المرايا مع القاعدة)
+#   build    يمسك حدود الخادم/العميل — وهو ما كسر البناء فعلاً
+#            حين استورد مكوّن عميل قيمةً من ملفّ خادم
+#
+# ⚠️ اختبارات القاعدة (pgTAP) في مهمّة منفصلة، ولا تعمل إلا إذا
+#    وُضع سرّ SUPABASE_DB_URL. وبلا ذلك تُتخطّى بإعلان لا بصمت:
+#    فحصٌ يُتخطّى ويقول «نجح» أسوأ من فحص لا يوجد.
+# ============================================================
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# دفعةٌ جديدة على نفس الفرع تُلغي سابقتها: لا فائدة من فحص كوميت تُجووِز
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: الأنواع والاختبارات والبناء
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: تثبيت الحزم
+        run: npm ci
+
+      - name: فحص الأنواع
+        run: npx tsc --noEmit
+
+      - name: اختبارات المنطق الخالص
+        run: npm test
+
+      # ⚠️ البناء يحتاج متغيّرات Supabase. قيمٌ صوريّة تكفي: البناء
+      #    لا يتصل بالقاعدة، لكنه يفشل إن غابت المتغيّرات أصلاً.
+      #    ولا سرّ حقيقي في CI — فحصٌ لا يحتاج بيانات لا يُعطاها.
+      - name: البناء
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-key
+        run: npm run build
+
+  database:
+    name: اختبارات القاعدة (pgTAP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # لا تعمل على الفروع الواردة من خارج المستودع: الأسرار لا تُمرَّر إليها
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: التحقّق من وجود الاتصال
+        id: check
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DB_URL" ]; then
+            echo "has_db=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=اختبارات القاعدة لم تعمل::لم يُضبط السرّ SUPABASE_DB_URL، فتُخطّيت ١٧+٩ اختباراً. أضِفه في Settings ← Secrets."
+          else
+            echo "has_db=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: تثبيت psql
+        if: steps.check.outputs.has_db == 'true'
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      # ⚠️ المُشغِّلان يُلغيان أثرهما بأنفسهما (معاملة فرعية + استثناء)،
+      #    فتشغيلهما على قاعدة حقيقية لا يترك صفّاً. ومع ذلك: وجّههما
+      #    إلى فرع Supabase لا إلى الإنتاج حين يتوفّر.
+      - name: تشغيل الاختبارات
+        if: steps.check.outputs.has_db == 'true'
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+
+          run_suite() {
+            local fn="$1"
+            local label="$2"
+            echo "::group::$label"
+            psql "$PGURL" -v ON_ERROR_STOP=1 --no-psqlrc -At -F '|' \
+              -c "select result, nr, test_name from $fn order by nr;" > out.txt
+            cat out.txt
+            echo "::endgroup::"
+
+            local failed
+            failed=$(grep -c '^not ok|' out.txt || true)
+            if [ "$failed" -ne 0 ]; then
+              echo "::error title=$label::فشل $failed اختباراً"
+              grep '^not ok|' out.txt
+              return 1
+            fi
+            echo "$label: نجح الكل ($(wc -l < out.txt) اختباراً)"
+          }
+
+          run_suite "tests.run_all()"     "اختبارات الحراسة والمرايا والرؤية"
+          run_suite "tests.run_roles()"   "اختبارات الأدوار"
+          run_suite "tests.run_privacy()" "اختبارات التقنيع والوسوم"

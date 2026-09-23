@@ -25,7 +25,7 @@ export default function ListEditor({
   categories,
   withNote,
 }: {
-  table: "crm_sources" | "crm_lost_reasons";
+  table: "crm_sources" | "crm_lost_reasons" | "crm_tags";
   rows: Row[];
   categories: string[];
   withNote?: boolean;
@@ -33,7 +33,7 @@ export default function ListEditor({
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState("");
-  const [category, setCategory] = useState(categories[0]);
+  const [category, setCategory] = useState(categories[0] ?? "");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -44,7 +44,13 @@ export default function ListEditor({
     setBusy("add");
     setErr(null);
     const maxOrder = rows.reduce((m, r) => Math.max(m, Number(r.sort_order)), 0);
-    const { error } = await supabase.from(table).insert({ name: n, category, sort_order: maxOrder + 10 });
+    const { error } = await supabase
+      .from(table)
+      .insert(
+        categories.length > 0
+          ? { name: n, category, sort_order: maxOrder + 10 }
+          : { name: n, sort_order: maxOrder + 10 }
+      );
     setBusy(null);
     if (error) return setErr(error.message);
     setName("");
@@ -67,17 +73,20 @@ export default function ListEditor({
         {rows.map((r) => (
           <li key={r.id} className={`flex flex-wrap items-center gap-3 px-4 py-2 text-sm ${r.is_active ? "" : "opacity-50"}`}>
             <span className="flex-1 font-medium text-gray-800">{r.name}</span>
-            <select
-              value={r.category ?? ""}
-              disabled={busy === r.id}
-              onChange={(e) => update(r.id, { category: e.target.value || null })}
-              className="rounded border border-gray-300 px-2 py-1 text-xs"
-            >
-              <option value="">—</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            {/* بلا تصنيفات (الوسوم مثلاً): لا تُعرض قائمة فارغة */}
+            {categories.length > 0 && (
+              <select
+                value={r.category ?? ""}
+                disabled={busy === r.id}
+                onChange={(e) => update(r.id, { category: e.target.value || null })}
+                className="rounded border border-gray-300 px-2 py-1 text-xs"
+              >
+                <option value="">—</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            )}
             {withNote && (
               <label className="flex items-center gap-1 text-xs text-gray-600">
                 <input
@@ -109,15 +118,17 @@ export default function ListEditor({
           placeholder="اسم جديد"
           className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm"
         />
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="rounded border border-gray-300 px-2 py-1.5 text-sm"
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        {categories.length > 0 && (
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="rounded border border-gray-300 px-2 py-1.5 text-sm"
+          >
+            {categories.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        )}
         <button
           type="button"
           disabled={busy === "add"}

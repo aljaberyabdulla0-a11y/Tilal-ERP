@@ -4,6 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { Client } from "@/lib/types";
 import { CLIENT_COLUMNS } from "@/lib/clients-excel";
+import { getPipelineConfig } from "@/lib/crm-config";
+import { getEmployeesLite, getTags, TEMPERATURE_STYLE } from "@/lib/crm";
+import { baghdadDate } from "@/lib/time";
+import {
+  applyClientListFilters,
+  parseClientListFilters,
+  type ClientListSearchParams,
+} from "@/lib/client-list-filters";
 import {
   makeSheet,
   writeHeader,
@@ -20,7 +28,7 @@ export const dynamic = "force-dynamic";
 // التحقّق هنا على الخادم، فحتى لو فتح الموظف الرابط مباشرة يأخذ 403.
 // وحماية الصفوف في القاعدة تمنعه أصلاً من قراءة عملاء غيره.
 // ============================================================
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json(
       { error: "تصدير بيانات العملاء متاح للإدارة فقط." },
@@ -28,11 +36,34 @@ export async function GET() {
     );
   }
 
+  // مُرشِّحات القائمة نفسها (client-list-filters.ts): ما يراه المدير
+  // في القائمة هو ما يُصدَّر. بلا مُرشِّح = كل العملاء كما كان.
+  const sp = Object.fromEntries(new URL(request.url).searchParams) as ClientListSearchParams;
+  const [cfg, tags, employees] = await Promise.all([getPipelineConfig(), getTags(), getEmployeesLite()]);
+  const today = baghdadDate();
+  const { filters: f } = parseClientListFilters(sp, {
+    stages: Object.keys(cfg.colors),
+    sources: cfg.sources,
+    owners: employees,
+    tags,
+    temperatures: Object.keys(TEMPERATURE_STYLE),
+    today,
+  });
+
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*")
-    .order("created_at", { ascending: false });
+
+  let tagClientIds: string[] | null = null;
+  if (f.tag) {
+    const { data: links } = await supabase
+      .from("client_tags").select("client_id").eq("tag_id", f.tag).limit(5000);
+    tagClientIds = (links ?? []).map((l: { client_id: string }) => l.client_id);
+  }
+
+  const { data, error } = await applyClientListFilters(
+    supabase.from("clients").select("*").order("created_at", { ascending: false }),
+    f,
+    { today, now: new Date(), tagClientIds }
+  );
 
   if (error) {
     return NextResponse.json(

@@ -15,7 +15,14 @@ import { getPipelineConfig } from "@/lib/crm-config";
 import { TEMPERATURE_STYLE, getSavedViews, getEmployeesLite, getTags, getTagsForClients } from "@/lib/crm";
 import SavedViews from "@/components/saved-views";
 import ClientsTable from "./clients-table";
+import ClientFilterBar from "./client-filter-bar";
 import Pager from "@/components/pager";
+import { baghdadDate } from "@/lib/time";
+import {
+  applyClientListFilters,
+  parseClientListFilters,
+  type ClientListSearchParams,
+} from "@/lib/client-list-filters";
 
 // ============================================================
 // حجم الصفحة (§62). خمسون صفّاً: ما يُقرأ بالنظر لا بالتمرير، وما
@@ -24,89 +31,69 @@ import Pager from "@/components/pager";
 // ============================================================
 const PAGE_SIZE = 50;
 
-// المُرشِّحات التي تصل من روابط «نظرة» و«الجودة» (§45): الرقم يُنقر
-// فيفتح قائمته. كلها في العنوان فالرابط قابل للمشاركة.
-const QUALITY_FILTERS: Record<string, { label: string; apply: (q: any) => any }> = {
-  no_phone: { label: "بلا رقم هاتف", apply: (q) => q.or("phone.is.null,phone.eq.") },
-  no_source: { label: "بلا مصدر", apply: (q) => q.or("source.is.null,source.eq.") },
-  no_budget: { label: "بلا ميزانية", apply: (q) => q.is("budget_min", null).is("budget_max", null) },
-  no_owner: { label: "بلا مالك", apply: (q) => q.is("owner_id", null) },
-};
-
 // صفحة قائمة العملاء (CRM)
-// تقرأ العملاء من قاعدة البيانات وتعرضهم في جدول، مع بحث بالاسم أو الجوال
+// المُرشِّحات كلها في العنوان (client-list-filters.ts) — ومنها ما يصل
+// من روابط «نظرة» و«الجودة» (§45): الرقم يُنقر فيفتح قائمته.
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; filter?: string; temperature?: string; stage?: string; tag?: string; page?: string };
+  searchParams: ClientListSearchParams;
 }) {
   // ⚠️ التسويق لا يتصفّح الأشخاص (092). الحارس هنا لا في الرابط وحده:
   //    من يعرف المسار يكتبه.
   if ((await getUserRole()) === "marketing") redirect("/dashboard/crm/overview");
 
   const supabase = await createClient();
-  const cfg = await getPipelineConfig();
-  // قائمة الوسوم تُجلب مبكراً: يُرشَّح بها وتُعرض أسماؤها في شريط المُرشِّحات
-  const tags = await getTags();
+  // القوائم تُجلب أولاً: منها يُقبل المُرشِّح أو يُرفض، وتُعرض في الشريط.
+  // والموظفون من team_members — فالمشرف يرى فريقه والموظف نفسه.
+  const [cfg, tags, employees] = await Promise.all([getPipelineConfig(), getTags(), getEmployeesLite()]);
+  const today = baghdadDate();
+  const temperatures = Object.keys(TEMPERATURE_STYLE);
 
-  // نص البحث — ننظّفه من الرموز التي قد تكسر الاستعلام
-  const q = (searchParams.q ?? "").trim().replace(/[%,()]/g, "");
-  const filter = searchParams.filter && QUALITY_FILTERS[searchParams.filter] ? searchParams.filter : null;
-  const temperature = searchParams.temperature && TEMPERATURE_STYLE[searchParams.temperature] ? searchParams.temperature : null;
-  const stage = searchParams.stage && cfg.colors[searchParams.stage] ? searchParams.stage : null;
+  const parsed = parseClientListFilters(searchParams, {
+    // cfg.colors يشمل المراحل غير الفعّالة — رابطٌ قديم لمرحلة أُوقفت يبقى يعمل
+    stages: Object.keys(cfg.colors),
+    sources: cfg.sources,
+    owners: employees,
+    tags,
+    temperatures,
+    today,
+  });
+  const f = parsed.filters;
 
   const page = Math.max(1, Number(searchParams.page) || 1);
 
+  // المُرشِّح بالوسم: معرّفات عملائه أولاً — الربط في جدول ثانٍ
+  // فلا يُرشَّح عليه في نفس الاستعلام.
+  let tagClientIds: string[] | null = null;
+  if (f.tag) {
+    const { data: links } = await supabase
+      .from("client_tags").select("client_id").eq("tag_id", f.tag).limit(5000);
+    tagClientIds = (links ?? []).map((l: { client_id: string }) => l.client_id);
+  }
+
   // count: "exact" يُرجع الإجمالي مع الصفحة في رحلة واحدة — فيُعرض
   // العدد الحقيقي لا عدد المعروض.
-  let query = supabase
-    .from("clients")
-    .select("*", { count: "exact" })
-    .order("created_at", { ascending: false });
-
-  if (filter) query = QUALITY_FILTERS[filter].apply(query);
-  // المُرشِّح بالوسم: نجلب معرّفات عملائه أولاً — الربط في جدول ثانٍ
-  // فلا يُرشَّح عليه في نفس الاستعلام.
-  const tagId = searchParams.tag ?? null;
-  if (tagId) {
-    const { data: links } = await supabase
-      .from("client_tags").select("client_id").eq("tag_id", tagId).limit(5000);
-    const ids = (links ?? []).map((l: { client_id: string }) => l.client_id);
-    // قائمة فارغة تعني «لا أحد» لا «الكل» — لذلك معرّف مستحيل
-    query = query.in("id", ids.length > 0 ? ids : ["00000000-0000-0000-0000-000000000000"]);
-  }
-  if (temperature) query = query.eq("lead_temperature", temperature);
-  if (stage) query = query.eq("stage", stage);
-  const activeFilters = [
-    filter ? QUALITY_FILTERS[filter].label : null,
-    tagId ? `وسم: ${tags.find((t) => t.id === tagId)?.name ?? tagId}` : null,
-    temperature ? `حرارة: ${temperature}` : null,
-    stage ? `مرحلة: ${stage}` : null,
-  ].filter(Boolean) as string[];
-
-  // البحث يشمل جهة الاتصال البديلة أيضاً: حين يتصل القريب أو مدير
-  // الأعمال من رقمه هو، يجب أن يصل الموظف لملف العميل برقم المتصل.
-  if (q) {
-    query = query.or(
-      `name.ilike.%${q}%,phone.ilike.%${q}%,` +
-        `alt_contact_name.ilike.%${q}%,alt_contact_phone.ilike.%${q}%`
-    );
-  }
+  const query = applyClientListFilters(
+    supabase.from("clients").select("*", { count: "exact" }).order("created_at", { ascending: false }),
+    f,
+    { today, now: new Date(), tagClientIds }
+  );
 
   const { data, error, count } = await query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   const clients = (data ?? []) as Client[];
   const total = count ?? clients.length;
+  const filtered = parsed.chips.length > 0;
 
   // هل المستخدم الحالي مدير؟ (لإظهار أزرار التعديل والحذف)
   // ⚠️ canWrite ليس حماية — الحماية في RLS. لكن RLS تمنع صمتاً
   //    (صفر صفوف بلا خطأ)، فزرٌّ ظاهر لمن لا يملك يقول «حُفظ» كاذباً.
-  const [admin, user, views, canWrite, role, employees] = await Promise.all([
+  const [admin, user, views, canWrite, role] = await Promise.all([
     isAdmin(),
     getCurrentUser(),
     getSavedViews("clients"),
     canWriteCrm(),
     getUserRole(),
-    getEmployeesLite(),
   ]);
   // وسوم الصفحة المعروضة دفعةً واحدة — لا استعلام لكل صفّ (§62)
   const tagsMap = await getTagsForClients(clients.map((c) => c.id));
@@ -114,13 +101,10 @@ export default async function ClientsPage({
   // الإسناد فعلٌ محروس في القاعدة (assign_client): المدير ومدير
   // المتابعة والمشرف في نطاقه. غيرهم يرى بقيّة الإجراءات بلا هذا.
   const canAssign = role === "admin" || role === "followup_manager" || role === "supervisor";
-  // المُرشِّحات الفعّالة كما هي في العنوان — هي ما يُحفظ باسم
-  const currentFilters: Record<string, string> = {};
-  if (q) currentFilters.q = q;
-  if (filter) currentFilters.filter = filter;
-  if (temperature) currentFilters.temperature = temperature;
-  if (stage) currentFilters.stage = stage;
-  if (tagId) currentFilters.tag = tagId;
+  // المُرشِّحات الفعّالة كما هي في العنوان — هي ما يُحفظ باسم، ويُرقَّم
+  // به، ويُصدَّر به
+  const currentFilters = parsed.params;
+  const exportQuery = new URLSearchParams(currentFilters).toString();
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -158,12 +142,13 @@ export default async function ClientsPage({
                 <span className="material-symbols-outlined text-[18px]">upload_file</span>
                 استيراد اكسل
               </Link>
+              {/* التصدير يحمل المُرشِّحات نفسها: ما تراه هو ما يُصدَّر */}
               <a
-                href="/api/clients/export"
+                href={`/api/clients/export${exportQuery ? `?${exportQuery}` : ""}`}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
               >
                 <span className="material-symbols-outlined text-[18px]">download</span>
-                تصدير اكسل
+                {filtered ? `تصدير المُرشَّح (${total})` : "تصدير اكسل"}
               </a>
             </>
           )}
@@ -192,30 +177,15 @@ export default async function ClientsPage({
           </div>
         )}
 
-        {/* صندوق البحث */}
-        <form className="mb-4 flex gap-2">
-          <input
-            type="text"
-            name="q"
-            defaultValue={q}
-            placeholder="ابحث بالاسم أو رقم الهاتف..."
-            className="w-full max-w-sm rounded-lg border border-gray-300 px-4 py-2 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          />
-          <button
-            type="submit"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100"
-          >
-            بحث
-          </button>
-          {(q || activeFilters.length > 0) && (
-            <Link
-              href="/dashboard/clients"
-              className="rounded-lg px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
-            >
-              مسح
-            </Link>
-          )}
-        </form>
+        {/* البحث والمُرشِّحات — كلها في الرابط */}
+        <ClientFilterBar
+          parsed={parsed}
+          owners={employees}
+          stages={cfg.stageNames}
+          sources={cfg.sources}
+          temperatures={temperatures}
+          tags={tags}
+        />
 
         {/* العروض المحفوظة — المُرشِّح باسمٍ يُنقر (§46) */}
         <SavedViews
@@ -226,14 +196,10 @@ export default async function ClientsPage({
           userId={user?.id ?? null}
         />
 
-        {/* مُرشِّح وصل من رابط: يُعرض باسمه كي يعرف القارئ لماذا القائمة أقصر */}
-        {activeFilters.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-gray-500">مُرشَّح:</span>
-            {activeFilters.map((f) => (
-              <span key={f} className="rounded-full bg-brand-50 px-3 py-1 text-brand-800">{f}</span>
-            ))}
-          </div>
+        {filtered && !error && (
+          <p className="mb-3 text-sm text-gray-600">
+            <b className="text-gray-900">{total}</b> عميلاً مطابقاً
+          </p>
         )}
 
         {/* رسالة خطأ إن فشل جلب البيانات (غالباً: الجدول غير محدّث بعد) */}
@@ -248,7 +214,7 @@ export default async function ClientsPage({
         {/* لا يوجد عملاء */}
         {!error && clients.length === 0 && (
           <div className="rounded-lg border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
-            {q || activeFilters.length > 0 ? "لا يوجد عميل مطابق." : "لا يوجد عملاء بعد — أضف أول عميل."}
+            {filtered ? "لا يوجد عميل مطابق." : "لا يوجد عملاء بعد — أضف أول عميل."}
           </div>
         )}
 

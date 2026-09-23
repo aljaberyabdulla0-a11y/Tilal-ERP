@@ -109,6 +109,11 @@ comment on function public.normalize_iraqi_phone(text) is
   'مفتاح الهاتف العراقي الموحّد (9647XXXXXXXXX). NULL لما لا يطابق الشكل — لا نخترع مفتاحاً.';
 
 -- الأعمدة المحسوبة: لا تُكتب ولا تُنسى ولا تتناقض مع مصدرها
+-- ⚠️ العمود المحسوب المخزَّن يُعاد حسابه في **كل** كتابة على الصفّ،
+--    لا حين يتغيّر مصدره فقط. فالدالة تحتاج تنفيذاً لكل من يكتب
+--    صفّ عميل — وغيابه عطّل كل كتابة حتى صُحِّح في 093.
+grant execute on function public.normalize_iraqi_phone(text) to authenticated, service_role;
+
 alter table public.clients
   add column if not exists phone_key text
     generated always as (public.normalize_iraqi_phone(phone)) stored;

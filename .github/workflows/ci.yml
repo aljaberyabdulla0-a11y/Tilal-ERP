@@ -117,4 +117,5 @@ jobs:
 
           run_suite "tests.run_all()"     "اختبارات الحراسة والمرايا والرؤية"
           run_suite "tests.run_roles()"   "اختبارات الأدوار"
-          run_suite "tests.run_privacy()" "اختبارات التقنيع والوسوم"
+          run_suite "tests.run_privacy()"     "اختبارات التقنيع والوسوم"
+          run_suite "tests.run_write_paths()" "اختبارات مسار الكتابة (بدور authenticated)"

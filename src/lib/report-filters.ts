@@ -203,3 +203,32 @@ export function activeFilterCount(p: Pick<ReportParams, "filters" | "scoreMin" |
   return Object.values(p.filters).filter((v) => v && v.length).length
     + (p.scoreMin !== null ? 1 : 0) + (p.scoreMax !== null ? 1 : 0);
 }
+
+// ============================================================
+// النطاق الثابت للتقرير — «تقرير مشروع لامك» (منشئ التقارير).
+//
+// القالب يحمل definition.filters، ويُفرض فوق ما في الرابط في كل
+// مكان يُولَّد فيه التقرير: الفتح، والنزول، والتصدير، والمجدول.
+// الثابت **يغلب** — فرابطٌ قديم أو مُعدَّل يدوياً لا يُخرج تقرير
+// «لامك» إلى مشروع آخر. والمفاتيح غير المعروفة تُهمَل كما في الرابط.
+// ============================================================
+export type FixedFilters = Partial<Record<FilterKey, string[]>>;
+
+export function cleanFixedFilters(raw: unknown): FixedFilters {
+  const out: FixedFilters = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const k of FILTER_KEYS) {
+    const v = (raw as Record<string, unknown>)[k];
+    if (Array.isArray(v)) {
+      const vals = listParam(v.map(String));
+      if (vals.length) out[k] = vals;
+    }
+  }
+  return out;
+}
+
+export function withFixedFilters(p: ReportParams, fixed: FixedFilters): ReportParams {
+  const keys = Object.keys(fixed) as FilterKey[];
+  if (keys.length === 0) return p;
+  return { ...p, filters: { ...p.filters, ...fixed } };
+}

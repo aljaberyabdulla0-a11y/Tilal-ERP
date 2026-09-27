@@ -6,7 +6,9 @@ import {
   funnelSteps, insightsFromTrend, pipelineMovement, sortRows, valueOf,
 } from "@/lib/report-engine";
 import { autoGrain, bucketKeys, type DateRange } from "@/lib/report-dates";
-import { type ReportParams, type FilterKey, FILTER_LABELS, toEngineFilters } from "@/lib/report-filters";
+import {
+  type ReportParams, type FilterKey, type FixedFilters, FILTER_LABELS, cleanFixedFilters, toEngineFilters, withFixedFilters,
+} from "@/lib/report-filters";
 import { getCampaignPerformance, type CampaignRow } from "@/lib/crm";
 
 // ============================================================
@@ -40,6 +42,8 @@ export type ReportDefinition = {
   compare?: string;
   basis?: string;
   link?: string;
+  // نطاق ثابت يُفرض في كل توليد (تقرير مشروع بعينه) — انظر withFixedFilters
+  filters?: Record<string, string[]>;
   sections: SectionDef[];
 };
 
@@ -105,6 +109,15 @@ export const getReportTemplates = cache(async (): Promise<ReportTemplate[]> => {
   }
   return (data ?? []) as ReportTemplate[];
 });
+
+// النطاق الثابت للقالب، مُنظَّفاً — ويُفرض فوق مُرشِّحات الرابط
+export function fixedFiltersOf(t: Pick<ReportTemplate, "definition"> | null): FixedFilters {
+  return cleanFixedFilters(t?.definition.filters);
+}
+
+export function applyTemplateScope(p: ReportParams, t: Pick<ReportTemplate, "definition"> | null): ReportParams {
+  return withFixedFilters(p, fixedFiltersOf(t));
+}
 
 export async function getReportTemplate(codeOrId: string): Promise<ReportTemplate | null> {
   const all = await getReportTemplates();

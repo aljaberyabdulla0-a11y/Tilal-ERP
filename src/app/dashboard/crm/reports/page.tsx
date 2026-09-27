@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser, getUserRole } from "@/lib/auth";
 import { baghdadDate } from "@/lib/time";
-import { getSavedViews } from "@/lib/crm";
+import { getProjectsLite, getSavedViews } from "@/lib/crm";
 import {
-  generateReport, getReportTemplates, getSnapshotStatus, getWeekStartDow,
+  fixedFiltersOf, generateReport, getReportTemplates, getSnapshotStatus, getWeekStartDow,
   MANAGE_ROLES, BUILDER_ROLES, REPORT_ROLES, type ReportTemplate,
 } from "@/lib/crm-reporting";
 import { parseReportParams, toQuery, type RawSearchParams } from "@/lib/report-filters";
@@ -73,9 +73,10 @@ export default async function ReportsHub({ searchParams }: { searchParams: RawSe
   const role = await getUserRole();
   if (!REPORT_ROLES.includes(role)) redirect("/dashboard");
 
-  const [user, weekStartDow, templates, status, views] = await Promise.all([
-    getCurrentUser(), getWeekStartDow(), getReportTemplates(), getSnapshotStatus(), getSavedViews("reports"),
+  const [user, weekStartDow, templates, status, views, projects] = await Promise.all([
+    getCurrentUser(), getWeekStartDow(), getReportTemplates(), getSnapshotStatus(), getSavedViews("reports"), getProjectsLite(),
   ]);
+  const projectName = new Map(projects.map((p) => [p.id, p.name]));
   const today = baghdadDate();
   const params = parseReportParams(searchParams, { today, weekStartDow, defaults: { preset: "last_7" } });
   const showDashboard = role !== "accountant";
@@ -136,6 +137,12 @@ export default async function ReportsHub({ searchParams }: { searchParams: RawSe
                       <Link key={t.id} href={href} className="rounded-lg border border-gray-200 bg-white p-4 transition hover:border-brand-600">
                         <p className="font-semibold text-gray-800">{t.name}</p>
                         {t.description && <p className="mt-1 text-xs leading-5 text-gray-500">{t.description}</p>}
+                        {[...(fixedFiltersOf(t).team ?? []), ...(fixedFiltersOf(t).project ?? [])].length > 0 && (
+                          <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] text-brand-800">
+                            <span className="material-symbols-outlined text-[13px]">apartment</span>
+                            {Array.from(new Set([...(fixedFiltersOf(t).team ?? []), ...(fixedFiltersOf(t).project ?? [])])).map((id) => projectName.get(id) ?? "مشروع").join("، ")}
+                          </p>
+                        )}
                         <p className="mt-2 text-[11px] text-gray-400">
                           {t.definition.link ? "شاشة قائمة" : `${t.definition.sections.length} أقسام`}
                           {!t.is_system && (t.is_shared ? " · مشترك" : " · خاصّ")}

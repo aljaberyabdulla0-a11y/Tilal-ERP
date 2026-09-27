@@ -73,3 +73,22 @@ describe("الرابط ذهاباً وإياباً — العرض المحفوظ
   });
   it("القيم الافتراضية لا تُكتب في الرابط", () => expect(toQuery(parseReportParams({}, { today }))).toEqual({}));
 });
+
+describe("النطاق الثابت — تقرير مشروع", () => {
+  it("المشروع الثابت يغلب ما في الرابط", async () => {
+    const { withFixedFilters, cleanFixedFilters } = await import("./report-filters");
+    const p = parseReportParams({ project: "other", employee: "e1" }, { today });
+    const fixed = cleanFixedFilters({ project: ["lamac"] });
+    expect(withFixedFilters(p, fixed).filters).toEqual({ project: ["lamac"], employee: ["e1"] });
+  });
+  it("بلا نطاق ثابت: الرابط كما هو", async () => {
+    const { withFixedFilters } = await import("./report-filters");
+    const p = parseReportParams({ project: "p1" }, { today });
+    expect(withFixedFilters(p, {})).toBe(p);
+  });
+  it("مفتاح مجهول أو قيمة فارغة تُهمَل", async () => {
+    const { cleanFixedFilters } = await import("./report-filters");
+    expect(cleanFixedFilters({ project: [], salary: ["x"], source: ["s1", "s1"] })).toEqual({ source: ["s1"] });
+    expect(cleanFixedFilters(null)).toEqual({});
+  });
+});

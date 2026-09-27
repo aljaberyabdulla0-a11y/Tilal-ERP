@@ -3,7 +3,7 @@ import ExcelJS from "exceljs";
 import { getUserRole } from "@/lib/auth";
 import { baghdadDate, baghdadTime } from "@/lib/time";
 import {
-  DIM_LABELS, dimValueLabel, filterSummary, generateReport, getDimLabels, getMetricDefs,
+  DIM_LABELS, applyTemplateScope, dimValueLabel, filterSummary, generateReport, getDimLabels, getMetricDefs,
   getReportDrilldown, getReportTemplate, getWeekStartDow, logReportRun, REPORT_ROLES,
   type GeneratedReport, type SectionResult,
 } from "@/lib/crm-reporting";
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     compare: (template.definition.compare ?? "previous_period") as CompareMode,
     basis: (template.definition.basis ?? "event") as DateBasis,
   } : { preset: "last_7" as RangePreset };
-  const params = parseReportParams(sp, { today, weekStartDow, defaults });
+  const params = applyTemplateScope(parseReportParams(sp, { today, weekStartDow, defaults }), template);
 
   // ===== النزول وحده (من صفحة الصفوف) =====
   if (sp.drill === "1") {

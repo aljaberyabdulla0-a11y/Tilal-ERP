@@ -4,7 +4,7 @@ import { getCurrentUser, getUserRole } from "@/lib/auth";
 import { baghdadDate, baghdadTime } from "@/lib/time";
 import { getSavedViews } from "@/lib/crm";
 import {
-  filterSummary, generateReport, getReportRun, getReportTemplate, getWeekStartDow, logReportRun,
+  applyTemplateScope, filterSummary, fixedFiltersOf, generateReport, getReportRun, getReportTemplate, getWeekStartDow, logReportRun,
   BUILDER_ROLES, MANAGE_ROLES, REPORT_ROLES,
 } from "@/lib/crm-reporting";
 import {
@@ -60,7 +60,8 @@ export default async function ViewReport({ searchParams }: { searchParams: RawSe
     compare: (template.definition.compare ?? "previous_period") as CompareMode,
     basis: (template.definition.basis ?? "event") as DateBasis,
   };
-  const params = parseReportParams(sp, { today, weekStartDow, defaults });
+  const params = applyTemplateScope(parseReportParams(sp, { today, weekStartDow, defaults }), template);
+  const fixed = fixedFiltersOf(template);
   const report = await generateReport(template, params, today, weekStartDow);
 
   if (!fromRun) {
@@ -130,7 +131,7 @@ export default async function ViewReport({ searchParams }: { searchParams: RawSe
         {!print && (
           <>
             <ReportFilterBar basePath="/dashboard/crm/reports/view" params={params} defaults={defaults}
-                             extra={{ template: template.code ?? template.id }} />
+                             extra={{ template: template.code ?? template.id }} locked={fixed} />
             <SavedViews entity="reports" basePath="/dashboard/crm/reports/view"
                         current={q} views={(views as SavedView[]).filter((v) => v.filters?.template === q.template)} userId={user?.id ?? null} />
           </>

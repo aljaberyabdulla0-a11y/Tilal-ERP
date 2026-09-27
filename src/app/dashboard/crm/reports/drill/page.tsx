@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/auth";
 import { baghdadDate, baghdadTime } from "@/lib/time";
 import {
-  DIM_LABELS, dimValueLabel, filterSummary, getDimLabels, getMetricDefs, getReportDrilldown,
+  DIM_LABELS, applyTemplateScope, dimValueLabel, filterSummary, getDimLabels, getMetricDefs, getReportDrilldown,
   getReportTemplate, getWeekStartDow, REPORT_ROLES,
 } from "@/lib/crm-reporting";
 import { parseReportParams, queryString, toEngineFilters, toQuery, type DateBasis, type RawSearchParams } from "@/lib/report-filters";
@@ -40,7 +40,7 @@ export default async function Drill({ searchParams }: { searchParams: RawSearchP
   } : { preset: "last_7" as RangePreset };
 
   const today = baghdadDate();
-  const params = parseReportParams(searchParams, { today, weekStartDow, defaults });
+  const params = applyTemplateScope(parseReportParams(searchParams, { today, weekStartDow, defaults }), template);
   let cell: Record<string, string | null> = {};
   try {
     const parsed = typeof searchParams.cell === "string" ? JSON.parse(searchParams.cell) : {};

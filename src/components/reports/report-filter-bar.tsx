@@ -4,7 +4,7 @@ import { getProjectsLite, getSources, getEmployeesLite, getStages, getLostReason
 import { PRESETS, QUICK_PRESETS, COMPARE_LABELS, type CompareMode } from "@/lib/report-dates";
 import {
   BASIS_LABELS, FILTER_LABELS, NONE_VALUE, activeFilterCount, queryString, toQuery,
-  type DateBasis, type FilterKey, type ReportParams,
+  type DateBasis, type FilterKey, type FixedFilters, type ReportParams,
 } from "@/lib/report-filters";
 import { SILENCE_ORDER } from "@/lib/crm-reporting";
 import { PAYMENT_METHODS, PURCHASE_PURPOSES } from "@/lib/types";
@@ -31,12 +31,15 @@ export default async function ReportFilterBar({
   defaults,
   extra,
   showBasis = true,
+  locked = {},
 }: {
   basePath: string;
   params: ReportParams;
   defaults?: { preset?: ReportParams["preset"]; compare?: CompareMode; basis?: DateBasis };
   extra?: Record<string, string>;
   showBasis?: boolean;
+  /** نطاق القالب الثابت (تقرير مشروع): يُعرض شارةً لا قائمةً — يُفرض في الخادم على أي حال */
+  locked?: FixedFilters;
 }) {
   const supabase = await createClient();
   const [projects, sources, employees, stages, lostReasons, campaigns, actTypes] = await Promise.all([
@@ -65,8 +68,9 @@ export default async function ReportFilterBar({
   };
 
   const primary: FilterKey[] = ["project", "employee", "team", "source", "stage", "activity_type"];
-  const more: FilterKey[] = ["campaign", "result", "direction", "stage_type", "temperature", "score_band",
-    "silence_bucket", "lost_reason", "payment_method", "purpose"];
+  const isLocked = (k: FilterKey) => (locked[k]?.length ?? 0) > 0;
+  const more: FilterKey[] = (["campaign", "result", "direction", "stage_type", "temperature", "score_band",
+    "silence_bucket", "lost_reason", "payment_method", "purpose"] as FilterKey[]).filter((k) => !isLocked(k));
   const moreCount = more.filter((k) => params.filters[k]?.length).length
     + (params.scoreMin !== null ? 1 : 0) + (params.scoreMax !== null ? 1 : 0)
     + (["area", "building", "floor"] as FilterKey[]).filter((k) => params.filters[k]?.length).length;
@@ -146,7 +150,15 @@ export default async function ReportFilterBar({
           </label>
         )}
 
-        {primary.map((k) => <MultiSelect key={k} name={k} label={FILTER_LABELS[k]} options={opts[k] ?? []} selected={params.filters[k] ?? []} />)}
+        {primary.map((k) => isLocked(k) ? (
+          <div key={k} title="نطاقٌ ثابت في هذا التقرير — يُغيَّر من منشئ التقارير">
+            <span className="block text-xs text-gray-500">{FILTER_LABELS[k]}</span>
+            <span className="mt-1 flex max-w-[14rem] items-center gap-1 truncate rounded border border-brand-600 bg-brand-600 px-2 py-1.5 text-white">
+              <span className="material-symbols-outlined text-[14px]">lock</span>
+              {(locked[k] ?? []).map((v) => (opts[k] ?? []).find((o) => o.value === v)?.label ?? "—").join("، ")}
+            </span>
+          </div>
+        ) : <MultiSelect key={k} name={k} label={FILTER_LABELS[k]} options={opts[k] ?? []} selected={params.filters[k] ?? []} />)}
 
         <details className="relative">
           <summary className="mt-5 cursor-pointer list-none rounded border border-gray-300 px-3 py-1.5 text-gray-700 hover:border-brand-600">

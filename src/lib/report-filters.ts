@@ -232,3 +232,31 @@ export function withFixedFilters(p: ReportParams, fixed: FixedFilters): ReportPa
   if (keys.length === 0) return p;
   return { ...p, filters: { ...p.filters, ...fixed } };
 }
+
+// ============================================================
+// اسم التقرير الظاهر: المشروع لا النظام.
+//
+// تقريرٌ نطاقه مشروع (ثابتاً في القالب أو مختاراً في المُرشِّحات، بفريقه
+// أو بمشروع صفقته) يحمل اسم المشروع في رأسه وتذييله وعنوان صفحته
+// (الذي يطبعه المتصفّح في الـPDF) وفي ملفّ التصدير — لا «تلال». وأكثر
+// من مشروع: أسماؤها معاً. ولا مشروع: اسم الشركة.
+// ============================================================
+export const COMPANY_BRAND = "تلال";
+
+export function reportBrand(
+  filters: Partial<Record<FilterKey, string[]>>,
+  projectName: (id: string) => string | undefined,
+  fallback = COMPANY_BRAND
+): { name: string; scoped: boolean } {
+  const ids = Array.from(new Set([...(filters.team ?? []), ...(filters.project ?? [])]))
+    .filter((id) => id !== NONE_VALUE);
+  const names = ids.map(projectName).filter((n): n is string => !!n && n.trim().length > 0);
+  if (names.length === 0) return { name: fallback, scoped: false };
+  return { name: names.join(" · "), scoped: true };
+}
+
+// اسم ملفّ آمن للتنزيل: ASCII للمتصفّحات القديمة، وUTF-8 (RFC 5987) للاسم العربي
+export function downloadDisposition(asciiName: string, displayName: string): string {
+  const safeAscii = asciiName.replace(/[^\w.\-]+/g, "-");
+  return `attachment; filename="${safeAscii}"; filename*=UTF-8''${encodeURIComponent(displayName.replace(/[\/:*?"<>|]+/g, "-"))}`;
+}

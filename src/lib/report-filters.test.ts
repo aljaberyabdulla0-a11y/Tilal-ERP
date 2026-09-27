@@ -92,3 +92,31 @@ describe("النطاق الثابت — تقرير مشروع", () => {
     expect(cleanFixedFilters(null)).toEqual({});
   });
 });
+
+describe("اسم التقرير: المشروع لا النظام", () => {
+  const names: Record<string, string> = { d: "داماك", f: "مجمع الفرقان السكني" };
+  const lookup = (id: string) => names[id];
+  it("مشروع واحد بفريقه ← اسمه", async () => {
+    const { reportBrand } = await import("./report-filters");
+    expect(reportBrand({ team: ["d"] }, lookup)).toEqual({ name: "داماك", scoped: true });
+  });
+  it("بمشروع الصفقة أيضاً، وبلا تكرار إن اجتمعا", async () => {
+    const { reportBrand } = await import("./report-filters");
+    expect(reportBrand({ project: ["f"], team: ["f"] }, lookup).name).toBe("مجمع الفرقان السكني");
+  });
+  it("مشروعان ← الاسمان", async () => {
+    const { reportBrand } = await import("./report-filters");
+    expect(reportBrand({ team: ["d", "f"] }, lookup).name).toBe("داماك · مجمع الفرقان السكني");
+  });
+  it("بلا مشروع، أو «بلا مشروع»، أو مشروع خارج النطاق ← تلال", async () => {
+    const { reportBrand } = await import("./report-filters");
+    expect(reportBrand({}, lookup)).toEqual({ name: "تلال", scoped: false });
+    expect(reportBrand({ project: ["__none__"] }, lookup).name).toBe("تلال");
+    expect(reportBrand({ team: ["x"] }, lookup).name).toBe("تلال");
+  });
+  it("اسم الملفّ العربي بترميز UTF-8 وبديل ASCII", async () => {
+    const { downloadDisposition } = await import("./report-filters");
+    expect(downloadDisposition("report-2026-09-27.xlsx", "داماك — تقرير.xlsx"))
+      .toBe(`attachment; filename="report-2026-09-27.xlsx"; filename*=UTF-8''${encodeURIComponent("داماك — تقرير.xlsx")}`);
+  });
+});

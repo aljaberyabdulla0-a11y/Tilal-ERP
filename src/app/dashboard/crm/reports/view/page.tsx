@@ -4,11 +4,11 @@ import { getCurrentUser, getUserRole } from "@/lib/auth";
 import { baghdadDate, baghdadTime } from "@/lib/time";
 import { getSavedViews } from "@/lib/crm";
 import {
-  applyTemplateScope, filterSummary, fixedFiltersOf, generateReport, getReportRun, getReportTemplate, getWeekStartDow, logReportRun,
+  applyTemplateScope, filterSummary, fixedFiltersOf, generateReport, getDimLabels, getReportRun, getReportTemplate, getWeekStartDow, logReportRun,
   BUILDER_ROLES, MANAGE_ROLES, REPORT_ROLES,
 } from "@/lib/crm-reporting";
 import {
-  BASIS_LABELS, parseReportParams, queryString, toQuery, type DateBasis, type RawSearchParams,
+  BASIS_LABELS, parseReportParams, queryString, reportBrand, toQuery, type DateBasis, type RawSearchParams,
 } from "@/lib/report-filters";
 import { COMPARE_LABELS, type CompareMode, type RangePreset } from "@/lib/report-dates";
 import ReportFilterBar from "@/components/reports/report-filter-bar";
@@ -30,6 +30,24 @@ import CrmTabs from "../../crm-tabs";
 // كل فتحٍ «توليد» يُسجَّل في سجلّ التشغيل (§40): من، متى، أيّ مدى
 // ومُرشِّحات، كم صفّاً، كم استغرق، وآخر لقطة كانت متاحة.
 // ============================================================
+
+// عنوان الصفحة — يطبعه المتصفّح في رأس الـPDF: اسم المشروع لا «تلال ERP»
+export async function generateMetadata({ searchParams }: { searchParams: RawSearchParams & { template?: string; run?: string } }) {
+  let ref = typeof searchParams.template === "string" ? searchParams.template : null;
+  let sp: RawSearchParams = searchParams;
+  if (typeof searchParams.run === "string") {
+    const run = await getReportRun(searchParams.run);
+    ref = run?.template_id ?? run?.template_code ?? null;
+    sp = { ...((run?.params as { filters?: Record<string, string[]> } | undefined)?.filters ?? {}) };
+    for (const [k, v] of Object.entries(sp)) if (Array.isArray(v)) sp[k] = v.join(",");
+  }
+  const template = ref ? await getReportTemplate(ref) : null;
+  if (!template) return { title: "التقارير" };
+  const params = applyTemplateScope(parseReportParams(sp, { today: baghdadDate() }), template);
+  const labels = await getDimLabels();
+  const brand = reportBrand(params.filters, (id) => labels.project.get(id));
+  return { title: `${template.name} · ${brand.name}` };
+}
 
 export default async function ViewReport({ searchParams }: { searchParams: RawSearchParams & { template?: string; run?: string; print?: string } }) {
   const role = await getUserRole();
@@ -74,6 +92,8 @@ export default async function ViewReport({ searchParams }: { searchParams: RawSe
   }
 
   const print = searchParams.print === "1";
+  // اسم المشروع يحلّ محلّ اسم الشركة حين يكون التقرير لمشروع (§ تقرير المشروع)
+  const brand = reportBrand(params.filters, (id) => report.labels.project.get(id));
   const q = { template: template.code ?? template.id, ...toQuery(params, defaults) };
   const exportQ = { template: template.code ?? template.id, ...toQuery(params) };
   const manages = MANAGE_ROLES.includes(role);
@@ -87,7 +107,7 @@ export default async function ViewReport({ searchParams }: { searchParams: RawSe
         <header className="rounded-lg border border-gray-200 bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs text-gray-500">تلال · تقارير الـCRM</p>
+              <p className={brand.scoped ? "text-sm font-semibold text-brand-800" : "text-xs text-gray-500"}>{brand.name} · تقارير المبيعات</p>
               <h1 className="mt-1 text-xl font-bold text-brand-700">{template.name}</h1>
               {template.description && <p className="mt-1 max-w-3xl text-sm text-gray-500">{template.description}</p>}
             </div>
@@ -140,7 +160,7 @@ export default async function ViewReport({ searchParams }: { searchParams: RawSe
         <ReportSections report={report} today={today} print={print} />
 
         <footer className="pt-2 text-center text-[11px] text-gray-400">
-          تلال ERP · {template.name} · وُلِّد {baghdadDate(report.generatedAt)} {baghdadTime(report.generatedAt)} بتوقيت بغداد · {report.durationMs}ms
+          {brand.name} · {template.name} · وُلِّد {baghdadDate(report.generatedAt)} {baghdadTime(report.generatedAt)} بتوقيت بغداد · {report.durationMs}ms
         </footer>
       </div>
     </div>

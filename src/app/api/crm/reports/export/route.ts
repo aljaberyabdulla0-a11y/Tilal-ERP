@@ -7,7 +7,10 @@ import {
   getReportDrilldown, getReportTemplate, getWeekStartDow, logReportRun, REPORT_ROLES,
   type GeneratedReport, type SectionResult,
 } from "@/lib/crm-reporting";
-import { parseReportParams, toEngineFilters, BASIS_LABELS, type DateBasis, type RawSearchParams } from "@/lib/report-filters";
+import {
+  parseReportParams, reportBrand, downloadDisposition, toEngineFilters, BASIS_LABELS, COMPANY_BRAND,
+  type DateBasis, type RawSearchParams,
+} from "@/lib/report-filters";
 import { bucketLabel, COMPARE_LABELS, shortDate, type CompareMode, type RangePreset } from "@/lib/report-dates";
 import { compareValues, valueOf, type MetricDef } from "@/lib/report-engine";
 import { makeSheet, workbookToBuffer, stampedFileName, XLSX_CONTENT_TYPE } from "@/lib/excel-server";
@@ -69,7 +72,9 @@ export async function GET(request: Request) {
     await logReportRun({ templateId: template?.id ?? null, name: `صفوف: ${metric.name_ar}`, trigger: "export", format: "csv",
       params: { metric: metric.code, cell, filters: params.filters }, range: params.range, rows: res.rows.length,
       durationMs: Date.now() - t0, errors: [] });
-    return csvResponse([[`${metric.name_ar} — ${params.range.from} ← ${params.range.to}`], [], ...table], `tilal-${metric.code.toLowerCase()}`);
+    const brand = reportBrand(params.filters, (id) => labels.project.get(id));
+    return csvResponse([[brand.name], [`${metric.name_ar} — ${params.range.from} ← ${params.range.to}`], [], ...table],
+      `report-${metric.code.toLowerCase()}`, `${brand.name} — ${metric.name_ar}`);
   }
 
   if (!template || template.definition.link) {
@@ -77,6 +82,8 @@ export async function GET(request: Request) {
   }
 
   const report = await generateReport(template, params, today, weekStartDow);
+  const brand = reportBrand(params.filters, (id) => report.labels.project.get(id));
+  const fileTitle = `${brand.name} — ${template.name}`;
 
   // البيانات الخام: صفوف أول مقياس حدثي في التقرير (§50)
   const firstEvent = report.sections
@@ -89,7 +96,7 @@ export async function GET(request: Request) {
 
   const meta: string[][] = [
     ["التقرير", template.name],
-    ["الشركة", "تلال"],
+    brand.scoped ? ["المشروع", brand.name] : ["الشركة", COMPANY_BRAND],
     ["المدى", `${params.range.label}: ${params.range.from} ← ${params.range.to}`],
     ["المقارنة", params.compareRange ? `${COMPARE_LABELS[params.compare]}: ${params.compareRange.from} ← ${params.compareRange.to}` : "—"],
     ["أساس التاريخ", BASIS_LABELS[params.basis]],
@@ -113,17 +120,19 @@ export async function GET(request: Request) {
       if (!t) continue;
       rows.push([`— ${s.def.title} —`], ...t, []);
     }
-    return csvResponse(rows, `tilal-${template.code ?? "report"}`);
+    return csvResponse([[fileTitle], ...rows], `report-${template.code ?? "custom"}`, fileTitle);
   }
 
   // ===== Excel: ملخّص + ورقة لكل قسم + بيانات خام =====
   const wb = new ExcelJS.Workbook();
-  wb.creator = "تلال ERP";
+  wb.creator = brand.name;
+  wb.title = fileTitle;
   wb.created = new Date();
 
   const summary = makeSheet(wb, "ملخّص");
   summary.columns = [{ width: 28 }, { width: 18 }, { width: 18 }, { width: 14 }, { width: 12 }];
-  summary.addRow([template.name]).font = { bold: true, size: 14, color: { argb: "FF064E3B" } };
+  summary.addRow([brand.name]).font = { bold: true, size: 16, color: { argb: "FF064E3B" } };
+  summary.addRow([template.name]).font = { bold: true, size: 13 };
   for (const m of meta.slice(1)) summary.addRow(m);
   summary.addRow([]);
   for (const s of report.sections.filter((x) => x.type === "kpis")) {
@@ -167,7 +176,7 @@ export async function GET(request: Request) {
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": XLSX_CONTENT_TYPE,
-      "Content-Disposition": `attachment; filename="${stampedFileName(`tilal-${template.code ?? "report"}`)}"`,
+      "Content-Disposition": downloadDisposition(stampedFileName(`report-${template.code ?? "custom"}`), `${fileTitle} ${today}.xlsx`),
       "Cache-Control": "no-store",
     },
   });
@@ -261,7 +270,7 @@ function sheetName(s: string): string {
 }
 
 // CSV بعلامة BOM: بدونها يفتح Excel العربية حروفاً مكسورة
-function csvResponse(rows: (string | number | null)[][], base: string) {
+function csvResponse(rows: (string | number | null)[][], base: string, title: string) {
   const esc = (v: string | number | null) => {
     if (v === null || v === undefined) return "";
     const s = String(v);
@@ -271,7 +280,7 @@ function csvResponse(rows: (string | number | null)[][], base: string) {
   return new NextResponse(body, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${stampedFileName(base).replace(/\.xlsx$/, ".csv")}"`,
+      "Content-Disposition": downloadDisposition(stampedFileName(base).replace(/\.xlsx$/, ".csv"), `${title} ${baghdadDate()}.csv`),
       "Cache-Control": "no-store",
     },
   });

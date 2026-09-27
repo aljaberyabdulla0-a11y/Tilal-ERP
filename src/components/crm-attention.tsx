@@ -50,7 +50,7 @@ export default async function CrmAttention() {
 
         <div className="grid gap-3 sm:grid-cols-4">
           <Stat label="ليدات لم يُعمل عليها" value={fmt(unworked.length)} href="/dashboard/crm/distribution" tone={unworked.length > 0 ? "red" : undefined} />
-          <Stat label="خروق مستوى الخدمة" value={fmt(openBreaches)} href="/dashboard/crm/reports#sla" tone={openBreaches > 0 ? "red" : undefined} />
+          <Stat label="خروق مستوى الخدمة" value={fmt(openBreaches)} href="/dashboard/crm/reports/analysis#sla" tone={openBreaches > 0 ? "red" : undefined} />
           <Stat label="موظفون فوق السعة" value={fmt(overloaded.length)} href="/dashboard/crm/distribution" tone={overloaded.length > 0 ? "amber" : undefined} />
           <Stat label="مالك صامت أسبوعاً" value={fmt(silentOwners.length)} href="/dashboard/crm/distribution" tone={silentOwners.length > 0 ? "amber" : undefined} />
         </div>

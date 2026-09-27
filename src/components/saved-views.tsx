@@ -30,7 +30,7 @@ export default function SavedViews({
   views,
   userId,
 }: {
-  entity: "clients" | "opportunities";
+  entity: "clients" | "opportunities" | "reports";
   basePath: string;
   current: Record<string, string>;   // المُرشِّحات الفعّالة الآن (بلا فراغات)
   views: SavedView[];

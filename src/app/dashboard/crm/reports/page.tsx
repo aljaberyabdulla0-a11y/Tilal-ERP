@@ -1,443 +1,179 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getUserRole } from "@/lib/auth";
-import { getMySupervisedProjects } from "@/lib/projects";
+import { getCurrentUser, getUserRole } from "@/lib/auth";
+import { baghdadDate } from "@/lib/time";
+import { getSavedViews } from "@/lib/crm";
 import {
-  getCrmKpis,
-  getFunnel,
-  getSourcePerformance,
-  getTeamPerformance,
-  getLostAnalysis,
-  getVelocity,
-  getStageDurations,
-  getAttribution,
-  getSlaSummary,
-  getCampaignPerformance,
-  fmt,
-} from "@/lib/crm";
-import TrendStrip from "@/components/trend-strip";
-import CrmFilterBar from "@/components/crm-filter-bar";
-import { parseCrmFilters, type CrmSearchParams } from "@/lib/crm-filters";
+  generateReport, getReportTemplates, getSnapshotStatus, getWeekStartDow,
+  MANAGE_ROLES, BUILDER_ROLES, REPORT_ROLES, type ReportTemplate,
+} from "@/lib/crm-reporting";
+import { parseReportParams, toQuery, type RawSearchParams } from "@/lib/report-filters";
+import ReportFilterBar from "@/components/reports/report-filter-bar";
+import ReportSections from "@/components/reports/report-sections";
+import SavedViews, { type SavedView } from "@/components/saved-views";
 import CrmTabs from "../crm-tabs";
-import RunFollowupScan from "./run-scan";
-import RefreshScores from "./refresh-scores";
 
 // ============================================================
-// «التقارير» — أُعيد بناؤها كاملةً على طبقة القاعدة (sql/076).
+// التقارير — لوحة المحرّك (096–099) ومعرض قوالبه.
 //
-// ما تغيّر جوهرياً عن النسخة السابقة:
+// ===== ترتيب القراءة (§87) =====
 //
-//   • لا حساب في الصفحة. كانت تجلب ٥٠٠٠ عميل وتحسب القمع والمصادر
-//     والفريق في TypeScript (crm-reports.ts). الآن كل رقم يأتي من
-//     دالة واحدة في القاعدة، فلا يمكن أن يتناقض تقريران.
+//   ١) ماذا حدث؟           المؤشّرات مع المقارنة
+//   ٢) كيف تغيّر؟           الاتجاه يوماً بيوم
+//   ٣) أين؟                 الأنابيب، المشاريع، المصادر
+//   ٤) من؟                  الفريق
+//   ٥) لماذا؟               المتابعة والمخاطر والملاحظات
+//   ٦) التفاصيل             كل رقم رابطٌ إلى صفوفه
 //
-//   • «معدّل الإغلاق» صار تعريفاً واحداً: فائزة ÷ (فائزة + خاسرة).
-//     كان يُحسب في جدول المصادر على الإجمالي — فظهر «١٪» لمصدر
-//     نصفُ ليداته ما زال مفتوحاً.
+// واللوحة تعريفٌ بنفس شكل القوالب (أقسام × مقاييس × أبعاد) — تُحسب
+// بنفس المحرّك، فلا يختلف رقمها عن رقم القالب المفتوح بنفس المُرشِّحات.
 //
-//   • أداء الفريق يعرض «ما أُعطي» قبل «ما أُنجز»، ومعه متوسط درجة
-//     الليدات المستلَمة. من استلم ليدات ضعيفة لا يُقارَن بمن استلم
-//     ساخنة — والجدول الذي يُخفي ذلك يكذب بالحذف.
+// ===== من يرى ماذا (§71) =====
 //
-//   • أقسام جديدة: لماذا نخسر، سرعة المبيعات، الزمن في المراحل،
-//     الإسناد بأول لمسة وآخرها، وخروق مستوى الخدمة.
-//
-// المُرشِّح الزمني في العنوان (?days=30) ويسري على كل الأقسام معاً.
+// الموظف يدخل الآن (كان ممنوعاً): RLS على الأحداث واللقطات تعطيه
+// نشاطه وليداته وحدها — «تقاريري». المشرف فريقه، والإدارة الكل.
+// المحاسب يرى قوالب الإيراد وحدها (لوحة النشاط أصفارٌ عنده بالتعريف،
+// فلا تُعرض عليه لوحةٌ تبدو كأن الشركة متوقّفة).
 // ============================================================
-export default async function CrmReportsPage({
-  searchParams,
-}: {
-  searchParams: CrmSearchParams;
-}) {
+
+const DASHBOARD: ReportTemplate = {
+  id: "dashboard",
+  code: null,
+  name: "لوحة التقارير",
+  description: null,
+  category: "لوحة",
+  audience: REPORT_ROLES,
+  is_system: true,
+  is_shared: true,
+  version: 1,
+  created_by: null,
+  updated_at: "",
+  sort_order: 0,
+  definition: {
+    sections: [
+      { key: "row1", title: "ماذا حدث", type: "kpis",
+        metrics: ["NEW_LEADS", "TOTAL_ACTIVITIES", "UNIQUE_CLIENTS_CONTACTED", "QUALIFIED_LEADS", "NEW_OPPORTUNITIES", "RESERVATIONS", "WON_DEALS", "REVENUE"] },
+      { key: "trend", title: "يوماً بيوم", type: "trend", metrics: ["NEW_LEADS", "TOTAL_ACTIVITIES", "CALLS", "VISITS", "QUALIFIED_LEADS", "WON_DEALS"], group_by: ["day"] },
+      { key: "pipeline", title: "الأنابيب في نهاية المدة", type: "kpis",
+        metrics: ["OPEN_OPPORTUNITIES", "AT_CONTACTED", "AT_VISIT", "AT_OFFER", "ACTIVE_RESERVATIONS", "PIPELINE_VALUE", "WEIGHTED_PIPELINE"], state: "snapshot" },
+      { key: "employees", title: "الفريق", type: "table",
+        metrics: ["TOTAL_ACTIVITIES", "UNIQUE_CLIENTS_CONTACTED", "CALLS", "VISITS", "QUALIFIED_LEADS", "RESERVATIONS", "WON_DEALS", "OVERDUE"], group_by: ["employee"], sort: "-TOTAL_ACTIVITIES", state: "snapshot" },
+      { key: "projects", title: "المشاريع", type: "table",
+        metrics: ["NEW_LEADS", "TOTAL_ACTIVITIES", "VISITS", "QUALIFIED_LEADS", "RESERVATIONS", "WON_DEALS", "OPEN_OPPORTUNITIES"], group_by: ["project"], sort: "-NEW_LEADS", state: "snapshot" },
+      { key: "sources", title: "المصادر", type: "table",
+        metrics: ["NEW_LEADS", "UNIQUE_CLIENTS_CONTACTED", "QUALIFIED_LEADS", "WON_DEALS", "CONVERSION_RATE"], group_by: ["source"], sort: "-NEW_LEADS" },
+      { key: "risk", title: "مخاطر المتابعة", type: "kpis",
+        metrics: ["OVERDUE", "DUE_TODAY", "NO_NEXT_ACTION", "NO_CONTACT", "NEGLECTED", "DORMANT", "SLA_BREACH_OPEN", "UNASSIGNED"], state: "snapshot" },
+      { key: "insights", title: "ما يستحق النظر", type: "insights" },
+    ],
+  },
+};
+
+export default async function ReportsHub({ searchParams }: { searchParams: RawSearchParams }) {
   const role = await getUserRole();
-  const READERS = ["admin", "followup_manager", "supervisor", "marketing", "viewer"];
-  if (!READERS.includes(role)) {
-    redirect("/dashboard/clients");
+  if (!REPORT_ROLES.includes(role)) redirect("/dashboard");
+
+  const [user, weekStartDow, templates, status, views] = await Promise.all([
+    getCurrentUser(), getWeekStartDow(), getReportTemplates(), getSnapshotStatus(), getSavedViews("reports"),
+  ]);
+  const today = baghdadDate();
+  const params = parseReportParams(searchParams, { today, weekStartDow, defaults: { preset: "last_7" } });
+  const showDashboard = role !== "accountant";
+  const report = showDashboard ? await generateReport(DASHBOARD, params, today, weekStartDow) : null;
+
+  const qs = new URLSearchParams(toQuery(params)).toString();
+  const manages = MANAGE_ROLES.includes(role);
+  const builds = BUILDER_ROLES.includes(role);
+
+  const byCategory = new Map<string, ReportTemplate[]>();
+  for (const t of templates) {
+    const k = t.is_system ? t.category : "مخصّصة";
+    byCategory.set(k, [...(byCategory.get(k) ?? []), t]);
   }
-
-  // مفردات المُرشِّحات واحدة عبر اللوحات (§44) — تنتقل في الرابط
-  const parsed = await parseCrmFilters(searchParams);
-  const f = parsed.filters;
-  const days = parsed.days ?? 30;
-
-  const [kpis, funnel, sources, team, lost, velocity, durations, attribution, sla, campaigns] =
-    await Promise.all([
-      getCrmKpis(f),
-      getFunnel(f),
-      getSourcePerformance(f),
-      getTeamPerformance(f),
-      getLostAnalysis(f),
-      getVelocity(f),
-      getStageDurations(),
-      getAttribution(),
-      getSlaSummary(),
-      getCampaignPerformance(f),
-    ]);
-
-  // المشرف يرى اتجاه فريق مشروعه لا الشركة (095). بقية الأقسام تحصرها
-  // RLS في نطاقه أصلاً، أما الشريط فيقرأ لقطات — ولقطة الشركة ممنوعة عليه.
-  let trendTeam: { id: string; name: string } | null = null;
-  if (role === "supervisor") {
-    const mine = await getMySupervisedProjects();
-    trendTeam = mine.find((p) => p.id === f.teamId) ?? mine[0] ?? null;
-  }
-
-  const maxReached = Math.max(1, ...funnel.map((x) => Number(x.reached)));
 
   return (
     <div>
       <CrmTabs active="reports" />
-
-      <div className="space-y-8 p-6">
+      <div className="space-y-6 p-6">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-brand-600">تقارير المبيعات</h1>
+            <h1 className="text-xl font-bold text-brand-600">{role === "employee" ? "تقاريري" : "التقارير"}</h1>
             <p className="mt-1 text-sm text-gray-500">
-              تعريف واحد لكل رقم — محسوب في القاعدة لا في الصفحة.
+              من الأحداث بتاريخ وقوعها واللقطات اليومية — لا من الحالة الراهنة. كل رقم يُنقر إلى صفوفه.
             </p>
           </div>
-          {role === "admin" && (
-            <div className="flex items-center gap-2 text-sm">
-              <RunFollowupScan />
-              <RefreshScores />
-            </div>
-          )}
+          <nav className="flex flex-wrap items-center gap-2 text-sm">
+            <SnapshotChip status={status} manages={manages} />
+            {builds && <Link href="/dashboard/crm/reports/builder" className="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-50">منشئ التقارير</Link>}
+            {(manages || role === "supervisor") && <Link href="/dashboard/crm/reports/schedules" className="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-50">المجدولة</Link>}
+            <Link href="/dashboard/crm/reports/history" className="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-50">سجلّ التشغيل</Link>
+            <Link href="/dashboard/crm/reports/metrics" className="rounded-lg border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-50">تعريفات المقاييس</Link>
+          </nav>
         </header>
 
-        {/* شريط المُرشِّحات الموحّد — نفس المفردات في كل لوحة (§44) */}
-        <CrmFilterBar basePath="/dashboard/crm/reports" parsed={parsed} />
-
-        {/* ===== الاتجاه — الرقم مع مساره (§55) ===== */}
-        {role !== "supervisor" ? (
-          <TrendStrip days={Math.min(days, 90)} />
-        ) : trendTeam ? (
-          <TrendStrip days={Math.min(days, 90)} scope="فريق" scopeId={trendTeam.id} scopeName={trendTeam.name} />
-        ) : null}
-
-        {/* ===== المؤشّرات ===== */}
-        {kpis && (
-          <section className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-            <Stat label="ليدات جديدة" value={fmt(kpis.leads)} />
-            <Stat label="فرص" value={fmt(kpis.opportunities)} />
-            <Stat label="فوز" value={fmt(kpis.won_count)} tone="brand" />
-            <Stat label="خسارة" value={fmt(kpis.lost_count)} tone="red" />
-            <Stat label="التحويل" value={`${kpis.conversion_rate}%`} />
-            <Stat label="قيمة الفوز" value={fmt(kpis.won_value)} />
-            <Stat label="الأنابيب" value={fmt(kpis.pipeline_value)} />
-            <Stat label="الموزونة" value={fmt(kpis.weighted_pipeline)} />
-            <Stat label="متوسط الصفقة" value={fmt(kpis.avg_deal_value)} />
-            <Stat label="دورة البيع" value={`${kpis.avg_sales_cycle}ي`} sub={`وسيط ${kpis.median_sales_cycle}`} />
-            <Stat label="تواصل" value={fmt(kpis.activities)} />
-            <Stat label="ساخنة الآن" value={fmt(kpis.hot_count)} tone="brand" />
-          </section>
+        {showDashboard && (
+          <>
+            <ReportFilterBar basePath="/dashboard/crm/reports" params={params} defaults={{ preset: "last_7" }} />
+            <SavedViews entity="reports" basePath="/dashboard/crm/reports" current={toQuery(params)}
+                        views={views as SavedView[]} userId={user?.id ?? null} />
+            {report && <ReportSections report={report} today={today} />}
+          </>
         )}
 
-        {/* ===== سرعة المبيعات ===== */}
-        {velocity && (
-          <section className="rounded-lg border border-gray-200 bg-white p-5">
-            <h2 className="font-bold text-gray-800">سرعة المبيعات</h2>
-            <p className="text-xs text-gray-500">
-              الفرص المفتوحة × متوسط الصفقة × معدّل الفوز ÷ طول الدورة = قيمة متوقّعة في اليوم
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label="فرص مفتوحة" value={fmt(velocity.qualified_opps)} />
-              <Stat label="معدّل الفوز" value={`${velocity.win_rate}%`} />
-              <Stat label="طول الدورة" value={`${velocity.avg_cycle_days}ي`} />
-              <Stat label="شهرياً" value={fmt(velocity.velocity_per_month)} tone="brand" sub={`${fmt(velocity.velocity_per_week)} أسبوعياً`} />
-            </div>
-            {Number(velocity.avg_cycle_days) === 0 && (
-              <p className="mt-2 text-xs text-gray-400">صفرٌ لأن لا دورة مكتملة بعد في المدة — جوابٌ صادق لا عطل.</p>
-            )}
-          </section>
-        )}
-
-        {/* ===== القمع + الزمن في المراحل ===== */}
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <h2 className="font-bold text-gray-800">قمع المبيعات</h2>
-            <ul className="mt-4 space-y-3">
-              {funnel.map((s) => (
-                <li key={s.stage_name}>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-700">{s.stage_name}</span>
-                    <span className="text-gray-500">
-                      {s.reached} · {s.reached_pct}%
-                      {s.step_conversion !== null && <span className="ms-2 text-gray-400">↓ {s.step_conversion}%</span>}
-                    </span>
-                  </div>
-                  <div className="mt-1 h-2 rounded bg-gray-100">
-                    <div className="h-2 rounded bg-brand-500" style={{ width: `${(Number(s.reached) / maxReached) * 100}%` }} />
-                  </div>
-                </li>
-              ))}
-              {funnel.length === 0 && <Empty />}
-            </ul>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <h2 className="font-bold text-gray-800">الزمن في كل مرحلة</h2>
-            <p className="text-xs text-gray-500">أين يعلق الخطّ — مرتّب بالأطول</p>
-            <table className="mt-3 w-full text-right text-sm">
-              <thead className="text-xs text-gray-500">
-                <tr><th className="py-2">المرحلة</th><th>انتقالات</th><th>متوسط</th><th>وسيط</th><th>P90</th></tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {durations.map((d) => (
-                  <tr key={d.stage_name}>
-                    <td className="py-2 font-medium text-gray-700">{d.stage_name}</td>
-                    <td className="text-gray-500">{d.transitions}</td>
-                    <td className="text-gray-800">{d.avg_days}ي</td>
-                    <td className="text-gray-800">{d.median_days}ي</td>
-                    <td className={Number(d.p90_days) > 30 ? "text-red-600" : "text-gray-500"}>{d.p90_days}ي</td>
-                  </tr>
-                ))}
-                {durations.length === 0 && <tr><td colSpan={5}><Empty /></td></tr>}
-              </tbody>
-            </table>
+        {/* معرض القوالب (§20) — كلٌّ يفتح بنفس المُرشِّحات الحالية */}
+        <section>
+          <h2 className="mb-3 font-bold text-gray-800">القوالب</h2>
+          <div className="space-y-5">
+            {Array.from(byCategory.entries()).map(([cat, list]) => (
+              <div key={cat}>
+                <p className="mb-2 text-xs font-medium text-gray-500">{cat}</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {list.map((t) => {
+                    const href = t.definition.link
+                      ? t.definition.link
+                      : `/dashboard/crm/reports/view?template=${encodeURIComponent(t.code ?? t.id)}${qs ? `&${qs}` : ""}`;
+                    return (
+                      <Link key={t.id} href={href} className="rounded-lg border border-gray-200 bg-white p-4 transition hover:border-brand-600">
+                        <p className="font-semibold text-gray-800">{t.name}</p>
+                        {t.description && <p className="mt-1 text-xs leading-5 text-gray-500">{t.description}</p>}
+                        <p className="mt-2 text-[11px] text-gray-400">
+                          {t.definition.link ? "شاشة قائمة" : `${t.definition.sections.length} أقسام`}
+                          {!t.is_system && (t.is_shared ? " · مشترك" : " · خاصّ")}
+                        </p>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {templates.length === 0 && <p className="text-sm text-gray-400">لا قوالب متاحة لدورك.</p>}
           </div>
         </section>
 
-        {/* ===== أداء الفريق ===== */}
-        <section className="rounded-lg border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="font-bold text-gray-800">أداء الفريق</h2>
-            <p className="text-xs text-gray-500">ما أُعطي ← ما عُمل ← النتيجة. لا يُقرأ الثالث بلا الأول.</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500">
-                <tr>
-                  <th className="px-4 py-3 font-medium">الموظف</th>
-                  <th className="px-4 py-3 font-medium">استلم</th>
-                  <th className="px-4 py-3 font-medium">متوسط الدرجة</th>
-                  <th className="px-4 py-3 font-medium">عمل عليها</th>
-                  <th className="px-4 py-3 font-medium">لم يُشتغَل</th>
-                  <th className="px-4 py-3 font-medium">تواصل</th>
-                  <th className="px-4 py-3 font-medium">فرص</th>
-                  <th className="px-4 py-3 font-medium">فوز</th>
-                  <th className="px-4 py-3 font-medium">خسارة</th>
-                  <th className="px-4 py-3 font-medium">التحويل</th>
-                  <th className="px-4 py-3 font-medium">القيمة</th>
-                  <th className="px-4 py-3 font-medium">متأخر</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {team.map((r) => (
-                  <tr key={r.owner_id}>
-                    <td className="px-4 py-2 font-medium text-gray-800">{r.owner_name}</td>
-                    <td className="px-4 py-2 text-gray-600">{r.leads_received}</td>
-                    <td className="px-4 py-2 text-gray-500">{r.avg_lead_score}</td>
-                    <td className="px-4 py-2 text-gray-600">{r.leads_worked} <span className="text-xs text-gray-400">({r.contact_rate}%)</span></td>
-                    <td className={`px-4 py-2 ${Number(r.unworked) > 0 ? "text-amber-700" : "text-gray-400"}`}>{r.unworked || "—"}</td>
-                    <td className="px-4 py-2 text-gray-600">{r.activities}</td>
-                    <td className="px-4 py-2 text-gray-600">{r.opportunities}</td>
-                    <td className="px-4 py-2 font-semibold text-brand-600">{r.won}</td>
-                    <td className="px-4 py-2 text-red-600">{r.lost || "—"}</td>
-                    <td className="px-4 py-2 text-gray-800">{r.conversion_rate}%</td>
-                    <td className="px-4 py-2 text-gray-800">{fmt(r.won_value)}</td>
-                    <td className={`px-4 py-2 ${Number(r.overdue) > 0 ? "text-red-600" : "text-gray-400"}`}>{r.overdue || "—"}</td>
-                  </tr>
-                ))}
-                {team.length === 0 && <tr><td colSpan={12}><Empty /></td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* ===== المصادر + الإسناد ===== */}
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-lg border border-gray-200 bg-white">
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="font-bold text-gray-800">مصادر العملاء</h2>
-              <p className="text-xs text-gray-500">مرتّبة بالمبيعات لا بعدد الليدات — العمود الأخير يُموَّل.</p>
-            </div>
-            <table className="w-full text-right text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">المصدر</th>
-                  <th className="px-4 py-2 font-medium">ليدات</th>
-                  <th className="px-4 py-2 font-medium">مؤهَّل</th>
-                  <th className="px-4 py-2 font-medium">فوز</th>
-                  <th className="px-4 py-2 font-medium">التحويل</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sources.map((s) => (
-                  <tr key={s.source_name}>
-                    <td className="px-4 py-2 font-medium text-gray-700">{s.source_name}</td>
-                    <td className="px-4 py-2 text-gray-600">{s.leads}</td>
-                    <td className="px-4 py-2 text-gray-600">{s.qualified}</td>
-                    <td className="px-4 py-2 font-semibold text-brand-600">{s.won}</td>
-                    <td className="px-4 py-2 text-gray-800">{s.conversion_rate}%</td>
-                  </tr>
-                ))}
-                {sources.length === 0 && <tr><td colSpan={5}><Empty /></td></tr>}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white">
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="font-bold text-gray-800">أول لمسة مقابل آخرها</h2>
-              <p className="text-xs text-gray-500">قناةٌ أولُها كبير وآخرها صغير تبني الطلب ولا تُغلقه.</p>
-            </div>
-            <table className="w-full text-right text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">المصدر</th>
-                  <th className="px-4 py-2 font-medium">أول لمسة</th>
-                  <th className="px-4 py-2 font-medium">آخر لمسة</th>
-                  <th className="px-4 py-2 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {attribution.map((a) => (
-                  <tr key={a.source_name}>
-                    <td className="px-4 py-2 font-medium text-gray-700">{a.source_name}</td>
-                    <td className="px-4 py-2 text-gray-600">{a.first_touch_leads} <span className="text-xs text-brand-600">({a.first_touch_won} فوز)</span></td>
-                    <td className="px-4 py-2 text-gray-600">{a.last_touch_leads} <span className="text-xs text-brand-600">({a.last_touch_won} فوز)</span></td>
-                    <td className="px-4 py-2 text-xs text-amber-700">{a.builds_demand ? "يبني الطلب" : ""}</td>
-                  </tr>
-                ))}
-                {attribution.length === 0 && <tr><td colSpan={4}><Empty /></td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* ===== لماذا نخسر + مستوى الخدمة ===== */}
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-lg border border-gray-200 bg-white" id="lost">
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="font-bold text-gray-800">لماذا نخسر</h2>
-            </div>
-            <table className="w-full text-right text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">السبب</th>
-                  <th className="px-4 py-2 font-medium">عدد</th>
-                  <th className="px-4 py-2 font-medium">حصّة</th>
-                  <th className="px-4 py-2 font-medium">قيمة</th>
-                  <th className="px-4 py-2 font-medium">أبعد مرحلة</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {lost.map((l) => (
-                  <tr key={l.lost_reason}>
-                    <td className="px-4 py-2 font-medium text-gray-700">
-                      {l.lost_reason}
-                      <span className="ms-1 text-xs text-gray-400">{l.category}</span>
-                    </td>
-                    <td className="px-4 py-2 text-gray-600">{l.lost_count}</td>
-                    <td className="px-4 py-2 text-gray-600">{l.share_pct}%</td>
-                    <td className="px-4 py-2 text-gray-600">{fmt(l.lost_value)}</td>
-                    <td className="px-4 py-2 text-xs text-gray-500">{l.avg_stage_reached ?? "—"}</td>
-                  </tr>
-                ))}
-                {lost.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">لا خسائر في المدة — أو بلا سبب مسجَّل.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white" id="sla">
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className="font-bold text-gray-800">مستوى الخدمة</h2>
-              <p className="text-xs text-gray-500">الخرق واقعة تُسجَّل وتُغلَق — لا رسالة تُنسى.</p>
-            </div>
-            <table className="w-full text-right text-sm">
-              <thead className="bg-gray-50 text-xs text-gray-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">القاعدة</th>
-                  <th className="px-4 py-2 font-medium">خروق</th>
-                  <th className="px-4 py-2 font-medium">مفتوح</th>
-                  <th className="px-4 py-2 font-medium">للمشرف</th>
-                  <th className="px-4 py-2 font-medium">للإدارة</th>
-                  <th className="px-4 py-2 font-medium">زمن المعالجة</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {sla.map((s) => (
-                  <tr key={s.rule_code}>
-                    <td className="px-4 py-2 font-medium text-gray-700">{s.rule_label}</td>
-                    <td className="px-4 py-2 text-gray-600">{s.breaches}</td>
-                    <td className={`px-4 py-2 ${Number(s.still_open) > 0 ? "font-semibold text-red-600" : "text-gray-400"}`}>{s.still_open}</td>
-                    <td className="px-4 py-2 text-gray-600">{s.escalated_l2}</td>
-                    <td className="px-4 py-2 text-gray-600">{s.escalated_l3}</td>
-                    <td className="px-4 py-2 text-gray-500">{s.avg_resolution_hours !== null ? `${s.avg_resolution_hours} ساعة` : "—"}</td>
-                  </tr>
-                ))}
-                {sla.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">لا خروق مسجَّلة.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* ===== الحملات — الكلفة والعائد لا الليدات وحدها (§29) ===== */}
-        {campaigns.length > 0 && (
-          <section className="rounded-lg border border-gray-200 bg-white" id="campaigns">
-            <div className="border-b px-5 py-4">
-              <h2 className="font-bold text-gray-800">الحملات</h2>
-              <p className="text-xs text-gray-500">
-                كلفة الليد وكلفة المؤهَّل وكلفة الاستحواذ — تُحسب من المصروف المسجَّل على الحملة، والإيراد عمولة تلال لا ثمن الوحدة.
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">الحملة</th>
-                    <th className="px-4 py-3 font-medium">الوسيط</th>
-                    <th className="px-4 py-3 font-medium">المصروف</th>
-                    <th className="px-4 py-3 font-medium">ليدات</th>
-                    <th className="px-4 py-3 font-medium">مؤهَّل</th>
-                    <th className="px-4 py-3 font-medium">فرص</th>
-                    <th className="px-4 py-3 font-medium">فوز</th>
-                    <th className="px-4 py-3 font-medium">كلفة الليد</th>
-                    <th className="px-4 py-3 font-medium">الاستحواذ</th>
-                    <th className="px-4 py-3 font-medium">العائد</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {campaigns.map((c) => (
-                    <tr key={c.campaign_id}>
-                      <td className="px-4 py-2 font-medium text-gray-800">{c.campaign_name}</td>
-                      <td className="px-4 py-2 text-gray-500">{c.medium ?? "—"}</td>
-                      <td className="px-4 py-2 text-gray-600">{fmt(c.spent)}{c.budget ? <span className="text-xs text-gray-400"> / {fmt(c.budget)}</span> : null}</td>
-                      <td className="px-4 py-2">{fmt(c.leads)}</td>
-                      <td className="px-4 py-2">{fmt(c.qualified)}</td>
-                      <td className="px-4 py-2">{fmt(c.opportunities)}</td>
-                      <td className="px-4 py-2 font-semibold text-brand-700">{fmt(c.won)}</td>
-                      <td className="px-4 py-2 text-gray-600">{fmt(c.cost_per_lead)}</td>
-                      <td className="px-4 py-2 text-gray-600">{fmt(c.cac)}</td>
-                      <td className={`px-4 py-2 font-semibold ${c.roi_pct === null ? "text-gray-400" : Number(c.roi_pct) >= 0 ? "text-brand-700" : "text-red-600"}`}>
-                        {c.roi_pct === null ? "—" : `${c.roi_pct}%`}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        <p className="text-xs text-gray-500">
-          التنبيهات تُفحص تلقائياً كل يوم ٩ صباحاً بتوقيت بغداد، ومستوى الخدمة ٨ صباحاً، والدرجات ٦ صباحاً، واللقطة اليومية ١١ مساءً.
+        {/* روابط قديمة محفوظة في القاعدة والإشعارات (075 · 077 · 083) تشير إلى
+            /dashboard/crm/reports#sla و#lost — تبقى تعمل */}
+        <p className="text-xs text-gray-400">
+          <span id="sla" /> <span id="lost" />
+          مستوى الخدمة ولماذا نخسر في{" "}
+          <Link href="/dashboard/crm/reports/analysis#sla" className="text-brand-700 hover:underline">تحليل المبيعات</Link>.
         </p>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "brand" | "red" }) {
-  const v = tone === "brand" ? "text-brand-700" : tone === "red" ? "text-red-700" : "text-gray-800";
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
-      <p className={`text-lg font-bold ${v}`}>{value}</p>
-      <p className="text-xs text-gray-600">{label}</p>
-      {sub && <p className="text-xs text-gray-400">{sub}</p>}
-    </div>
+function SnapshotChip({ status, manages }: { status: Awaited<ReturnType<typeof getSnapshotStatus>>; manages: boolean }) {
+  if (!status) return null;
+  const failed = status.last_failure && !status.last_failure.recovered;
+  const label = failed
+    ? `فشلت لقطة ${status.last_failure!.snapshot_date}`
+    : status.last_success ? `آخر لقطة ${status.last_success.snapshot_date}` : "لا لقطات بعد";
+  const cls = failed ? "border-red-300 bg-red-50 text-red-800" : status.target_done ? "border-brand-200 bg-brand-50 text-brand-800" : "border-amber-300 bg-amber-50 text-amber-900";
+  const body = (
+    <span className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 ${cls}`}>
+      <span className="material-symbols-outlined text-[16px]">{failed ? "error" : status.target_done ? "check_circle" : "schedule"}</span>
+      {label}
+    </span>
   );
-}
-
-function Empty() {
-  return <p className="px-4 py-6 text-center text-sm text-gray-400">لا بيانات — أو الهجرات لم تُشغَّل.</p>;
+  return manages ? <Link href="/dashboard/crm/reports/snapshots">{body}</Link> : body;
 }

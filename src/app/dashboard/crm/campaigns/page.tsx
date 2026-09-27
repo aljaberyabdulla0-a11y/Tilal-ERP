@@ -56,7 +56,7 @@ export default async function CampaignsPage() {
               القناة بكلفتها وعائدها. والليد يُنسب إلى حملته من بوّابة الاستقبال أو بالإسناد اليدوي في ملفّه.
             </p>
           </div>
-          <Link href="/dashboard/crm/reports#campaigns" className="text-sm text-brand-600 hover:underline">
+          <Link href="/dashboard/crm/reports/analysis#campaigns" className="text-sm text-brand-600 hover:underline">
             التفصيل في التقارير
           </Link>
         </header>

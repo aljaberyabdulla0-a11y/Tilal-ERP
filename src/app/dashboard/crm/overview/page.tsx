@@ -86,7 +86,7 @@ export default async function CrmOverviewPage({
             ))}
             {openBreaches > 0 && (
               <Link
-                href="/dashboard/crm/reports#sla"
+                href="/dashboard/crm/reports/analysis#sla"
                 className={`block rounded-lg border p-3 text-sm ${SEVERITY_STYLE["متوسط"]}`}
               >
                 <b>{openBreaches} خرقاً مفتوحاً لمستوى الخدمة</b> — تفصيلها في التقارير.
@@ -108,8 +108,8 @@ export default async function CrmOverviewPage({
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Kpi label="فرص مفتوحة" value={fmt(kpis.open_count)} href="/dashboard/crm/opportunities?type=open" />
             <Kpi label="قيمة الأنابيب" value={fmt(kpis.pipeline_value)} sub={`موزونة ${fmt(kpis.weighted_pipeline)}`} href="/dashboard/crm/opportunities?type=open" />
-            <Kpi label="معدّل التحويل" value={`${kpis.conversion_rate}%`} sub={`${kpis.won_count} فوز · ${kpis.lost_count} خسارة`} href="/dashboard/crm/reports" />
-            <Kpi label="دورة البيع" value={`${kpis.avg_sales_cycle} يوماً`} sub={`الوسيط ${kpis.median_sales_cycle}`} href="/dashboard/crm/reports" />
+            <Kpi label="معدّل التحويل" value={`${kpis.conversion_rate}%`} sub={`${kpis.won_count} فوز · ${kpis.lost_count} خسارة`} href="/dashboard/crm/reports/analysis" />
+            <Kpi label="دورة البيع" value={`${kpis.avg_sales_cycle} يوماً`} sub={`الوسيط ${kpis.median_sales_cycle}`} href="/dashboard/crm/reports/analysis" />
             <Kpi label="متأخرة" value={fmt(kpis.overdue_count)} tone="red" href="/dashboard/crm/today" />
             <Kpi label="مهملة" value={fmt(kpis.neglected_count)} tone="red" href="/dashboard/crm/distribution" />
             <Kpi label="ساخنة" value={fmt(kpis.hot_count)} tone="brand" href="/dashboard/clients?temperature=ساخن" />

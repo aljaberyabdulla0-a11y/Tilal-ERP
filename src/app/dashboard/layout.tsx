@@ -172,7 +172,7 @@ export default async function DashboardLayout({
     return (
       <AppShell nav={readOnlyNav} userEmail={user?.email ?? ""} roleLabel={roleLabel}>
         {children}
-        {marketing && <ChatWidget myUserId={user?.id ?? ""} isAdmin={false} />}
+        {marketing && <div className="print:hidden"><ChatWidget myUserId={user?.id ?? ""} isAdmin={false} /></div>}
       </AppShell>
     );
   }
@@ -267,6 +267,12 @@ export default async function DashboardLayout({
         }]
       : []),
 
+    // تقارير الإيراد للمحاسب (099): الحجوزات والبيع المكتمل والفوز وحدها —
+    // RLS على الأحداث تعطيه أحداث المال ولا شيء غيرها من الـCRM.
+    ...(accountant
+      ? [{ href: "/dashboard/crm/reports/view?template=revenue_report", label: "تقارير الإيراد", icon: "bar_chart", prefixes: ["/dashboard/crm/reports"] }]
+      : []),
+
     // HR: للمدير إدارة كاملة، ولغيره بوابته الشخصية (بصمة وإجازات).
     // مدير المتابعة يحتاجها كموظف مثل الجميع — ومتابعته لغيره في
     // شاشة «الموظفون» أعلاه.
@@ -304,7 +310,7 @@ export default async function DashboardLayout({
     <AppShell nav={nav} userEmail={user?.email ?? ""} roleLabel={roleLabel}>
       {children}
       {/* نافذة المحادثة المنبثقة — متاحة في كل صفحات النظام */}
-      <ChatWidget myUserId={user?.id ?? ""} isAdmin={admin} />
+      <div className="print:hidden"><ChatWidget myUserId={user?.id ?? ""} isAdmin={admin} /></div>
     </AppShell>
   );
 }

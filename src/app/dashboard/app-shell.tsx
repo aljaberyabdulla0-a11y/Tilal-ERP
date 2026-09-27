@@ -116,7 +116,7 @@ export default function AppShell({
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* الشريط الجانبي — سطح المكتب (يمين في العربية، يسار في الإنجليزية) */}
-      <div className="sticky top-0 hidden h-screen shrink-0 lg:block">{sidebar}</div>
+      <div className="sticky top-0 hidden h-screen shrink-0 lg:block print:hidden">{sidebar}</div>
 
       {/* الشريط الجانبي — الجوّال */}
       {open && (
@@ -132,7 +132,7 @@ export default function AppShell({
       {/* منطقة المحتوى */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* الشريط العلوي — على كل المقاسات */}
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-6">
+        <header className="sticky top-0 z-30 flex print:hidden items-center gap-3 border-b border-gray-200/70 bg-white/80 px-4 py-3 backdrop-blur-xl lg:px-6">
           <button
             onClick={() => setOpen(true)}
             className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-700 transition hover:bg-gray-100 hover:text-brand-600 lg:hidden"

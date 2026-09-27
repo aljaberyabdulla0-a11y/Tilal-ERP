@@ -693,7 +693,7 @@ export type SavedViewRow = {
   is_default: boolean;
 };
 
-export const getSavedViews = cache(async (entity: "clients" | "opportunities") =>
+export const getSavedViews = cache(async (entity: "clients" | "opportunities" | "reports") =>
   table<SavedViewRow>("crm_saved_views", (q) =>
     q.select("id,user_id,name,entity,filters,is_shared,is_default").eq("entity", entity).order("sort_order").order("name")
   )

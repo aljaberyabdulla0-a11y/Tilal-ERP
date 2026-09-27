@@ -77,7 +77,7 @@ jobs:
         run: |
           if [ -z "$DB_URL" ]; then
             echo "has_db=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=اختبارات القاعدة لم تعمل::لم يُضبط السرّ SUPABASE_DB_URL، فتُخطّيت ١٧+٩ اختباراً. أضِفه في Settings ← Secrets."
+            echo "::warning title=اختبارات القاعدة لم تعمل::لم يُضبط السرّ SUPABASE_DB_URL، فتُخطّيت ١٧+٩+٨+٥+٣١ اختباراً. أضِفه في Settings ← Secrets."
           else
             echo "has_db=true" >> "$GITHUB_OUTPUT"
           fi
@@ -119,3 +119,4 @@ jobs:
           run_suite "tests.run_roles()"   "اختبارات الأدوار"
           run_suite "tests.run_privacy()"     "اختبارات التقنيع والوسوم"
           run_suite "tests.run_write_paths()" "اختبارات مسار الكتابة (بدور authenticated)"
+          run_suite "tests.run_reporting()"   "اختبارات محرّك التقارير (لقطات، تكرار، بغداد، RLS)"

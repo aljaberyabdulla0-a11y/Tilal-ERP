@@ -8,6 +8,8 @@ import { getUserRole } from "@/lib/auth";
 // فارغة.
 export default async function CrmTabs({ active }: { active: string }) {
   const role = await getUserRole();
+  // المحاسب يدخل تقارير الإيراد وحدها (099) — لا عميل ولا فرصة له، فلا تبويبات
+  if (role === "accountant") return null;
   const admin = role === "admin";
   const followup = role === "followup_manager";
   const supervisor = role === "supervisor";
@@ -49,10 +51,12 @@ export default async function CrmTabs({ active }: { active: string }) {
     { key: "clients", label: "العملاء", href: "/dashboard/clients" },
     { key: "opportunities", label: "الفرص", href: "/dashboard/crm/opportunities" },
     { key: "activities", label: "سجلّ التواصل", href: "/dashboard/clients/activities" },
+    // التقارير للجميع منذ محرّك التقارير (099): الموظف يرى «تقاريري» —
+    // RLS على الأحداث واللقطات تعطيه نشاطه وليداته وحدها (§71)
+    { key: "reports", label: manages ? "التقارير" : "تقاريري", href: "/dashboard/crm/reports" },
     ...(manages
       ? [
           { key: "distribution", label: "التوزيع", href: "/dashboard/crm/distribution" },
-          { key: "reports", label: "التقارير", href: "/dashboard/crm/reports" },
           { key: "forecast", label: "التنبؤ", href: "/dashboard/crm/forecast" },
           { key: "campaigns", label: "الحملات", href: "/dashboard/crm/campaigns" },
         ]

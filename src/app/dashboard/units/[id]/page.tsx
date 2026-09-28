@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { canManageFinance, getCurrentUser, isAdmin } from "@/lib/auth";
 import { getMyEmployee } from "@/lib/hr";
 import { canEditUnit } from "@/lib/projects";
 import {
@@ -20,6 +20,7 @@ import {
   UNIT_FIELD_LABELS,
   UNIT_STATUS_COLORS,
   UNIT_STATUS_DOTS,
+  DeveloperInvoice,
   SaleCommission,
   UnitField,
   formatPrice,
@@ -97,6 +98,34 @@ export default async function UnitDetailsPage({
         .maybeSingle()
     : { data: null };
   const saleCommission = (scData as SaleCommission) ?? null;
+
+  // فاتورة العمولة على المطوّر (sql/103) — يراها من يحصّل وحده. ويُقترح
+  // اسم المطوّر من آخر فاتورة في المشروع نفسه، فلا يُكتب كل مرة.
+  const canFinance = await canManageFinance();
+  let developerInvoice: DeveloperInvoice | null = null;
+  let suggestedDeveloper = "";
+  if (sold && saleCommission && canFinance) {
+    const [{ data: inv }, { data: prev }] = await Promise.all([
+      supabase
+        .from("developer_invoices")
+        .select("*")
+        .eq("reservation_id", sold.id)
+        .is("cancelled_at", null)
+        .maybeSingle(),
+      unit.project_id
+        ? supabase
+            .from("developer_invoices")
+            .select("developer_name")
+            .eq("project_id", unit.project_id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    developerInvoice = (inv as DeveloperInvoice) ?? null;
+    suggestedDeveloper =
+      (prev as { developer_name: string } | null)?.developer_name ?? "";
+  }
 
   const category =
     unitTypes.find((t) => t.name === unit.unit_type)?.category ?? "أخرى";
@@ -228,7 +257,9 @@ export default async function UnitDetailsPage({
             saleCommission={saleCommission}
             unitPrice={unit.price}
             canManage={canEdit}
-            isAdmin={admin}
+            canFinance={canFinance}
+            developerInvoice={developerInvoice}
+            suggestedDeveloper={suggestedDeveloper}
           />
         )}
 

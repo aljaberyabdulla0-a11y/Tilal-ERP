@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Reservation, SaleCommission, formatPrice } from "@/lib/types";
+import Link from "next/link";
+import {
+  DeveloperInvoice,
+  Reservation,
+  SaleCommission,
+  formatPrice,
+} from "@/lib/types";
 
 // ============================================================
 // المقدمة وعمولة الصفقة — مسار المال الحقيقي في نموذج الوساطة.
@@ -12,14 +18,15 @@ import { Reservation, SaleCommission, formatPrice } from "@/lib/types";
 // للمطوّر. فالمال الوحيد الذي يخصّ دفاتر تلال هو **عمولتها**،
 // ونقطة استحقاقها الوحيدة هي **تأكيد المقدمة** (sql/056).
 //
-// خطوتان لا ثالثة لهما:
+// ثلاث خطوات:
 //   ١) تأكيد المقدمة  → تُستحقّ عمولة تلال (مدين 1250 / دائن 4200)
 //                        وعمولة الموظف   (مدين 5500 / دائن 2300)
-//   ٢) تحصيلها من المطوّر → مدين 1100 / دائن 1250
+//   ٢) فاتورة العمولة للمطوّر → ورقةٌ يحوّل عليها، بلا قيد (sql/103)
+//   ٣) تحصيلها من المطوّر → مدين 1100 / دائن 1250، وعلى الفاتورة وحدها
 //      وعندها فقط تدخل عمولة الموظف كشف راتبه.
 //
-// كلتاهما بدالّة في القاعدة تفحص الصلاحية وتكتب القيد — لا حساب
-// هنا ولا كتابة في الدفاتر من المتصفّح.
+// كلّها بدوالّ في القاعدة تفحص الصلاحية وتكتب — لا حساب هنا ولا
+// كتابة في الدفاتر من المتصفّح.
 //
 // ⚠️ وسعر البيع يُدخَل في الخطوة الأولى لا قبلها (sql/069): تلال
 //    وسيطٌ لا بائع، فسعر الوحدة لا يُعرف حتى تُبرَم الصفقة. والرقم
@@ -30,13 +37,17 @@ export default function DealCommission({
   saleCommission,
   unitPrice,
   canManage,
-  isAdmin,
+  canFinance,
+  developerInvoice,
+  suggestedDeveloper,
 }: {
   reservation: Reservation;
   saleCommission: SaleCommission | null;
   unitPrice: number | null; // سعر القائمة إن وُجد — يُقترح ولا يُفرض
   canManage: boolean;   // المدير أو مشرف المشروع — يؤكّد المقدمة
-  isAdmin: boolean;     // المدير وحده — يسجّل التحصيل
+  canFinance: boolean;  // المدير أو المحاسب — يُصدر الفاتورة ويسجّل التحصيل
+  developerInvoice: DeveloperInvoice | null; // الفاتورة السارية إن وُجدت
+  suggestedDeveloper: string; // آخر مطوّر فُوتر في المشروع نفسه
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -46,11 +57,16 @@ export default function DealCommission({
   const [asking, setAsking] = useState(false);
   const [amount, setAmount] = useState("");
   const [price, setPrice] = useState("");
+  const [invoicing, setInvoicing] = useState(false);
+  const [developer, setDeveloper] = useState(suggestedDeveloper);
+  const [dueDate, setDueDate] = useState("");
+  const [invNotes, setInvNotes] = useState("");
 
   const r = reservation;
   const sc = saleCommission;
   const confirmed = Boolean(r.down_payment_confirmed_at);
   const collected = Boolean(sc?.collected_at);
+  const inv = developerInvoice;
 
   // الصفقة غير المكتملة لا مقدمة لها بعد
   if (r.status !== "بيع مكتمل") return null;
@@ -88,10 +104,70 @@ export default function DealCommission({
     router.refresh();
   }
 
+  async function issueInvoice() {
+    if (!developer.trim()) {
+      setErr("اكتب اسم المطوّر — باسمه تصدر الفاتورة.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    const { data, error } = await supabase.rpc("issue_developer_invoice", {
+      p_res: r.id,
+      p_developer: developer.trim(),
+      p_issue_date: null,
+      p_due_date: dueDate || null,
+      p_notes: invNotes.trim() || null,
+    });
+    setBusy(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    setInvoicing(false);
+    // تُفتح الفاتورة للطباعة مباشرةً — فهي ما سيُرسل للمطوّر
+    window.open(`/dashboard/developer-invoices/${data}?print=1`, "_blank");
+    router.refresh();
+  }
+
+  async function markSent() {
+    if (!inv) return;
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("mark_developer_invoice_sent", {
+      p_id: inv.id,
+    });
+    setBusy(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function cancelInvoice() {
+    if (!inv) return;
+    const reason = window.prompt(
+      `سبب إلغاء الفاتورة ${inv.invoice_number}؟ (بعده تُصدر فاتورةً جديدة)`
+    );
+    if (!reason?.trim()) return;
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("cancel_developer_invoice", {
+      p_id: inv.id,
+      p_reason: reason.trim(),
+    });
+    setBusy(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    router.refresh();
+  }
+
   async function collect() {
     if (
       !window.confirm(
-        "تسجيل تحصيل عمولة الشركة من المطوّر؟ سيدخل المبلغ الصندوق، وتصير عمولة الموظف جاهزة لكشف راتبه."
+        `تسجيل تحصيل الفاتورة ${inv?.invoice_number ?? ""} من المطوّر؟ سيدخل المبلغ الصندوق، وتصير عمولة الموظف جاهزة لكشف راتبه.`
       )
     )
       return;
@@ -282,7 +358,159 @@ export default function DealCommission({
           )}
         </Step>
 
-        <Step n={2} title="تحصيل عمولتنا من المطوّر" done={collected}>
+        <Step n={2} title="فاتورة العمولة للمطوّر" done={Boolean(inv) || collected}>
+          {inv ? (
+            <>
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <Link
+                  href={`/dashboard/developer-invoices/${inv.id}`}
+                  className="font-bold text-brand-700 hover:underline"
+                  dir="ltr"
+                >
+                  {inv.invoice_number}
+                </Link>
+                <span className="text-xs text-gray-500">
+                  إلى <b className="text-gray-700">{inv.developer_name}</b>
+                </span>
+                <b dir="ltr" className="text-gray-800">
+                  {formatPrice(inv.amount)}
+                </b>
+                <span className="text-xs text-gray-400" dir="ltr">
+                  {inv.issue_date}
+                </span>
+              </div>
+              <p className="mt-1 text-xs">
+                {inv.sent_at ? (
+                  <span className="text-green-700">
+                    ✓ أُرسلت للمطوّر{" "}
+                    <span dir="ltr">{inv.sent_at.slice(0, 10)}</span>
+                  </span>
+                ) : (
+                  <span className="text-amber-700">لم تُعلَّم مرسَلةً بعد.</span>
+                )}
+                {inv.due_date && (
+                  <span className="text-gray-500">
+                    {" "}
+                    · تستحقّ <span dir="ltr">{inv.due_date}</span>
+                  </span>
+                )}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a
+                  href={`/dashboard/developer-invoices/${inv.id}?print=1`}
+                  target="_blank"
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+                >
+                  طباعة / PDF
+                </a>
+                {canFinance && !collected && !inv.sent_at && (
+                  <button
+                    onClick={markSent}
+                    disabled={busy}
+                    className="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-medium text-brand-700 transition hover:bg-brand-50 disabled:opacity-50"
+                  >
+                    أُرسلت للمطوّر
+                  </button>
+                )}
+                {canFinance && !collected && (
+                  <button
+                    onClick={cancelInvoice}
+                    disabled={busy}
+                    className="rounded-lg px-3 py-1.5 text-xs text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  >
+                    إلغاء الفاتورة
+                  </button>
+                )}
+              </div>
+            </>
+          ) : collected ? (
+            <span className="text-xs text-gray-400">
+              حُصّلت قبل العمل بالفواتير.
+            </span>
+          ) : !confirmed ? (
+            <span className="text-xs text-gray-400">
+              أكّد المقدمة أولاً — العمولة لم تُستحقّ بعد.
+            </span>
+          ) : !canFinance ? (
+            <span className="text-xs text-gray-400">للمدير أو المحاسب.</span>
+          ) : invoicing ? (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">
+                الفاتورة بعمولة الشركة{" "}
+                <b dir="ltr">{formatPrice(sc?.company_amount ?? null)}</b> (
+                {sc?.company_rate}٪ من{" "}
+                <span dir="ltr">{formatPrice(sc?.deal_amount ?? null)}</span>) —
+                المبلغ مجمَّد من تأكيد المقدمة.
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">
+                    اسم المطوّر
+                  </span>
+                  <input
+                    value={developer}
+                    onChange={(e) => setDeveloper(e.target.value)}
+                    autoFocus
+                    placeholder="الشركة المطوّرة"
+                    className={input + " w-56"}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">
+                    تاريخ الاستحقاق <span className="text-gray-400">(اختياري)</span>
+                  </span>
+                  <input
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    type="date"
+                    dir="ltr"
+                    className={input + " w-40"}
+                  />
+                </label>
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-gray-600">
+                  ملاحظات تظهر على الفاتورة{" "}
+                  <span className="text-gray-400">(مثل الحساب البنكي للتحويل)</span>
+                </span>
+                <textarea
+                  value={invNotes}
+                  onChange={(e) => setInvNotes(e.target.value)}
+                  rows={2}
+                  className={input + " w-full max-w-md"}
+                />
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={issueInvoice}
+                  disabled={busy}
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+                >
+                  {busy ? "جارٍ…" : "إصدار الفاتورة"}
+                </button>
+                <button
+                  onClick={() => setInvoicing(false)}
+                  disabled={busy}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setInvoicing(true);
+                setErr(null);
+              }}
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              إصدار فاتورة للمطوّر
+            </button>
+          )}
+        </Step>
+
+        <Step n={3} title="تحصيل عمولتنا من المطوّر" done={collected}>
           {collected ? (
             <>
               <b dir="ltr" className="text-green-700">
@@ -300,7 +528,13 @@ export default function DealCommission({
             <span className="text-xs text-gray-400">
               أكّد المقدمة أولاً — العمولة لم تُستحقّ بعد.
             </span>
-          ) : isAdmin ? (
+          ) : !canFinance ? (
+            <span className="text-xs text-gray-400">للمدير أو المحاسب.</span>
+          ) : !inv ? (
+            <span className="text-xs text-gray-400">
+              أصدِر الفاتورة للمطوّر أولاً — التحصيل يُسجَّل عليها.
+            </span>
+          ) : (
             <button
               onClick={collect}
               disabled={busy}
@@ -308,8 +542,6 @@ export default function DealCommission({
             >
               تسجيل التحصيل
             </button>
-          ) : (
-            <span className="text-xs text-gray-400">للمدير.</span>
           )}
         </Step>
       </div>

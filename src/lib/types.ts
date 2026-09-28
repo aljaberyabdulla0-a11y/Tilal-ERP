@@ -2439,6 +2439,28 @@ export type SaleCommission = {
   collected_at: string | null; // فارغ = عمولة الشركة ما زالت مستحقّة
 };
 
+// فاتورة عمولة تلال على المطوّر (sql/103) — مطالبةٌ بلا قيد،
+// والتحصيل لا يُسجَّل إلا عليها
+export type DeveloperInvoice = {
+  id: string;
+  created_at: string;
+  invoice_number: string;
+  reservation_id: string;
+  sale_commission_id: string;
+  project_id: string | null;
+  unit_id: string | null;
+  developer_name: string;
+  issue_date: string;
+  due_date: string | null;
+  sale_price: number;
+  rate: number;
+  amount: number;
+  notes: string | null;
+  sent_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+};
+
 /** وصف القاعدة بعبارة يفهمها من يقرؤها بلا شرح */
 export function ruleLabel(r: EmployeeCommissionRule): string {
   const v = isRateKind(r.kind)

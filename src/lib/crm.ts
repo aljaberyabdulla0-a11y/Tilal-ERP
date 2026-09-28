@@ -448,6 +448,10 @@ export type DuplicatePair = {
   similarity: number | null;
   status: string;
   detected_at: string;
+  // طلب دمج من موظف لا يملك البطاقتين (104)
+  requested_by_name: string | null;
+  requested_at: string | null;
+  request_note: string | null;
   a: { id: string; name: string; phone: string | null; stage: string; owner_id: string | null; created_at: string } | null;
   b: { id: string; name: string; phone: string | null; stage: string; owner_id: string | null; created_at: string } | null;
 };
@@ -517,6 +521,28 @@ export const getDuplicates = cache(async () =>
       .order("detected_at", { ascending: false })
       .limit(200)
   )
+);
+
+// ===== «هذا الشخص موجود» (104) =====
+//
+// صفٌّ لبطاقة قد تكون للشخص نفسه. can_view: تراها فتفتحها؛
+// can_merge: تملكها فتدمجها. والرقم لا يعود إلا لمن يراها.
+export type ClientMatch = {
+  id: string;
+  name: string;
+  phone: string | null;
+  stage: string | null;
+  owner_name: string | null;
+  created_at: string;
+  match_type: "مؤكّد" | "محتمل" | "مرشّح";
+  match_on: string;
+  similarity: number | null;
+  can_view: boolean;
+  can_merge: boolean;
+};
+
+export const getClientMatchCandidates = cache(async (clientId: string) =>
+  rpc<ClientMatch>("client_match_candidates", { p_client_id: clientId })
 );
 
 export const getLeadScore = cache(async (clientId: string): Promise<LeadScore | null> => {

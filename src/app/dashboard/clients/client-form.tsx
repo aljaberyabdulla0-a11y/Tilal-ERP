@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -13,7 +13,16 @@ import {
   PAYMENT_METHODS,
   isValidPhone,
 } from "@/lib/types";
+import type { ClientMatch } from "@/lib/crm";
 import PhoneInput from "@/components/phone-input";
+import ClientMatchList from "@/components/client-match-list";
+
+// ما يُفعل بالبطاقة الجديدة بعد حفظها، حين وُجد الشخص مسبقاً (sql/104)
+type AfterCreate =
+  | { kind: "merge"; into: string }        // أضفها إلى الموجودة ← شاشة الدمج
+  | { kind: "request"; with: string }      // الموجودة لزميل ← طلب دمج للإدارة
+  | { kind: "not_same"; others: string[] } // ليس الشخص نفسه ← لا يعود التنبيه
+  | { kind: "none" };
 
 // تاريخ اليوم بصيغة YYYY-MM-DD (للقيمة الافتراضية لحقل التاريخ)
 function today(): string {
@@ -65,8 +74,28 @@ export default function ClientForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // ===== «هذا الشخص موجود» — في الإضافة وحدها =====
+  // phoneHits: تنبيهٌ مبكر تحت حقل الرقم أثناء الكتابة.
+  // gate: البطاقات المطابقة عند الحفظ — تُوقف الحفظ حتى يختار الموظف.
+  const [phoneHits, setPhoneHits] = useState<ClientMatch[]>([]);
+  const [gate, setGate] = useState<ClientMatch[] | null>(null);
+
+  useEffect(() => {
+    if (isEdit || !isValidPhone(form.phone)) {
+      setPhoneHits([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      const { data } = await supabase.rpc("find_client_matches", { p_phone: form.phone });
+      setPhoneHits((data ?? []) as ClientMatch[]);
+    }, 400);
+    return () => clearTimeout(t);
+    // supabase ثابت عملياً؛ إضافته تعيد الاستدعاء في كل رسم
+  }, [form.phone, isEdit]);
+
   function update(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
+    setGate(null);
   }
 
   // القائمة المعروضة — نضيف لها القيمة المحفوظة سابقاً إن كانت
@@ -99,6 +128,28 @@ export default function ClientForm({
       return;
     }
 
+    // قبل إنشاء بطاقة: هل الشخص مسجّل؟ الرقم والرقم البديل والاسم معاً.
+    // فشل الفحص لا يمنع الحفظ — المحفّز في القاعدة يرصد التكرار على أي حال.
+    if (!isEdit) {
+      setSaving(true);
+      const { data } = await supabase.rpc("find_client_matches", {
+        p_phone: form.phone.trim() || null,
+        p_alt_phone: form.alt_contact_phone.trim() || null,
+        p_name: form.name.trim() || null,
+      });
+      setSaving(false);
+      const found = (data ?? []) as ClientMatch[];
+      if (found.length > 0) {
+        setGate(found);
+        return;
+      }
+    }
+
+    await save({ kind: "none" });
+  }
+
+  async function save(after: AfterCreate) {
+    setError(null);
     const payload = {
       name: form.name.trim(),
       phone: form.phone.trim() || null,
@@ -117,18 +168,44 @@ export default function ClientForm({
 
     setSaving(true);
     // نفس النموذج يخدم الحالتين: تعديل أو إضافة
-    const { error } = isEdit
-      ? await supabase.from("clients").update(payload).eq("id", clientId!)
-      : await supabase.from("clients").insert(payload);
-    setSaving(false);
-
-    if (error) {
-      setError("تعذّر الحفظ: " + error.message);
+    if (isEdit) {
+      const { error } = await supabase.from("clients").update(payload).eq("id", clientId!);
+      setSaving(false);
+      if (error) return setError("تعذّر الحفظ: " + error.message);
+      router.push(`/dashboard/clients/${clientId}`);
+      router.refresh();
       return;
     }
 
-    // بعد التعديل نرجع لصفحة تفاصيل العميل، وبعد الإضافة للقائمة
-    router.push(isEdit ? `/dashboard/clients/${clientId}` : "/dashboard/clients");
+    const { data: created, error } = await supabase.from("clients").insert(payload).select("id").single();
+    if (error || !created) {
+      setSaving(false);
+      return setError("تعذّر الحفظ: " + (error?.message ?? "لم تُرجع القاعدة البطاقة"));
+    }
+    const newId = created.id as string;
+
+    // البطاقة حُفظت. ما بعدها خطوة إضافية: فشلها لا يُلغي الحفظ، بل
+    // يُنقل الموظف إلى بطاقته ويُقال له ما لم يتمّ.
+    let next = "/dashboard/clients";
+    if (after.kind === "merge") {
+      next = `/dashboard/clients/${after.into}/merge?with=${newId}`;
+    } else if (after.kind === "request") {
+      const { error: e2 } = await supabase.rpc("request_client_merge", {
+        p_a: newId,
+        p_b: after.with,
+        p_note: "أُنشئت البطاقة رغم وجود بطاقة سابقة للشخص نفسه عند زميل.",
+      });
+      next = `/dashboard/clients/${newId}`;
+      if (e2) alert("حُفظت البطاقة، لكن تعذّر إرسال طلب الدمج: " + e2.message);
+    } else if (after.kind === "not_same") {
+      await Promise.all(
+        after.others.map((o) =>
+          supabase.rpc("resolve_client_duplicate", { p_a: newId, p_b: o, p_status: "ليسا واحداً" })
+        )
+      );
+    }
+    setSaving(false);
+    router.push(next);
     router.refresh();
   }
 
@@ -168,6 +245,15 @@ export default function ClientForm({
             value={form.phone}
             onChange={(v) => update("phone", v)}
           />
+          {/* تنبيهٌ مبكر: قبل أن يملأ الموظف بقية النموذج */}
+          {phoneHits.length > 0 && !gate && (
+            <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="mb-2 font-semibold">
+                هذا الرقم مسجّل مسبقاً — تأكّد أنك لا تُنشئ بطاقة ثانية للشخص نفسه:
+              </p>
+              <ClientMatchList matches={phoneHits} />
+            </div>
+          )}
         </div>
 
         {/* ===== جهة اتصال بديلة — اختيارية بالكامل ===== */}
@@ -397,7 +483,73 @@ export default function ClientForm({
         <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>
       )}
 
-      <div className="flex gap-3">
+      {/* ===== «هذا الشخص موجود» — الحفظ متوقّف حتى يختار الموظف ===== */}
+      {gate && (
+        <div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <div>
+            <h3 className="font-bold text-amber-900">هذا الشخص موجود على الأغلب</h3>
+            <p className="text-sm text-amber-800">
+              وجدنا {gate.length === 1 ? "بطاقة" : `${gate.length} بطاقات`} قد تكون له. بطاقتان للشخص نفسه تقسمان
+              تاريخه على اثنتين وتحسبانه ليدين — اختر ما تريد:
+            </p>
+          </div>
+
+          <ClientMatchList
+            matches={gate}
+            actions={(m) =>
+              m.can_merge ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => save({ kind: "merge", into: m.id })}
+                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                >
+                  ادمج معلوماتي في هذه البطاقة
+                </button>
+              ) : m.match_type !== "مرشّح" ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => save({ kind: "request", with: m.id })}
+                  className="rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  احفظ واطلب الدمج من الإدارة
+                </button>
+              ) : null
+            }
+          />
+
+          <p className="text-xs text-amber-800">
+            «ادمج» يحفظ ما كتبته ثم يفتح شاشة المقارنة لتختار حقلاً حقلاً ما يبقى. وإن كانت البطاقة عند زميل،
+            تُحفظ بطاقتك ويصل طلب الدمج إلى الإدارة ومدير المتابعة.
+          </p>
+
+          <div className="flex flex-wrap gap-2 border-t border-amber-200 pt-3">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() =>
+                save({
+                  kind: "not_same",
+                  others: gate.filter((m) => m.can_merge && m.match_type !== "مرشّح").map((m) => m.id),
+                })
+              }
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:border-gray-500 disabled:opacity-50"
+            >
+              ليس الشخص نفسه — أنشئ بطاقة جديدة
+            </button>
+            <button
+              type="button"
+              onClick={() => setGate(null)}
+              className="rounded-lg px-4 py-2 text-sm text-gray-500 hover:text-gray-800"
+            >
+              رجوع للتعديل
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={`flex gap-3 ${gate ? "hidden" : ""}`}>
         <button
           type="submit"
           disabled={saving}

@@ -115,7 +115,14 @@ export const RESERVATION_TYPE: ActivityTypeMeta = {
   color: "bg-emerald-100 text-emerald-700",
 };
 
-export const SYSTEM_ACTIVITY_TYPES = [STAGE_CHANGE_TYPE, HANDOVER_TYPE, RESERVATION_TYPE];
+// الدمج سطرٌ تكتبه merge_clients() في البطاقة الباقية (sql/104) — لا تواصل
+export const MERGE_TYPE: ActivityTypeMeta = {
+  key: "دمج",
+  icon: "merge",
+  color: "bg-slate-100 text-slate-700",
+};
+
+export const SYSTEM_ACTIVITY_TYPES = [STAGE_CHANGE_TYPE, HANDOVER_TYPE, RESERVATION_TYPE, MERGE_TYPE];
 
 /**
  * حدثٌ كتبه النظام لا تواصلٌ قام به موظف — لا يُحتسب في عدّاد

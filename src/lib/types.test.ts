@@ -32,12 +32,13 @@ describe("sinceColor — عتبات الصمت من الإعدادات لا من
   });
 });
 
-describe("isSystemActivity — مرآة public.is_system_activity (sql/045 · 072)", () => {
-  it("الأنواع النظامية الثلاثة لا تُحتسب تواصلاً", () => {
+describe("isSystemActivity — مرآة public.is_system_activity (sql/045 · 072 · 104)", () => {
+  it("الأنواع النظامية الأربعة لا تُحتسب تواصلاً", () => {
     expect(isSystemActivity("تغيير مرحلة")).toBe(true);
     expect(isSystemActivity("تسليم")).toBe(true);
     expect(isSystemActivity("حجز")).toBe(true);
-    expect(SYSTEM_ACTIVITY_TYPES.map((t) => t.key).sort()).toEqual(["تسليم", "تغيير مرحلة", "حجز"].sort());
+    expect(isSystemActivity("دمج")).toBe(true);
+    expect(SYSTEM_ACTIVITY_TYPES.map((t) => t.key).sort()).toEqual(["تسليم", "تغيير مرحلة", "حجز", "دمج"].sort());
   });
   it("التواصل الفعلي ليس نظامياً", () => {
     expect(isSystemActivity("مكالمة")).toBe(false);

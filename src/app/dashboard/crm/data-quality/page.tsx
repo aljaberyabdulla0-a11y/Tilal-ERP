@@ -27,8 +27,10 @@ export default async function DataQualityPage() {
 
   const [issues, duplicates] = await Promise.all([getDataQuality(), getDuplicates()]);
 
-  const confirmed = duplicates.filter((d) => d.match_type === "مؤكّد");
-  const others = duplicates.filter((d) => d.match_type !== "مؤكّد");
+  // طلبات الموظفين أولاً: خلف كل واحد منها موظفٌ ينتظر القرار (104)
+  const requested = duplicates.filter((d) => d.requested_at);
+  const confirmed = duplicates.filter((d) => !d.requested_at && d.match_type === "مؤكّد");
+  const others = duplicates.filter((d) => !d.requested_at && d.match_type !== "مؤكّد");
   const whitespace = issues.find((i) => i.code === "whitespace");
 
   return (
@@ -88,11 +90,13 @@ export default async function DataQualityPage() {
             <h2 className="font-bold text-gray-800">التكرار</h2>
             <p className="text-sm text-gray-500">
               «مؤكّد» = الرقم نفسه. «محتمل» = رقم أحدهما هو الرقم البديل للآخر. «مرشّح» = تشابه اسم فقط، للعين البشرية.
-              الدمج ينقل كل شيء — الأنشطة والفرص والحجوزات والمهامّ — إلى المحفوظ ولا يمحو شيئاً.
+              الدمج ينقل كل شيء — الأنشطة والفرص والحجوزات والمهامّ والمستندات والفواتير — إلى الباقية ولا يمحو شيئاً.
+              والموظف يدمج بطاقاته بنفسه؛ ما يصل هنا طلباتُه لبطاقاتٍ عند زملائه، وما رصده النظام ولم يُقرَّر.
             </p>
           </div>
-          <DuplicatesPanel title="مؤكّد" pairs={confirmed} canMerge={admin} />
-          <DuplicatesPanel title="محتمل ومرشّح" pairs={others} canMerge={admin} />
+          {requested.length > 0 && <DuplicatesPanel title="طلبات دمج من الموظفين" pairs={requested} canMerge />}
+          <DuplicatesPanel title="مؤكّد" pairs={confirmed} canMerge />
+          <DuplicatesPanel title="محتمل ومرشّح" pairs={others} canMerge />
         </section>
       </div>
     </div>

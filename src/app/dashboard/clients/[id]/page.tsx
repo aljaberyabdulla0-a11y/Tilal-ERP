@@ -35,8 +35,10 @@ import {
   getOwnerName,
   getClientOpportunities,
   getClientDocuments,
+  getClientMatchCandidates,
   TEMPERATURE_STYLE,
 } from "@/lib/crm";
+import DuplicateBanner from "./duplicate-banner";
 import type { Stage, ProjectLite, ClientInterest, ClientDocument } from "@/lib/crm";
 
 // صفحة تفاصيل عميل واحد — تعرض كل المعلومات المسجّلة
@@ -71,12 +73,18 @@ export default async function ClientDetailsPage({
   // من لا يكتب لا يُعرض له زرّ يكتب — RLS تمنعه صمتاً فيظنّ أنه حفظ
   const canWrite = await canWriteCrm();
 
-  if (!data) notFound();
+  if (!data) {
+    // بطاقةٌ دُمجت (104): رابطها القديم — من إشعار أو مهمة أو مفضّلة —
+    // يقود إلى الباقية بدل «غير موجود»
+    const { data: target } = await supabase.rpc("client_merged_into", { p_client_id: params.id });
+    if (typeof target === "string") redirect(`/dashboard/clients/${target}`);
+    notFound();
+  }
   const c = data as Client;
 
   // طبقة الـCRM الجديدة (070–080): تُقرأ بعد التأكّد من وجود العميل،
   // وكلها تُرجع فراغاً بلا خطأ إن لم تُشغَّل الهجرات بعد.
-  const [qualification, projects, stages, interests, ownerName, cfg, opps] = await Promise.all([
+  const [qualification, projects, stages, interests, ownerName, cfg, opps, matches] = await Promise.all([
     getQualification(c.id),
     getProjectsLite(),
     getStages(),
@@ -84,6 +92,7 @@ export default async function ClientDetailsPage({
     getOwnerName(c.owner_id),
     getPipelineConfig(),
     getClientOpportunities(c.id),
+    canWrite ? getClientMatchCandidates(c.id) : Promise.resolve([]),
   ]);
   const documents = await getClientDocuments(c.id);
   const openOpps = opps
@@ -115,19 +124,33 @@ export default async function ClientDetailsPage({
           </Link>
           <h1 className="text-xl font-bold text-brand-700">{c.name}</h1>
         </div>
-        {/* التعديل والحذف للمدراء فقط */}
-        {admin && (
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
+          {/* الدمج لكل من يكتب؛ الصلاحية الفعلية (ملكية البطاقتين) تقرّرها القاعدة */}
+          {canWrite && (
             <Link
-              href={`/dashboard/clients/${c.id}/edit`}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+              href={`/dashboard/clients/${c.id}/merge`}
+              className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 transition hover:border-brand-500 hover:text-brand-700"
             >
-              تعديل
+              <span className="material-symbols-outlined text-[18px]">merge</span>
+              دمج مع بطاقة أخرى
             </Link>
-            <DeleteClientButton id={c.id} name={c.name} />
-          </div>
-        )}
+          )}
+          {/* التعديل والحذف للمدراء فقط */}
+          {admin && (
+            <>
+              <Link
+                href={`/dashboard/clients/${c.id}/edit`}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+              >
+                تعديل
+              </Link>
+              <DeleteClientButton id={c.id} name={c.name} />
+            </>
+          )}
+        </div>
       </header>
+
+      {canWrite && <DuplicateBanner clientId={c.id} matches={matches} />}
 
       {/* ============================================================
           شريط الحالة يبقى فوق التبويبات دائماً (§34).

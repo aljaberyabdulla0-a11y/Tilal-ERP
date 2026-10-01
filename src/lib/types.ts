@@ -496,6 +496,12 @@ export type JournalEntry = {
   entry_date: string;
   description: string;
   reference: string | null;
+  arm?: string | null;
+  // القيد الآلي: اسم الجدول المصدر ومعرّف صفّه (sql/108). فارغان = قيد يدوي
+  source?: string | null;
+  source_id?: string | null;
+  // القيد الذي يعكسه هذا القيد (sql/111)
+  reversal_of?: string | null;
   // مرتبط (من الربط)
   journal_lines?: JournalLine[];
 };
@@ -509,20 +515,16 @@ export type EntryTemplate = {
   credit: string;
 };
 
+// ⚠️ قوالب البيع والعربون وقبض العمولة ودفع الراتب والعمولة أُزيلت
+//    (sql/109): لكلٍّ منها مسارٌ آلي، والقيد اليدوي يكرّره. والحسابان
+//    4100 و2400 غير نشطين فلا يقبلهما post_manual_entry أصلاً.
 export const ENTRY_TEMPLATES: EntryTemplate[] = [
-  { key: "sale_cash", label: "بيع وحدة نقداً", debit: "1100", credit: "4100" },
-  { key: "sale_bank", label: "بيع وحدة عبر البنك", debit: "1200", credit: "4100" },
-  { key: "sale_credit", label: "بيع آجل (على حساب العميل)", debit: "1300", credit: "4100" },
-  { key: "collect_cash", label: "تحصيل دفعة من عميل (نقد)", debit: "1100", credit: "1300" },
-  { key: "deposit_hold", label: "قبض عربون حجز (نقد)", debit: "1100", credit: "2400" },
-  { key: "commission_income", label: "قبض عمولة (نقد)", debit: "1100", credit: "4200" },
-  { key: "pay_salary", label: "دفع راتب (نقد)", debit: "5100", credit: "1100" },
   { key: "pay_rent", label: "دفع إيجار (نقد)", debit: "5200", credit: "1100" },
   { key: "daily_expense", label: "مصروف يومي (نقد)", debit: "5300", credit: "1100" },
   { key: "pay_utilities", label: "دفع فاتورة خدمات (نقد)", debit: "5400", credit: "1100" },
-  { key: "pay_commission", label: "دفع عمولة (نقد)", debit: "5500", credit: "1100" },
   { key: "marketing", label: "مصروف تسويق وإعلان (نقد)", debit: "5700", credit: "1100" },
   { key: "deposit_bank", label: "إيداع نقد في البنك", debit: "1200", credit: "1100" },
+  { key: "withdraw_bank", label: "سحب من البنك إلى الصندوق", debit: "1100", credit: "1200" },
   { key: "capital", label: "إدخال رأس المال (نقد)", debit: "1100", credit: "3100" },
 ];
 
@@ -1414,14 +1416,16 @@ export type MoneyCategory = {
   icon: string; // Material Symbols
   hint?: string; // شرح بسيط يظهر للمستخدم
   partnerOnly?: boolean; // تصنيف خاص بحركة بين الشركة والشريك
+  // تصنيف موقوف (sql/109): يبقى هنا ليُقرأ به التاريخ، ولا يُعرض في
+  // نموذج الحركة الجديدة. القاعدة ترفضه أيضاً — هذا للرسالة فقط.
+  retired?: { why: string; instead: string; href?: string };
 };
 
 // ما نصرفه
 export const EXPENSE_CATEGORIES: MoneyCategory[] = [
-  { label: "رواتب وأجور", account: "5100", icon: "payments", hint: "رواتب الموظفين والأجور اليومية" },
+  { label: "أجور يومية ومستقلون", account: "5110", icon: "engineering", hint: "مصوّر، أجر أسبوعي، عامل باليوم — من ليس على كشف رواتب" },
   { label: "إيجار", account: "5200", icon: "home_work", hint: "إيجار المكتب أو المعرض" },
   { label: "تسويق وإعلان", account: "5700", icon: "campaign", hint: "إعلانات، سوشيال ميديا، لوحات، مصمّمين" },
-  { label: "عمولات مدفوعة", account: "5500", icon: "handshake", hint: "عمولة مندوب أو دلّال" },
   { label: "فواتير خدمات", account: "5400", icon: "bolt", hint: "كهرباء، ماء، إنترنت، مولّدة" },
   { label: "صيانة وتصليحات", account: "5600", icon: "build", hint: "صيانة المكتب أو السيارات" },
   { label: "مصاريف مكتب ولوازم", account: "5300", icon: "inventory_2", hint: "قرطاسية، أثاث بسيط، مستلزمات" },
@@ -1431,18 +1435,62 @@ export const EXPENSE_CATEGORIES: MoneyCategory[] = [
   { label: "رسوم حكومية ومعاملات", account: "5340", icon: "gavel", hint: "طابو، إجازات، رسوم رسمية" },
   { label: "سداد لشريك", account: "2500", icon: "account_balance_wallet", hint: "الشركة تُرجع مبلغاً لشريك دفعه من جيبه" },
   { label: "أخرى", account: "5800", icon: "more_horiz" },
+
+  // ===== موقوفة (sql/109) — للتاريخ وحده =====
+  {
+    label: "رواتب وأجور", account: "5100", icon: "payments",
+    retired: {
+      why: "راتب الموظف مسجّل مصروفاً عند اعتماد كشفه؛ تسجيله هنا يكرّره",
+      instead: "ادفعه من كشوف الرواتب (زرّ «دفع» — ومنه «دفعه شريك من حسابه»). الأجر اليومي: «أجور يومية ومستقلون»",
+      href: "/dashboard/hr/payroll",
+    },
+  },
+  {
+    label: "عمولات مدفوعة", account: "5500", icon: "handshake",
+    retired: {
+      why: "عمولة الموظف مسجّلة مصروفاً عند استحقاقها؛ تسجيلها هنا يكرّرها",
+      instead: "عمولة الموظف تُدفع ضمن كشف راتبه، وعمولة الشركة الوسيطة من صفحة الوسطاء",
+      href: "/dashboard/brokers/commissions",
+    },
+  },
 ];
 
 // ما نقبضه
 export const INCOME_CATEGORIES: MoneyCategory[] = [
-  { label: "بيع عقار أو وحدة", account: "4100", icon: "sell", hint: "مبلغ مستلم من بيع وحدة" },
-  { label: "عمولة عقارية", account: "4200", icon: "real_estate_agent", hint: "عمولتنا على صفقة" },
   { label: "خدمات تسويق", account: "4400", icon: "ads_click", hint: "إيراد ذراع التسويق من زبائنه" },
   { label: "إيداع من شريك", account: "2500", icon: "savings", hint: "شريك يضخّ أموالاً في صندوق الشركة", partnerOnly: true },
   { label: "إيراد آخر", account: "4300", icon: "more_horiz" },
+
+  // ===== موقوفة (sql/109) — للتاريخ وحده =====
+  {
+    label: "بيع عقار أو وحدة", account: "4100", icon: "sell",
+    retired: {
+      why: "تلال وسيط لا بائع — ثمن الوحدة للمطوّر ولا يدخل إيراد تلال",
+      instead: "عمولة تلال تُستحقّ تلقائياً من صفحة الوحدة عند تأكيد المقدمة",
+      href: "/dashboard/units",
+    },
+  },
+  {
+    label: "عمولة عقارية", account: "4200", icon: "real_estate_agent",
+    retired: {
+      why: "العمولة سُجّلت إيراداً عند تأكيد المقدمة؛ تسجيلها هنا يكرّرها ويُبقي ذمّة المطوّر معلّقة",
+      instead: "سجّل التحصيل من صفحة الوحدة («تسجيل التحصيل») بعد إصدار فاتورة المطوّر",
+      href: "/dashboard/units",
+    },
+  },
 ];
 
+// التصنيفات المتاحة لحركة جديدة — الموقوفة لا تظهر
 export function categoriesFor(direction: MoneyDirection): MoneyCategory[] {
+  return allCategoriesFor(direction).filter((c) => !c.retired);
+}
+
+// الموقوفة وحدها — لتقول للمستخدم أين ذهبت ولماذا
+export function retiredCategoriesFor(direction: MoneyDirection): MoneyCategory[] {
+  return allCategoriesFor(direction).filter((c) => c.retired);
+}
+
+function allCategoriesFor(direction: MoneyDirection): MoneyCategory[] {
   return direction === "صرف" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 }
 
@@ -1450,7 +1498,7 @@ export function findCategory(
   direction: MoneyDirection,
   label: string
 ): MoneyCategory | undefined {
-  return categoriesFor(direction).find((c) => c.label === label);
+  return allCategoriesFor(direction).find((c) => c.label === label);
 }
 
 export type CashMove = {

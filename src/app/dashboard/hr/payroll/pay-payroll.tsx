@@ -4,10 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatPrice } from "@/lib/types";
+import { baghdadDate } from "@/lib/time";
 
 // ============================================================
 // زر «دفع الراتب» — يسجّل الدفعة كاملة أو جزئية،
 // والنظام ينقص الصندوق/البنك ويقلّل الدَين المستحق للموظف تلقائياً.
+// وإن دفعه شريكٌ من جيبه: يُقيَّد على جاري الشركاء (2500) لا الصندوق (sql/110)
+// — بدل تسجيله حركة «رواتب وأجور» تكرّر مصروف الكشف.
 // ============================================================
 export default function PayPayroll({
   payrollId,
@@ -22,15 +25,25 @@ export default function PayPayroll({
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = baghdadDate();
 
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(String(Math.round(remaining)));
   const [payDate, setPayDate] = useState(today);
-  const [method, setMethod] = useState<"نقد" | "بنك">("نقد");
+  // "نقد" | "بنك" | معرّف الشريك الذي دفع من حسابه
+  const [payer, setPayer] = useState<string>("نقد");
+  const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function loadPartners() {
+    const { data } = await supabase.from("partners").select("id, name").order("created_at");
+    setPartners((data ?? []) as { id: string; name: string }[]);
+  }
+
+  const partner = partners.find((p) => p.id === payer);
+  const method: "نقد" | "بنك" = payer === "بنك" ? "بنك" : "نقد";
 
   const value = Number(amount) || 0;
   const partial = value > 0 && value < remaining - 0.01;
@@ -47,6 +60,7 @@ export default function PayPayroll({
       pay_date: payDate,
       amount: value,
       method,
+      partner_id: partner ? partner.id : null,
       notes: notes.trim() || null,
     });
     setSaving(false);
@@ -65,6 +79,7 @@ export default function PayPayroll({
         onClick={() => {
           setAmount(String(Math.round(remaining)));
           setOpen(true);
+          if (!partners.length) loadPartners();
         }}
         className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
       >
@@ -134,12 +149,17 @@ export default function PayPayroll({
             <div>
               <label className="mb-1 block text-xs text-gray-500">من وين؟</label>
               <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value as "نقد" | "بنك")}
+                value={payer}
+                onChange={(e) => setPayer(e.target.value)}
                 className={cls + " w-full"}
               >
                 <option value="نقد">الصندوق (نقد)</option>
                 <option value="بنك">البنك</option>
+                {partners.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    دفعه {p.name} من حسابه
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -159,8 +179,9 @@ export default function PayPayroll({
             {partial
               ? `دفع جزئي: سيبقى ${formatPrice(remaining - value)} دينار مستحقاً للموظف، وتصير حالة الكشف «مدفوع جزئياً».`
               : "سيُسدَّد الراتب بالكامل وتصير حالة الكشف «مدفوع»."}{" "}
-            وينقص {method === "بنك" ? "رصيد البنك" : "الصندوق"} بمقدار{" "}
-            {formatPrice(value)} تلقائياً.
+            {partner
+              ? `ولا يُمسّ الصندوق: يُسجَّل ${formatPrice(value)} ديناً للشريك ${partner.name} على الشركة (جاري الشركاء).`
+              : `وينقص ${method === "بنك" ? "رصيد البنك" : "الصندوق"} بمقدار ${formatPrice(value)} تلقائياً.`}
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

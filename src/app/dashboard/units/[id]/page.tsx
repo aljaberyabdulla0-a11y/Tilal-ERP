@@ -31,6 +31,7 @@ import {
 } from "@/lib/types";
 import DeleteUnitButton from "../delete-unit-button";
 import DealCommission from "@/components/deal-commission";
+import ReverseSale from "@/components/reverse-sale";
 import SaleRequest from "@/components/sale-request";
 import UnitActions from "./unit-actions";
 
@@ -262,6 +263,9 @@ export default async function UnitDetailsPage({
             suggestedDeveloper={suggestedDeveloper}
           />
         )}
+
+        {/* فسخ البيع بمعاينة أثره — الطريق الوحيد لإلغاء صفقة مؤكَّدة (sql/108، 113) */}
+        {sold && admin && <ReverseSale reservationId={sold.id} />}
 
         {/* الوضع المالي */}
         {finance && (

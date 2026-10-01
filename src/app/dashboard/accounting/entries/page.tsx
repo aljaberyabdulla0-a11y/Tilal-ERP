@@ -2,7 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canManageFinance } from "@/lib/auth";
+import { journalSourceLabel } from "@/lib/accounting";
 import { JournalEntry, JournalLine, formatPrice } from "@/lib/types";
+
+// أحدث القيود فقط — والأرقام الكاملة في التقارير، لا في هذه القائمة
+const LIMIT = 500;
 
 // قائمة قيود اليومية
 export default async function EntriesPage() {
@@ -13,7 +17,8 @@ export default async function EntriesPage() {
     .from("journal_entries")
     .select("*, journal_lines(debit)")
     .order("entry_date", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(LIMIT);
 
   const entries = (data ?? []) as JournalEntry[];
 
@@ -61,6 +66,7 @@ export default async function EntriesPage() {
                 <tr>
                   <th className="px-4 py-3 font-medium">التاريخ</th>
                   <th className="px-4 py-3 font-medium">البيان</th>
+                  <th className="px-4 py-3 font-medium">المصدر</th>
                   <th className="px-4 py-3 font-medium">المبلغ</th>
                   <th className="px-4 py-3 font-medium"></th>
                 </tr>
@@ -78,6 +84,15 @@ export default async function EntriesPage() {
                       >
                         {e.description}
                       </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          e.source ? "bg-gray-100 text-gray-600" : "bg-amber-50 text-amber-800"
+                        }`}
+                      >
+                        {journalSourceLabel(e.source ?? null)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-gray-800" dir="ltr">
                       {formatPrice(entryTotal(e))}
@@ -98,7 +113,10 @@ export default async function EntriesPage() {
         )}
 
         {!error && entries.length > 0 && (
-          <p className="mt-3 text-sm text-gray-500">عدد القيود: {entries.length}</p>
+          <p className="mt-3 text-sm text-gray-500">
+            عدد القيود المعروضة: {entries.length}
+            {entries.length === LIMIT && " — أحدث " + LIMIT + " قيد فقط. للحساب كاملاً افتح كشف الحساب من ميزان المراجعة."}
+          </p>
         )}
       </section>
     </main>

@@ -62,6 +62,18 @@ export default async function AdvancedAccounting() {
       desc: "الأصول = الالتزامات + حقوق الملكية",
       icon: "pie_chart",
     },
+    {
+      href: "/dashboard/accounting/health",
+      title: "صحّة المحاسبة",
+      desc: "قيود بلا مصدر، مصادر بلا قيد، ذمم لا تطابق، رواتب قد تتكرّر",
+      icon: "health_and_safety",
+    },
+    {
+      href: "/dashboard/accounting/reconciliation/payroll",
+      title: "مطابقة الرواتب",
+      desc: "حركات «رواتب وأجور» مقابل الكشوف ودفعاتها",
+      icon: "rule",
+    },
   ];
 
   return (

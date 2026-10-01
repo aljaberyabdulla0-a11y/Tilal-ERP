@@ -72,7 +72,8 @@ export default async function FinanceHome() {
       supabase
         .from("sale_commissions")
         .select("company_amount")
-        .is("collected_at", null),
+        .is("collected_at", null)
+        .is("reversed_at", null),
       getMoneyOverview(),
       supabase
         .from("payrolls")

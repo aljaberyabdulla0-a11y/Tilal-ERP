@@ -8,6 +8,7 @@ const TABS = [
   { key: "partners", label: "الشركاء والتصفية", href: "/dashboard/accounting/partners" },
   { key: "profit", label: "ربحية المشاريع", href: "/dashboard/accounting/reports/profitability" },
   { key: "periods", label: "الفترات المحاسبية", href: "/dashboard/accounting/periods" },
+  { key: "health", label: "صحّة المحاسبة", href: "/dashboard/accounting/health" },
   { key: "advanced", label: "المحاسبة المتقدمة", href: "/dashboard/accounting/advanced" },
 ];
 

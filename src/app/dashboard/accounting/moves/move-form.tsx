@@ -10,7 +10,9 @@ import {
   categoriesFor,
   findCategory,
   formatPrice,
+  retiredCategoriesFor,
 } from "@/lib/types";
+import { baghdadDate } from "@/lib/time";
 
 // ============================================================
 // نموذج تسجيل حركة مالية — مصمَّم لمن لا يعرف المحاسبة إطلاقاً.
@@ -26,7 +28,7 @@ export default function MoveForm({
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = baghdadDate();
 
   const [direction, setDirection] = useState<MoneyDirection>(initialDirection);
   const [category, setCategory] = useState(categoriesFor(initialDirection)[0].label);
@@ -41,6 +43,7 @@ export default function MoveForm({
   const [error, setError] = useState<string | null>(null);
 
   const cats = categoriesFor(direction);
+  const retired = retiredCategoriesFor(direction);
   const cat = findCategory(direction, category) ?? cats[0];
   const isPartnerRefund = direction === "صرف" && cat.account === "2500";
   const isPartnerDeposit = direction === "قبض" && cat.account === "2500";
@@ -187,6 +190,28 @@ export default function MoveForm({
           ))}
         </div>
         {cat.hint && <p className="mt-3 text-xs text-gray-400">{cat.hint}</p>}
+
+        {/* التصنيفات الموقوفة (sql/109): أين ذهبت ولماذا */}
+        {retired.length > 0 && (
+          <details className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">
+            <summary className="cursor-pointer font-medium text-amber-900">
+              تبحث عن {retired.map((r) => `«${r.label}»`).join(" أو ")}؟
+            </summary>
+            <ul className="mt-2 space-y-2 text-gray-700">
+              {retired.map((r) => (
+                <li key={r.label}>
+                  <b>{r.label}</b> — {r.retired!.why}.{" "}
+                  <span className="text-gray-900">{r.retired!.instead}</span>
+                  {r.retired!.href && (
+                    <a href={r.retired!.href} className="ms-1 font-semibold text-brand-700 hover:underline">
+                      افتح ←
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
 
       {/* 4) الذراع ومن دفع */}

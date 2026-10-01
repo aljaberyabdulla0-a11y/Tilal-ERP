@@ -3,12 +3,19 @@ import { redirect } from "next/navigation";
 import { canManageFinance } from "@/lib/auth";
 import { getAccountBalances, computeNetProfit } from "@/lib/accounting";
 import { formatPrice } from "@/lib/types";
+import PeriodFilter, { periodLabel, readPeriod } from "../period-filter";
 
-// الميزانية العمومية (Balance Sheet): الأصول = الالتزامات + حقوق الملكية
-export default async function BalanceSheetPage() {
+// الميزانية العمومية (Balance Sheet) حتى تاريخ: الأصول = الالتزامات + حقوق الملكية
+// ⚠️ لا إقفال سنوي بعد: الأرباح غير الموزّعة = صافي ربح كل الفترات حتى التاريخ.
+export default async function BalanceSheetPage({
+  searchParams,
+}: {
+  searchParams?: { to?: string };
+}) {
   if (!(await canManageFinance())) redirect("/dashboard");
 
-  const balances = await getAccountBalances();
+  const period = { to: readPeriod(searchParams).to };
+  const balances = await getAccountBalances(period);
   const netProfit = computeNetProfit(balances);
 
   const assets = balances
@@ -26,7 +33,7 @@ export default async function BalanceSheetPage() {
 
   const totalAssets = assets.reduce((s, a) => s + a.amount, 0);
   const totalLiabilities = liabilities.reduce((s, a) => s + a.amount, 0);
-  // حقوق الملكية = رأس المال + الأرباح المحتجزة + صافي ربح الفترة الحالية
+  // حقوق الملكية = رأس المال + الأرباح المحتجزة + صافي ربح كل الفترات حتى التاريخ
   const totalEquity = equity.reduce((s, a) => s + a.amount, 0) + netProfit;
   const totalLiabEquity = totalLiabilities + totalEquity;
   const balanced = Math.abs(totalAssets - totalLiabEquity) < 0.01;
@@ -85,9 +92,11 @@ export default async function BalanceSheetPage() {
           ← المحاسبة المتقدمة
         </Link>
         <h1 className="text-xl font-bold text-brand-700">الميزانية العمومية</h1>
+        <span className="text-sm text-gray-500">{period.to ? `حتى ${period.to}` : periodLabel({})}</span>
       </header>
 
-      <section className="p-6">
+      <section className="space-y-5 p-6">
+        <PeriodFilter basePath="/dashboard/accounting/reports/balance-sheet" period={period} mode="asof" />
         <div className="grid max-w-4xl grid-cols-1 gap-5 lg:grid-cols-2">
           <Section title="الأصول" rows={assets} total={totalAssets} />
           <div className="space-y-5">
@@ -100,13 +109,13 @@ export default async function BalanceSheetPage() {
               title="حقوق الملكية"
               rows={equity}
               total={totalEquity}
-              extraRow={{ label: "صافي ربح الفترة", amount: netProfit }}
+              extraRow={{ label: "أرباح غير موزّعة (كل الفترات — لا إقفال سنوي بعد)", amount: netProfit }}
             />
           </div>
         </div>
 
         <div
-          className={`mt-5 max-w-4xl rounded-lg border p-4 text-sm ${
+          className={`max-w-4xl rounded-lg border p-4 text-sm ${
             balanced ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
           }`}
         >

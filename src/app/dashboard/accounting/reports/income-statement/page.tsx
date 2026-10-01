@@ -3,12 +3,18 @@ import { redirect } from "next/navigation";
 import { canManageFinance } from "@/lib/auth";
 import { getAccountBalances } from "@/lib/accounting";
 import { formatPrice } from "@/lib/types";
+import PeriodFilter, { periodLabel, readPeriod } from "../period-filter";
 
-// قائمة الدخل (Income Statement): الإيرادات - المصروفات = صافي الربح
-export default async function IncomeStatementPage() {
+// قائمة الدخل (Income Statement) لفترة: إيرادات الفترة − مصروفاتها = صافي الربح
+export default async function IncomeStatementPage({
+  searchParams,
+}: {
+  searchParams?: { from?: string; to?: string };
+}) {
   if (!(await canManageFinance())) redirect("/dashboard");
 
-  const balances = await getAccountBalances();
+  const period = readPeriod(searchParams);
+  const balances = await getAccountBalances(period);
 
   const revenues = balances
     .filter((a) => a.type === "revenue")
@@ -75,9 +81,11 @@ export default async function IncomeStatementPage() {
           ← المحاسبة المتقدمة
         </Link>
         <h1 className="text-xl font-bold text-brand-700">قائمة الدخل</h1>
+        <span className="text-sm text-gray-500">{periodLabel(period)}</span>
       </header>
 
       <section className="max-w-2xl space-y-5 p-6">
+        <PeriodFilter basePath="/dashboard/accounting/reports/income-statement" period={period} />
         <Section
           title="الإيرادات"
           rows={revenues}

@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Account, ENTRY_TEMPLATES, formatPrice } from "@/lib/types";
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { baghdadDate } from "@/lib/time";
 
 type Line = { account_id: string; debit: string; credit: string };
 
@@ -17,7 +14,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [entryDate, setEntryDate] = useState(today());
+  const [entryDate, setEntryDate] = useState(baghdadDate());
   const [description, setDescription] = useState("");
   const [lines, setLines] = useState<Line[]>([
     { account_id: "", debit: "", credit: "" },
@@ -105,39 +102,28 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
       return;
     }
 
+    // الرأس والسطور في معاملة واحدة على القاعدة (post_manual_entry — sql/111):
+    // ينجح القيد كاملاً أو لا يُكتب منه شيء، والتوازن يُفحص هناك أيضاً.
     setSaving(true);
-    // 1) إنشاء رأس القيد
-    const { data: entry, error: entryError } = await supabase
-      .from("journal_entries")
-      .insert({ entry_date: entryDate, description: description.trim() })
-      .select("id")
-      .single();
+    const { data: entryId, error: rpcError } = await supabase.rpc("post_manual_entry", {
+      p_date: entryDate,
+      p_description: description.trim(),
+      p_reference: null,
+      p_lines: validLines.map((l) => ({
+        account_id: l.account_id,
+        debit: Number(l.debit) || 0,
+        credit: Number(l.credit) || 0,
+      })),
+    });
 
-    if (entryError || !entry) {
+    if (rpcError || !entryId) {
       setSaving(false);
-      setError("تعذّر حفظ القيد: " + (entryError?.message ?? ""));
-      return;
-    }
-
-    // 2) إنشاء السطور
-    const payload = validLines.map((l) => ({
-      entry_id: entry.id,
-      account_id: l.account_id,
-      debit: Number(l.debit) || 0,
-      credit: Number(l.credit) || 0,
-    }));
-    const { error: linesError } = await supabase.from("journal_lines").insert(payload);
-
-    if (linesError) {
-      // تراجع: نحذف رأس القيد حتى لا يبقى قيد بلا سطور
-      await supabase.from("journal_entries").delete().eq("id", entry.id);
-      setSaving(false);
-      setError("تعذّر حفظ سطور القيد: " + linesError.message);
+      setError("تعذّر حفظ القيد: " + (rpcError?.message ?? ""));
       return;
     }
 
     setSaving(false);
-    router.push("/dashboard/accounting/entries");
+    router.push(`/dashboard/accounting/entries/${entryId}`);
     router.refresh();
   }
 

@@ -4,8 +4,10 @@ import Link from "next/link";
 export default function BrokersTabs({ active }: { active: string }) {
   const tabs = [
     { key: "companies", label: "الشركات", href: "/dashboard/brokers" },
+    { key: "requests", label: "طلبات الحجز", href: "/dashboard/brokers/requests" },
     { key: "leads", label: "الليدات والمهل", href: "/dashboard/brokers/leads" },
     { key: "commissions", label: "العمولات", href: "/dashboard/brokers/commissions" },
+    { key: "tiers", label: "شرائح العمولة", href: "/dashboard/brokers/tiers" },
   ];
 
   return (

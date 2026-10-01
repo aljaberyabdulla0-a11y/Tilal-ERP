@@ -1992,7 +1992,7 @@ export type BrokerCompany = {
   phone: string | null;
   email: string | null;
   license_no: string | null;
-  commission_rate: number;   // ٪ من سعر الوحدة
+  commission_rate: number;   // متقاعد منذ sql/117 — العمولة من شرائح المشروع
   is_active: boolean;
   notes: string | null;
 };
@@ -2003,17 +2003,191 @@ export type BrokerUser = {
   full_name: string | null;
   phone: string | null;
   created_at: string;
+  is_active: boolean;        // الموقوف لا نطاق له ولا دخول (sql/117)
+  login_name: string | null; // اسم الدخول كما كتبه المدير
   broker_companies?: { name: string } | null;
 };
+
+// حساب الوسيط قد يكون اسم مستخدم لا بريداً — يصير بريداً داخلياً على
+// نطاق .invalid المحجوز (لا يُرسَل إليه بريد أبداً). ⚠️ نفس اللاحقة في
+// supabase/functions/broker-accounts — تغييرها هنا وحدها يُقفل الدخول.
+export const BROKER_LOGIN_DOMAIN = "brokers.tilal.invalid";
+
+export function loginToEmail(login: string): string {
+  const v = login.trim().toLowerCase();
+  return v.includes("@") ? v : `${v}@${BROKER_LOGIN_DOMAIN}`;
+}
+
+// ما يراه الوسيط من وحدات المشروع (sql/117)
+export const BROKER_UNIT_SCOPES = ["الكل", "مختارة"] as const;
+export type BrokerUnitScope = (typeof BROKER_UNIT_SCOPES)[number];
 
 // إسناد شركة لمشروع + مدير العلاقات المسؤول عنها فيه
 export type BrokerCompanyProject = {
   company_id: string;
   project_id: string;
   rm_id: string | null;
+  units_scope: BrokerUnitScope;
   created_at: string;
   projects?: { name: string } | null;
   broker_companies?: { name: string } | null;
+};
+
+// ============================================================
+// شرائح عمولة الوسطاء (sql/117)
+//
+//   • الأساس: عدد وحدات الشركة نفسها في المشروع خلال **الشهر**.
+//   • بأثر رجعي: بلوغ شريحة يرفع كل صفقات الشهر إلى نسبتها.
+//   • شرائح المشروع تسري على الجميع، وشرائح الشركة الخاصة — إن وُجد
+//     لها صفٌّ واحد — تحلّ محلّها كلّها.
+// القاعدة تحسبها في broker_tier_rate؛ والدوال هنا للعرض فقط وتطابقها.
+// ============================================================
+export type BrokerCommissionTier = {
+  id: string;
+  project_id: string;
+  company_id: string | null; // فارغ = شريحة المشروع لكل الوسطاء
+  min_units: number;         // من هذه الوحدة في الشهر فصاعداً
+  rate: number;              // ٪ من سعر الوحدة
+  created_at: string;
+};
+
+export function effectiveTiers(
+  tiers: BrokerCommissionTier[],
+  projectId: string,
+  companyId: string
+): BrokerCommissionTier[] {
+  const own = tiers.filter((t) => t.project_id === projectId && t.company_id === companyId);
+  const list = own.length
+    ? own
+    : tiers.filter((t) => t.project_id === projectId && t.company_id === null);
+  return [...list].sort((a, b) => a.min_units - b.min_units);
+}
+
+export function tierRate(tiers: BrokerCommissionTier[], units: number): number {
+  const n = Math.max(units, 1);
+  let rate = 0;
+  for (const t of tiers) if (t.min_units <= n) rate = Number(t.rate);
+  return rate;
+}
+
+// الشريحة التالية: كم وحدة باقية ولأي نسبة — null إن بلغ الأعلى
+export function nextTier(
+  tiers: BrokerCommissionTier[],
+  units: number
+): { remaining: number; rate: number } | null {
+  const next = tiers.find((t) => t.min_units > units);
+  return next ? { remaining: next.min_units - units, rate: Number(next.rate) } : null;
+}
+
+// الشهر الحالي «YYYY-MM» بتوقيت بغداد — نفس ما تختم به القاعدة earned_at
+export function currentPeriod(now: Date = new Date()): string {
+  return now.toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" }).slice(0, 7);
+}
+
+// «١ وحدة: ١٪ · ٦ وحدات: ١.٥٪» — سطرٌ واحد للعرض
+export function tiersLabel(tiers: BrokerCommissionTier[]): string {
+  if (!tiers.length) return "لا شرائح";
+  return tiers
+    .map((t, i) => {
+      const to = tiers[i + 1] ? `–${tiers[i + 1].min_units - 1}` : "+";
+      return `${t.min_units}${to}: ${t.rate}٪`;
+    })
+    .join(" · ");
+}
+
+export type BrokerCommissionAdjustment = {
+  id: string;
+  created_at: string;
+  commission_id: string;
+  old_rate: number | null;
+  new_rate: number | null;
+  old_amount: number | null;
+  new_amount: number | null;
+  period_units: number | null;
+  reason: string | null;
+};
+
+// ============================================================
+// طلبات الحجز من الوسيط (sql/117)
+// الوسيط يطلب ← مدير العلاقات يستلم ← يؤكّد الحجز أو يرفض. وبعد الحجز
+// يمضي المسار المعتاد إلى البيع، وreservation_status مرآته للوسيط.
+// ============================================================
+export const BROKER_REQUEST_STATUSES = [
+  "معلّق",
+  "قيد المتابعة",
+  "تمّ الحجز",
+  "مرفوض",
+  "ملغى",
+] as const;
+export type BrokerRequestStatus = (typeof BROKER_REQUEST_STATUSES)[number];
+
+export const BROKER_REQUEST_COLORS: Record<string, string> = {
+  "معلّق": "bg-blue-100 text-blue-700",
+  "قيد المتابعة": "bg-amber-100 text-amber-700",
+  "تمّ الحجز": "bg-emerald-100 text-emerald-700",
+  "مرفوض": "bg-red-100 text-red-700",
+  "ملغى": "bg-gray-200 text-gray-600",
+};
+
+export function isOpenBrokerRequest(status: string): boolean {
+  return status === "معلّق" || status === "قيد المتابعة";
+}
+
+export type BrokerReservationRequest = {
+  id: string;
+  created_at: string;
+  company_id: string;
+  project_id: string | null;
+  unit_id: string;
+  client_id: string;
+  requested_by: string | null;
+  requested_by_name: string | null;
+  note: string | null;
+  unit_code: string | null;
+  unit_price: number | null;
+  rm_id: string | null;
+  status: BrokerRequestStatus;
+  handled_by: string | null;
+  handled_by_name: string | null;
+  handled_at: string | null;
+  decision_note: string | null;
+  reservation_id: string | null;
+  reservation_status: string | null;
+  // مرتبط
+  broker_companies?: { name: string } | null;
+  clients?: { name: string; phone: string | null } | null;
+  projects?: { name: string } | null;
+};
+
+// صفّ من broker_units() — ما يحتاجه الوسيط للبيع وحده
+export type BrokerUnitAvailability = "متاحة" | "محجوزة" | "طلبكم قيد المتابعة" | "عليها طلب";
+
+export type BrokerUnit = {
+  id: string;
+  project_id: string;
+  project_name: string;
+  unit_code: string | null;
+  unit_type: string;
+  node_path: string | null;
+  space_m2: number | null;
+  rooms: number | null;
+  bathrooms: number | null;
+  built_area_m2: number | null;
+  land_area_m2: number | null;
+  floors_count: number | null;
+  parking_spaces: number | null;
+  price: number | null;
+  price_per_m2: number | null;
+  payment_plan: string | null;
+  availability: BrokerUnitAvailability;
+  my_request_id: string | null;
+};
+
+export const BROKER_UNIT_AVAILABILITY_COLORS: Record<string, string> = {
+  "متاحة": "bg-green-100 text-green-700",
+  "محجوزة": "bg-amber-100 text-amber-700",
+  "طلبكم قيد المتابعة": "bg-blue-100 text-blue-700",
+  "عليها طلب": "bg-gray-200 text-gray-600",
 };
 
 export type BrokerCommission = {
@@ -2026,10 +2200,13 @@ export type BrokerCommission = {
   reservation_id: string | null;
   project_id: string | null;
   deal_amount: number;
-  rate: number;
+  rate: number;              // نسبة الشريحة التي بلغها شهر الصفقة (sql/117)
   amount: number;
   earned_at: string;
   notes: string | null;
+  tier_units: number | null;      // وحدات الشركة في المشروع ذلك الشهر
+  reversed_at: string | null;     // فُسخت الصفقة — خارج العدّ والمستحق
+  reversal_reason: string | null;
   // مرتبط
   broker_companies?: { name: string } | null;
   clients?: { name: string } | null;

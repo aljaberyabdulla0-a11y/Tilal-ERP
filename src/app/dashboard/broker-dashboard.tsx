@@ -6,11 +6,14 @@ import {
   companyMoney,
   getBrokerCommissions,
   getBrokerPayments,
+  getBrokerRequests,
   getMyBrokerCompany,
   paidByCommission,
 } from "@/lib/brokers";
 import {
+  BROKER_REQUEST_COLORS,
   Client,
+  isOpenBrokerRequest,
   formatPrice,
   leadDaysLeft,
   leadDeadlineColor,
@@ -28,7 +31,7 @@ export default async function BrokerDashboard() {
   const crmCfg = await getPipelineConfig();
   const supabase = await createClient();
 
-  const [company, { data: leadRows }, commissions, payments] = await Promise.all([
+  const [company, { data: leadRows }, commissions, payments, requests] = await Promise.all([
     getMyBrokerCompany(),
     supabase
       .from("clients")
@@ -36,7 +39,9 @@ export default async function BrokerDashboard() {
       .order("broker_deadline", { ascending: true, nullsFirst: false }),
     getBrokerCommissions(),
     getBrokerPayments(),
+    getBrokerRequests(),
   ]);
+  const openRequests = requests.filter((r) => isOpenBrokerRequest(r.status));
 
   const leads = (leadRows ?? []) as Client[];
   const buckets = bucketLeads(leads);
@@ -97,16 +102,24 @@ export default async function BrokerDashboard() {
           </p>
           <h1 className="text-3xl font-bold text-brand-900">{greeting} 👋</h1>
           <p className="mt-1 text-gray-500">
-            {company?.name ?? "شركة وسيطة"} — لكل ليد ٣٠ يوماً، ولكل بيع عمولة{" "}
-            {company?.commission_rate ?? 0}٪.
+            {company?.name ?? "شركة وسيطة"} — لكل ليد ٣٠ يوماً، والعمولة تصعد
+            بشرائح كلما زادت وحداتكم في الشهر.
           </p>
         </div>
-        <Link
-          href="/dashboard/broker/leads/new"
-          className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
-        >
-          + ليد جديد
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/broker/units"
+            className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700"
+          >
+            الوحدات وطلب الحجز
+          </Link>
+          <Link
+            href="/dashboard/broker/leads/new"
+            className="rounded-lg border border-brand-600 px-5 py-2.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-50"
+          >
+            + ليد جديد
+          </Link>
+        </div>
       </section>
 
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -126,6 +139,45 @@ export default async function BrokerDashboard() {
           </Link>
         ))}
       </section>
+
+      {/* طلبات الحجز المفتوحة */}
+      {openRequests.length > 0 && (
+        <section className="mb-6">
+          <div className="glass-card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h4 className="text-lg font-bold text-brand-900">
+                طلبات حجز قيد المتابعة ({openRequests.length})
+              </h4>
+              <Link
+                href="/dashboard/broker/requests"
+                className="text-sm font-bold text-brand-700 hover:underline"
+              >
+                كل طلباتنا
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {openRequests.slice(0, 5).map((r) => (
+                <div
+                  key={r.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 px-4 py-3"
+                >
+                  <span>
+                    <b className="text-gray-800">الوحدة {r.unit_code ?? "—"}</b>
+                    <span className="ms-2 text-xs text-gray-500">
+                      {r.clients?.name ?? ""} · {r.projects?.name ?? ""}
+                    </span>
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${BROKER_REQUEST_COLORS[r.status]}`}
+                  >
+                    {r.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* المهل الحرجة */}
       <section className="mb-6">

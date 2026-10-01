@@ -3,6 +3,7 @@ import { getT } from "@/lib/i18n/server";
 import AppShell, { NavItem } from "./app-shell";
 import ChatWidget from "@/components/chat-widget";
 import LogoutButton from "./logout-button";
+import { BROKER_LOGIN_DOMAIN } from "@/lib/types";
 
 // ============================================================
 // التخطيط العام لكل صفحات النظام — يبني قائمة التنقّل حسب الدور.
@@ -106,13 +107,19 @@ export default async function DashboardLayout({
   if (broker) {
     const brokerNav: NavItem[] = [
       { href: "/dashboard", label: t.nav.dashboard, icon: "dashboard", prefixes: ["/dashboard"], exact: true },
+      { href: "/dashboard/broker/units", label: t.nav.ourUnits, icon: "apartment", prefixes: ["/dashboard/broker/units"] },
+      { href: "/dashboard/broker/requests", label: t.nav.ourRequests, icon: "event_available", prefixes: ["/dashboard/broker/requests"] },
       { href: "/dashboard/broker/leads", label: t.nav.ourLeads, icon: "groups", prefixes: ["/dashboard/broker/leads"] },
       { href: "/dashboard/broker/commissions", label: t.nav.ourCommissions, icon: "payments", prefixes: ["/dashboard/broker/commissions"] },
       { href: "/dashboard/account", label: t.nav.settings, icon: "settings", prefixes: ["/dashboard/account"] },
     ];
 
     return (
-      <AppShell nav={brokerNav} userEmail={user?.email ?? ""} roleLabel={t.nav.roleBroker}>
+      <AppShell
+        nav={brokerNav}
+        userEmail={(user?.email ?? "").replace(`@${BROKER_LOGIN_DOMAIN}`, "")}
+        roleLabel={t.nav.roleBroker}
+      >
         {children}
         {/* لا نافذة محادثات: المحادثات الداخلية بين موظفي تلال */}
       </AppShell>

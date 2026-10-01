@@ -6,13 +6,22 @@ import {
   companyMoney,
   getBrokerCommissions,
   getBrokerPayments,
+  getBrokerProjects,
+  getBrokerTiers,
+  getCommissionAdjustments,
   getMyBrokerCompany,
   paidByCommission,
+  unitsThisMonth,
 } from "@/lib/brokers";
 import {
   BrokerPayment,
   COMMISSION_STATUS_COLORS,
+  currentPeriod,
+  effectiveTiers,
   formatPrice,
+  nextTier,
+  tierRate,
+  tiersLabel,
 } from "@/lib/types";
 
 // ============================================================
@@ -20,15 +29,25 @@ import {
 //
 // ثلاثة أرقام تُجيب عن كل سؤال مالي: كم استحققنا، وكم قبضنا، وكم بقي
 // لنا. ثم تفصيل كل عمولة ودفعاتها — فلا يحتاج أحد أن يسأل تلال.
+//
+// والشرائح (sql/117): لكل مشروع شرائح تصاعدية بعدد وحداتكم في الشهر،
+// وبلوغ شريحة يرفع كل صفقات الشهر — فنعرض أين أنتم من الشريحة التالية،
+// وتحت كل صفقة رُفعت نسبتها ما الذي تغيّر ولماذا.
 // ============================================================
 export default async function BrokerCommissionsPage() {
   if (!(await isBroker())) redirect("/dashboard");
 
-  const [company, commissions, payments] = await Promise.all([
+  const [company, commissions, payments, links, tiers, adjustments] = await Promise.all([
     getMyBrokerCompany(),
     getBrokerCommissions(),
     getBrokerPayments(),
+    getBrokerProjects(),
+    getBrokerTiers(),
+    getCommissionAdjustments(),
   ]);
+
+  const period = currentPeriod();
+  const monthUnits = unitsThisMonth(commissions, period);
 
   const paid = paidByCommission(payments);
   const money = companyMoney(commissions, paid);
@@ -48,7 +67,7 @@ export default async function BrokerCommissionsPage() {
         <div>
           <h1 className="text-xl font-bold text-brand-700">استحقاقاتنا</h1>
           <p className="text-sm text-gray-500">
-            {company ? `${company.name} — نسبة ${company.commission_rate}٪ من كل بيع` : ""}
+            {company ? `${company.name} — عمولة بشرائح تصاعدية لكل مشروع` : ""}
           </p>
         </div>
       </header>
@@ -84,6 +103,45 @@ export default async function BrokerCommissionsPage() {
           </div>
         </div>
 
+        {/* الشرائح — أين نحن هذا الشهر */}
+        {company && links.length > 0 && (
+          <div className="glass-card p-5">
+            <h2 className="mb-3 text-lg font-bold text-gray-800">شرائحنا هذا الشهر</h2>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {links.map((l) => {
+                const eff = effectiveTiers(tiers, l.project_id, company.id);
+                const n = monthUnits.get(`${company.id}|${l.project_id}`) ?? 0;
+                const next = nextTier(eff, n);
+                const top = eff.length ? eff[eff.length - 1].min_units : 1;
+                return (
+                  <div key={l.project_id} className="rounded-xl bg-gray-50 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <b className="text-gray-800">{l.projects?.name ?? "مشروع"}</b>
+                      <span className="text-sm text-gray-600">
+                        {n} وحدة ← <b className="text-brand-800">{tierRate(eff, n)}٪</b>
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-brand-600"
+                        style={{ width: `${Math.min(100, (n / Math.max(top, 1)) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {next
+                        ? `باقٍ ${next.remaining} وحدة لتصير كل صفقات الشهر ${next.rate}٪`
+                        : eff.length
+                        ? "بلغتم أعلى شريحة هذا الشهر 🎯"
+                        : "لم تُعرَّف شرائح لهذا المشروع بعد"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-gray-400">{tiersLabel(eff)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {commissions.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-500">
             لا عمولات بعد. تُسجَّل تلقائياً حال إتمام بيع لأحد ليداتكم، ويصلكم
@@ -96,6 +154,7 @@ export default async function BrokerCommissionsPage() {
               const remaining = Math.max(0, Number(c.amount) - p);
               const status = commissionStatusOf(c, paid);
               const list = paymentsOf(c.id);
+              const changes = adjustments.filter((a) => a.commission_id === c.id);
 
               return (
                 <div key={c.id} className="glass-card p-5">
@@ -135,6 +194,28 @@ export default async function BrokerCommissionsPage() {
                       </div>
                     ))}
                   </div>
+
+                  {c.reversed_at && (
+                    <p className="mt-3 rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-600">
+                      فُسخت الصفقة{c.reversal_reason ? ` — ${c.reversal_reason}` : ""}، فخرجت من
+                      المستحق ومن عدّ الشهر.
+                    </p>
+                  )}
+
+                  {changes.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {changes.map((a) => (
+                        <p key={a.id} className="rounded-lg bg-brand-50 px-3 py-1.5 text-xs text-brand-900">
+                          <span dir="ltr">{a.created_at.slice(0, 10)}</span> · {a.reason ?? "تعديل"}:{" "}
+                          {a.old_rate}٪ ← {a.new_rate}٪ (
+                          <span dir="ltr">
+                            {formatPrice(Number(a.old_amount))} → {formatPrice(Number(a.new_amount))}
+                          </span>
+                          )
+                        </p>
+                      ))}
+                    </div>
+                  )}
 
                   {list.length > 0 && (
                     <div className="mt-4">

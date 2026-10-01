@@ -3,9 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import type {
   BrokerCommission,
+  BrokerCommissionAdjustment,
+  BrokerCommissionTier,
   BrokerCompany,
   BrokerCompanyProject,
   BrokerPayment,
+  BrokerReservationRequest,
+  BrokerUnit,
   BrokerUser,
   Client,
 } from "@/lib/types";
@@ -113,6 +117,46 @@ export async function getBrokerCommissions(
   return (data ?? []) as BrokerCommission[];
 }
 
+// شرائح العمولة — الوسيط يرى شرائح مشاريعه العامة وشرائحه الخاصة وحدها (RLS)
+export const getBrokerTiers = cache(async (): Promise<BrokerCommissionTier[]> => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("broker_commission_tiers")
+    .select("*")
+    .order("min_units");
+  return (data ?? []) as BrokerCommissionTier[];
+});
+
+// طلبات الحجز — كلٌّ يرى نطاقه (الإدارة، مدير العلاقات، الشركة)
+export async function getBrokerRequests(
+  companyId?: string
+): Promise<BrokerReservationRequest[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("broker_reservation_requests")
+    .select("*, broker_companies(name), clients(name, phone), projects(name)")
+    .order("created_at", { ascending: false });
+  if (companyId) query = query.eq("company_id", companyId);
+  const { data } = await query;
+  return (data ?? []) as BrokerReservationRequest[];
+}
+
+// وحدات الوسيط — عبر الدالّة لا الجدول: سياسة units مغلقة عليه عمداً
+export async function getMyBrokerUnits(): Promise<BrokerUnit[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("broker_units");
+  return (data ?? []) as BrokerUnit[];
+}
+
+export async function getCommissionAdjustments(): Promise<BrokerCommissionAdjustment[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("broker_commission_adjustments")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return (data ?? []) as BrokerCommissionAdjustment[];
+}
+
 export async function getBrokerPayments(): Promise<BrokerPayment[]> {
   const supabase = await createClient();
   const { data } = await supabase
@@ -154,9 +198,30 @@ export function companyMoney(
     earned,
     paid: paidTotal,
     remaining: Math.max(0, earned - paidTotal),
-    deals: commissions.length,
+    // الصفقة المفسوخة مبلغها صفر وخارج العدّ (sql/117)
+    deals: commissions.filter((c) => !c.reversed_at).length,
   };
 }
+
+// «YYYY-MM» لشهر الاستحقاق — دلو الشريحة
+export function commissionPeriod(c: Pick<BrokerCommission, "earned_at">): string {
+  return c.earned_at.slice(0, 7);
+}
+
+// عدد وحدات الشركة في كل مشروع هذا الشهر — مفتاح: company|project
+export function unitsThisMonth(
+  commissions: BrokerCommission[],
+  period: string
+): Map<string, number> {
+  const map = new Map<string, number>();
+  commissions.forEach((c) => {
+    if (c.reversed_at || commissionPeriod(c) !== period) return;
+    const key = `${c.company_id}|${c.project_id}`;
+    map.set(key, (map.get(key) ?? 0) + 1);
+  });
+  return map;
+}
+
 
 export function commissionStatusOf(
   c: BrokerCommission,

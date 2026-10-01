@@ -135,8 +135,21 @@ export default async function BrokerCommissionsPage() {
                       <td className="px-4 py-3 text-gray-600" dir="ltr">
                         {formatPrice(Number(c.deal_amount))}
                       </td>
-                      <td className="px-4 py-3 text-gray-600" dir="ltr">
-                        {c.rate}%
+                      <td className="px-4 py-3 text-gray-600">
+                        {c.reversed_at ? (
+                          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+                            مفسوخة
+                          </span>
+                        ) : (
+                          <>
+                            <span dir="ltr">{c.rate}%</span>
+                            {c.tier_units != null && (
+                              <span className="ms-1 block text-[11px] text-gray-400">
+                                {c.tier_units} وحدة بشهرها
+                              </span>
+                            )}
+                          </>
+                        )}
                       </td>
                       <td className="px-4 py-3 font-bold text-gray-800" dir="ltr">
                         {formatPrice(Number(c.amount))}
@@ -158,7 +171,9 @@ export default async function BrokerCommissionsPage() {
                       </td>
                       {admin && (
                         <td className="px-4 py-3">
-                          {remaining > 0 ? (
+                          {c.reversed_at ? (
+                            <span className="text-xs text-gray-400">—</span>
+                          ) : remaining > 0 ? (
                             <AddPayment commissionId={c.id} remaining={remaining} />
                           ) : (
                             <span className="text-xs text-gray-400">مسدَّدة</span>

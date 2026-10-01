@@ -3,104 +3,95 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { BrokerUser } from "@/lib/types";
-
-type FreeProfile = { id: string; email: string | null; role: string };
+import { BROKER_LOGIN_DOMAIN, BrokerUser } from "@/lib/types";
 
 // ============================================================
-// حسابات دخول الشركة.
+// حسابات دخول الشركة — تُنشأ من هنا مباشرةً (sql/117).
 //
-// الحساب يُنشأ في Supabase (لوحة Authentication) ثم يُربط هنا:
-// الربط يفعل شيئين معاً — يضيف صفّاً في broker_users ويحوّل دور
-// الحساب إلى «شركة وسيطة». الاثنان لازمان: الأول يحدّد أي شركة،
-// والثاني يفتح شاشات الوساطة ويغلق شاشات تلال الداخلية.
+// الإنشاء يمرّ بدالّة الحافّة broker-accounts لا بالمتصفح: يحتاج مفتاح
+// الخدمة الذي يتجاوز كل السياسات، فلا يُعطى للواجهة. والدالّة تتحقّق
+// أن المنادي مدير، ثم تُنشئ الحساب وتحوّل دوره إلى «شركة وسيطة» وتربطه
+// بالشركة في خطوة واحدة — فلا يبقى حسابٌ نصف مُعدّ.
+//
+// الإيقاف لا الحذف: الحساب الموقوف لا يدخل ولا يرى شيئاً، وتبقى
+// ليداته وسجلّ تواصله منسوبةً إليه.
 // ============================================================
 export default function CompanyAccounts({
   companyId,
   accounts,
-  freeProfiles,
 }: {
   companyId: string;
   accounts: BrokerUser[];
-  freeProfiles: FreeProfile[];
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [userId, setUserId] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [form, setForm] = useState({ login: "", password: "", full_name: "", phone: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  async function link(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!userId) {
-      setError("اختر الحساب.");
-      return;
-    }
-
+  async function call(body: Record<string, unknown>): Promise<boolean> {
     setBusy(true);
-    const { error: linkError } = await supabase.from("broker_users").insert({
-      user_id: userId,
-      company_id: companyId,
-      full_name: fullName.trim() || null,
-      phone: phone.trim() || null,
-    });
-
-    if (linkError) {
-      setBusy(false);
-      setError("تعذّر الربط: " + linkError.message);
-      return;
-    }
-
-    const { error: roleError } = await supabase
-      .from("profiles")
-      .update({ role: "broker" })
-      .eq("id", userId);
-
+    setError(null);
+    setNotice(null);
+    const { data, error } = await supabase.functions.invoke("broker-accounts", { body });
     setBusy(false);
 
-    if (roleError) {
-      setError(
-        "رُبط الحساب بالشركة، لكن تعذّر تغيير دوره إلى «شركة وسيطة»: " +
-          roleError.message
-      );
+    // خطأ الدالّة يصل في جسم الردّ — نقرؤه لنعرض رسالتها العربية
+    let message = (data as { error?: string } | null)?.error ?? null;
+    if (error && !message) {
+      try {
+        const ctx = (error as { context?: Response }).context;
+        message = ctx ? ((await ctx.json()) as { error?: string }).error ?? error.message : error.message;
+      } catch {
+        message = error.message;
+      }
+    }
+    if (message) {
+      setError(message);
+      return false;
+    }
+    return true;
+  }
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.login.trim() || form.password.length < 8) {
+      setError("اكتب اسم الدخول وكلمة مرور من ٨ أحرف على الأقل.");
       return;
     }
-
-    setUserId("");
-    setFullName("");
-    setPhone("");
+    const ok = await call({ action: "create", company_id: companyId, ...form });
+    if (!ok) return;
+    setNotice(
+      `أُنشئ الحساب. أعطِ الشركة: اسم الدخول «${form.login.trim()}» وكلمة المرور التي كتبتها.`
+    );
+    setForm({ login: "", password: "", full_name: "", phone: "" });
     router.refresh();
   }
 
-  async function unlink(u: BrokerUser) {
+  async function resetPassword(u: BrokerUser) {
+    const password = prompt(`كلمة مرور جديدة لـ ${u.full_name ?? u.login_name ?? "الحساب"} (٨ أحرف على الأقل):`);
+    if (!password) return;
+    if (await call({ action: "reset_password", user_id: u.user_id, password })) {
+      setNotice("غُيّرت كلمة المرور.");
+    }
+  }
+
+  async function toggle(u: BrokerUser) {
+    const next = !u.is_active;
     if (
-      !confirm(
-        `فكّ ربط ${u.full_name ?? "الحساب"} عن الشركة؟ لن يعود يرى ليداتها.`
-      )
+      !next &&
+      !confirm(`إيقاف حساب ${u.full_name ?? u.login_name ?? ""}؟ يخرج فوراً ولا يستطيع الدخول.`)
     )
       return;
-
-    setBusy(true);
-    setError(null);
-    const { error } = await supabase
-      .from("broker_users")
-      .delete()
-      .eq("user_id", u.user_id);
-    setBusy(false);
-
-    if (error) {
-      setError("تعذّر فكّ الربط: " + error.message);
-      return;
+    if (await call({ action: "set_active", user_id: u.user_id, active: next })) {
+      router.refresh();
     }
-    router.refresh();
   }
 
   const inputCls =
-    "rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
+    "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
 
   return (
     <div className="glass-card p-6">
@@ -108,89 +99,117 @@ export default function CompanyAccounts({
         حسابات دخول الشركة ({accounts.length})
       </h2>
       <p className="mb-4 text-sm text-gray-500">
-        أنشئ الحساب أولاً في Supabase ← Authentication ← Add user، ثم اربطه
-        بالشركة من هنا.
+        كل حساب يرى ليدات الشركة كلها، ووحدات مشاريعها، ويرفع طلبات الحجز.
       </p>
 
       {accounts.length > 0 && (
-        <div className="mb-4 space-y-2">
+        <div className="mb-5 space-y-2">
           {accounts.map((u) => (
             <div
               key={u.user_id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-3"
+              className={`flex flex-wrap items-center justify-between gap-2 rounded-xl px-4 py-3 ${
+                u.is_active ? "bg-gray-50" : "bg-gray-100 opacity-70"
+              }`}
             >
-              <div>
+              <div className="min-w-0">
                 <b className="text-gray-800">{u.full_name ?? "حساب"}</b>
+                {u.login_name && (
+                  <span className="ms-2 text-xs text-gray-500" dir="ltr">
+                    {u.login_name}
+                  </span>
+                )}
                 {u.phone && (
                   <span className="ms-2 text-xs text-gray-500" dir="ltr">
                     {u.phone}
                   </span>
                 )}
+                {!u.is_active && (
+                  <span className="ms-2 rounded-full bg-gray-300 px-2 py-0.5 text-xs font-semibold text-gray-700">
+                    موقوف
+                  </span>
+                )}
               </div>
-              <button
-                onClick={() => unlink(u)}
-                disabled={busy}
-                className="text-xs font-medium text-red-600 transition hover:underline disabled:opacity-50"
-              >
-                فكّ الربط
-              </button>
+              <div className="flex gap-3 text-xs font-medium">
+                <button
+                  onClick={() => resetPassword(u)}
+                  disabled={busy}
+                  className="text-brand-700 hover:underline disabled:opacity-50"
+                >
+                  كلمة مرور جديدة
+                </button>
+                <button
+                  onClick={() => toggle(u)}
+                  disabled={busy}
+                  className={`hover:underline disabled:opacity-50 ${
+                    u.is_active ? "text-red-600" : "text-emerald-700"
+                  }`}
+                >
+                  {u.is_active ? "إيقاف" : "تفعيل"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <form onSubmit={link} className="flex flex-wrap items-end gap-2">
+      <form onSubmit={create} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            الحساب
-          </label>
-          <select
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            className={inputCls + " min-w-[240px]"}
-          >
-            <option value="">— اختر حساباً غير مرتبط —</option>
-            {freeProfiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.email ?? p.id}
-              </option>
-            ))}
-          </select>
+          <label className="mb-1 block text-xs font-medium text-gray-600">اسم الدخول *</label>
+          <input
+            value={form.login}
+            onChange={(e) => setForm({ ...form, login: e.target.value })}
+            className={inputCls}
+            dir="ltr"
+            placeholder="ali.sarai أو بريد"
+            autoComplete="off"
+          />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            اسم المسؤول
-          </label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">كلمة المرور *</label>
           <input
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            className={inputCls}
+            dir="ltr"
+            placeholder="٨ أحرف على الأقل"
+            autoComplete="new-password"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-600">اسم المسؤول</label>
+          <input
+            value={form.full_name}
+            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
             className={inputCls}
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">
-            الهاتف
-          </label>
+          <label className="mb-1 block text-xs font-medium text-gray-600">الهاتف</label>
           <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
             className={inputCls}
             dir="ltr"
           />
         </div>
         <button
           type="submit"
-          disabled={busy || !userId}
+          disabled={busy}
           className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
         >
-          ربط الحساب
+          {busy ? "جارٍ..." : "إنشاء حساب"}
         </button>
       </form>
+      <p className="mt-2 text-xs text-gray-400">
+        اسم الدخول بلا «@» يكفي — يدخل به الوسيط من شاشة الدخول كما هو (يُحفظ
+        داخلياً على <span dir="ltr">@{BROKER_LOGIN_DOMAIN}</span>).
+      </p>
 
+      {notice && (
+        <p className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>
+      )}
       {error && (
-        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </p>
+        <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
       )}
     </div>
   );

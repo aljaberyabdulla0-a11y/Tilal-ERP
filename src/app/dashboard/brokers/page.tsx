@@ -10,9 +10,10 @@ import {
   getBrokerLeads,
   getBrokerPayments,
   getBrokerProjects,
+  getBrokerRequests,
   paidByCommission,
 } from "@/lib/brokers";
-import { formatPrice } from "@/lib/types";
+import { formatPrice, isOpenBrokerRequest } from "@/lib/types";
 import BrokersTabs from "./brokers-tabs";
 
 // ============================================================
@@ -28,7 +29,7 @@ import BrokersTabs from "./brokers-tabs";
 export default async function BrokersPage() {
   if (!(await canSeeBrokers())) redirect("/dashboard");
 
-  const [companies, links, leads, commissions, payments, members, admin] =
+  const [companies, links, leads, commissions, payments, members, admin, requests] =
     await Promise.all([
       getBrokerCompanies(),
       getBrokerProjects(),
@@ -37,6 +38,7 @@ export default async function BrokersPage() {
       getBrokerPayments(),
       getTeamMembers(),
       isAdmin(),
+      getBrokerRequests(),
     ]);
 
   const paid = paidByCommission(payments);
@@ -51,7 +53,10 @@ export default async function BrokersPage() {
       paid
     );
     const myLinks = links.filter((l) => l.company_id === c.id);
-    return { company: c, buckets, money, links: myLinks, leads: myLeads.length };
+    const openRequests = requests.filter(
+      (q) => q.company_id === c.id && isOpenBrokerRequest(q.status)
+    ).length;
+    return { company: c, buckets, money, links: myLinks, leads: myLeads.length, openRequests };
   });
 
   const totals = {
@@ -139,7 +144,7 @@ export default async function BrokersPage() {
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 text-start font-medium">الشركة</th>
-                  <th className="px-4 py-3 text-start font-medium">النسبة</th>
+                  <th className="px-4 py-3 text-start font-medium">طلبات حجز مفتوحة</th>
                   <th className="px-4 py-3 text-start font-medium">المشاريع ومدير العلاقات</th>
                   <th className="px-4 py-3 text-start font-medium">ليدات</th>
                   <th className="px-4 py-3 text-start font-medium">مهل حرجة</th>
@@ -169,8 +174,17 @@ export default async function BrokersPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-bold text-gray-800" dir="ltr">
-                      {r.company.commission_rate}%
+                    <td className="px-4 py-3">
+                      {r.openRequests > 0 ? (
+                        <Link
+                          href="/dashboard/brokers/requests"
+                          className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700"
+                        >
+                          {r.openRequests}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {r.links.length === 0 ? (

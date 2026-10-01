@@ -74,6 +74,8 @@ const ar = {
     contacts: "الاتصالات",
     brokers: "الوساطة",
     commissions: "العمولات",
+    ourUnits: "الوحدات",
+    ourRequests: "طلبات الحجز",
     ourLeads: "ليداتنا",
     ourCommissions: "استحقاقاتنا",
   },

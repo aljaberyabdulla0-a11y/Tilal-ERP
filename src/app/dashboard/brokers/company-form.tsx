@@ -5,16 +5,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
+  BROKER_UNIT_SCOPES,
   BrokerCompany,
   BrokerCompanyProject,
+  BrokerUnitScope,
   Project,
   TeamMember,
 } from "@/lib/types";
 
-type Assignment = { project_id: string; rm_id: string };
+type Assignment = { project_id: string; rm_id: string; units_scope: BrokerUnitScope };
 
 // ============================================================
-// نموذج الشركة الوسيطة: بياناتها ونسبة عمولتها وإسناداتها.
+// نموذج الشركة الوسيطة: بياناتها وإسناداتها.
+//
+// لا نسبة عمولة هنا منذ sql/117: العمولة شرائح تصاعدية لكل مشروع
+// (تبويب «شرائح العمولة»)، ولشركةٍ بعينها شرائح خاصة من بطاقتها.
 //
 // الإسناد (مشروع + مدير علاقات) جزء من نفس النموذج لا شاشة منفصلة،
 // لأن الشركة بلا مشروع لا تستطيع إدخال ليد أصلاً — فتركها لخطوة
@@ -42,7 +47,6 @@ export default function CompanyForm({
     phone: initial?.phone ?? "",
     email: initial?.email ?? "",
     license_no: initial?.license_no ?? "",
-    commission_rate: initial?.commission_rate?.toString() ?? "2",
     notes: initial?.notes ?? "",
     is_active: initial?.is_active ?? true,
   });
@@ -51,6 +55,7 @@ export default function CompanyForm({
     (assignments ?? []).map((a) => ({
       project_id: a.project_id,
       rm_id: a.rm_id ?? "",
+      units_scope: a.units_scope ?? "الكل",
     }))
   );
 
@@ -62,7 +67,7 @@ export default function CompanyForm({
   }
 
   function addLink() {
-    setLinks((prev) => [...prev, { project_id: "", rm_id: "" }]);
+    setLinks((prev) => [...prev, { project_id: "", rm_id: "", units_scope: "الكل" }]);
   }
 
   function setLink(i: number, patch: Partial<Assignment>) {
@@ -82,12 +87,6 @@ export default function CompanyForm({
       return;
     }
 
-    const rate = Number(form.commission_rate);
-    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
-      setError("نسبة العمولة بين ٠ و ١٠٠.");
-      return;
-    }
-
     const chosen = links.filter((l) => l.project_id);
     const unique = new Set(chosen.map((l) => l.project_id));
     if (unique.size !== chosen.length) {
@@ -100,7 +99,6 @@ export default function CompanyForm({
       phone: form.phone.trim() || null,
       email: form.email.trim() || null,
       license_no: form.license_no.trim() || null,
-      commission_rate: rate,
       notes: form.notes.trim() || null,
       is_active: form.is_active,
     };
@@ -156,6 +154,7 @@ export default function CompanyForm({
             company_id: id!,
             project_id: l.project_id,
             rm_id: l.rm_id || null,
+            units_scope: l.units_scope,
           }))
         );
       if (insError) {
@@ -189,25 +188,6 @@ export default function CompanyForm({
             onChange={(e) => update("name", e.target.value)}
             className={inputClass}
           />
-        </div>
-
-        <div>
-          <label className={labelClass}>نسبة العمولة (٪) {req}</label>
-          <input
-            required
-            type="number"
-            step="0.01"
-            min="0"
-            max="100"
-            value={form.commission_rate}
-            onChange={(e) => update("commission_rate", e.target.value)}
-            className={inputClass}
-            dir="ltr"
-          />
-          <p className="mt-1 text-xs text-gray-400">
-            من سعر الوحدة عند إتمام البيع. تُثبَّت على كل عمولة وقت
-            استحقاقها، فتغييرها لاحقاً لا يمسّ عمولات سابقة.
-          </p>
         </div>
 
         <div>
@@ -264,8 +244,9 @@ export default function CompanyForm({
           </button>
         </div>
         <p className="mb-3 text-xs text-gray-500">
-          الشركة لا تستطيع إدخال ليد إلا في مشروع مُسنَد لها. ومدير العلاقات
-          المختار هو من يتابع ليداتها في ذلك المشروع.
+          الشركة لا تستطيع إدخال ليد إلا في مشروع مُسنَد لها، وترى وحداته
+          لتطلب حجزها. ومدير العلاقات المختار يتابع ليداتها وطلبات حجزها في
+          ذلك المشروع. «وحدات مختارة» تُحدَّد من بطاقة الشركة بعد الحفظ.
         </p>
 
         {links.length === 0 ? (
@@ -297,6 +278,20 @@ export default function CompanyForm({
                   {employees.map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.full_name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={l.units_scope}
+                  onChange={(e) =>
+                    setLink(i, { units_scope: e.target.value as BrokerUnitScope })
+                  }
+                  className={inputClass + " max-w-[200px]"}
+                  title="الوحدات التي تظهر للشركة في هذا المشروع"
+                >
+                  {BROKER_UNIT_SCOPES.map((s) => (
+                    <option key={s} value={s}>
+                      {s === "الكل" ? "ترى كل المتاح" : "وحدات مختارة فقط"}
                     </option>
                   ))}
                 </select>

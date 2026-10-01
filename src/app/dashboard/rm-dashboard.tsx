@@ -8,9 +8,12 @@ import {
   getBrokerLeads,
   getBrokerPayments,
   getBrokerProjects,
+  getBrokerRequests,
   paidByCommission,
 } from "@/lib/brokers";
 import {
+  BROKER_REQUEST_COLORS,
+  isOpenBrokerRequest,
   formatPrice,
   leadDaysLeft,
   leadDeadlineColor,
@@ -30,13 +33,19 @@ import TodayTasks from "@/components/today-tasks";
 export default async function RmDashboard() {
   // المراحل وعتبات الصمت من القاعدة (sql/070) — أو ثوابت types.ts قبلها
   const crmCfg = await getPipelineConfig();
-  const [companies, links, leads, commissions, payments] = await Promise.all([
+  const [companies, links, leads, commissions, payments, requests] = await Promise.all([
     getBrokerCompanies(),
     getBrokerProjects(),
     getBrokerLeads(),
     getBrokerCommissions(),
     getBrokerPayments(),
+    getBrokerRequests(),
   ]);
+
+  // طلبات الحجز المفتوحة — الأقدم أولاً: الوحدة مقفولة عليها (sql/117)
+  const openRequests = requests
+    .filter((r) => isOpenBrokerRequest(r.status))
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
   const buckets = bucketLeads(leads);
   const paid = paidByCommission(payments);
@@ -60,6 +69,14 @@ export default async function RmDashboard() {
       href: "/dashboard/brokers",
       accent: "border-s-brand-600",
       iconColor: "text-brand-700 bg-brand-50",
+    },
+    {
+      icon: "event_available",
+      label: "طلبات حجز تنتظرني",
+      value: String(openRequests.length),
+      href: "/dashboard/brokers/requests",
+      accent: openRequests.length ? "border-s-blue-500" : "border-s-emerald-500",
+      iconColor: openRequests.length ? "text-blue-700 bg-blue-50" : "text-emerald-700 bg-emerald-50",
     },
     {
       icon: "hourglass_bottom",
@@ -98,7 +115,7 @@ export default async function RmDashboard() {
         </p>
       </section>
 
-      <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {kpis.map((k) => (
           <Link
             key={k.label}
@@ -115,6 +132,42 @@ export default async function RmDashboard() {
           </Link>
         ))}
       </section>
+
+      {/* طلبات الحجز */}
+      {openRequests.length > 0 && (
+        <section className="mb-6">
+          <div className="glass-card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h4 className="text-lg font-bold text-brand-900">طلبات حجز تنتظر متابعتي</h4>
+              <Link
+                href="/dashboard/brokers/requests"
+                className="text-sm font-bold text-brand-700 hover:underline"
+              >
+                متابعة
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {openRequests.slice(0, 6).map((r) => (
+                <Link
+                  key={r.id}
+                  href="/dashboard/brokers/requests"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 px-4 py-3 transition hover:bg-gray-100"
+                >
+                  <span>
+                    <b className="text-gray-800">الوحدة {r.unit_code ?? "—"}</b>
+                    <span className="ms-2 text-xs text-gray-500">
+                      {r.broker_companies?.name ?? ""} · {r.clients?.name ?? ""}
+                    </span>
+                  </span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${BROKER_REQUEST_COLORS[r.status]}`}>
+                    {r.status}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* الشركات تحت مظلتي */}
       <section className="mb-6">

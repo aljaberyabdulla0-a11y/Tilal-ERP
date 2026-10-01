@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/logo";
 import LanguageSwitcher from "@/components/language-switcher";
 import { useI18n } from "@/lib/i18n/client";
+import { loginToEmail } from "@/lib/types";
 
 // شاشة تسجيل الدخول — تصميم فاخر (Emerald Executive)
 export default function LoginPage() {
@@ -25,7 +26,11 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // حساب الوسيط قد يكون اسم مستخدم لا بريداً (sql/117)
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginToEmail(email),
+      password,
+    });
 
     setLoading(false);
 
@@ -69,7 +74,8 @@ export default function LoginPage() {
               <span className="material-symbols-outlined text-gray-400">mail</span>
               <input
                 id="email"
-                type="email"
+                type="text"
+                autoComplete="username"
                 required
                 dir="ltr"
                 value={email}

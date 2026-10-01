@@ -76,6 +76,8 @@ const en: Dictionary = {
     contacts: "Calls",
     brokers: "Brokers",
     commissions: "Commissions",
+    ourUnits: "Units",
+    ourRequests: "Reservation requests",
     ourLeads: "Our leads",
     ourCommissions: "Our commissions",
   },

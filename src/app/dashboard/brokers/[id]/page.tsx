@@ -11,22 +11,33 @@ import {
   getBrokerCommissions,
   getBrokerLeads,
   getBrokerPayments,
+  getBrokerRequests,
+  getBrokerTiers,
   paidByCommission,
+  unitsThisMonth,
 } from "@/lib/brokers";
 import {
   BrokerCompany,
   BrokerCompanyProject,
+  BROKER_REQUEST_COLORS,
   BrokerUser,
   COMMISSION_STATUS_COLORS,
+  currentPeriod,
+  effectiveTiers,
   formatPrice,
+  isOpenBrokerRequest,
+  nextTier,
+  tierRate,
   leadDaysLeft,
   leadDeadlineColor,
   leadDeadlineLabel,
 } from "@/lib/types";
 import CompanyAccounts from "./company-accounts";
+import TiersEditor from "../tiers-editor";
 
 // ============================================================
-// بطاقة الشركة الوسيطة: ليداتها ومهلها وعمولاتها وحساباتها.
+// بطاقة الشركة الوسيطة: مشاريعها وشرائحها ووحداتها الظاهرة، وطلبات
+// حجزها، وليداتها ومهلها، وعمولاتها، وحساباتها.
 // نفس الصفحة تخدم المدير ومدير العلاقات — والفرق أن أزرار الإدارة
 // (التعديل وربط الحسابات) لا تظهر لغير المدير، تماماً كما تمنعها
 // سياسات القاعدة.
@@ -50,6 +61,9 @@ export default async function BrokerCompanyPage({
     payments,
     members,
     admin,
+    tiers,
+    requests,
+    { data: visibleRows },
   ] = await Promise.all([
     supabase.from("broker_companies").select("*").eq("id", params.id).maybeSingle(),
     supabase
@@ -62,29 +76,24 @@ export default async function BrokerCompanyPage({
     getBrokerPayments(),
     getTeamMembers(),
     isAdmin(),
+    getBrokerTiers(),
+    getBrokerRequests(params.id),
+    supabase.from("broker_visible_units").select("unit_id").eq("company_id", params.id),
   ]);
 
   if (!data) notFound();
   const company = data as BrokerCompany;
   const links = (linkRows ?? []) as BrokerCompanyProject[];
   const accounts = (accountRows ?? []) as BrokerUser[];
+  const visibleCount = (visibleRows ?? []).length;
 
   const paid = paidByCommission(payments);
   const money = companyMoney(commissions, paid);
   const buckets = bucketLeads(leads);
 
-  // حسابات لم تُربط بأي شركة بعد — للمدير وحده (يقرأ profiles كاملة)
-  let freeProfiles: { id: string; email: string | null; role: string }[] = [];
-  if (admin) {
-    const [{ data: profiles }, { data: linked }] = await Promise.all([
-      supabase.from("profiles").select("id, email, role").order("created_at"),
-      supabase.from("broker_users").select("user_id"),
-    ]);
-    const taken = new Set((linked ?? []).map((l: { user_id: string }) => l.user_id));
-    freeProfiles = (profiles ?? []).filter(
-      (p: { id: string }) => !taken.has(p.id)
-    );
-  }
+  const period = currentPeriod();
+  const monthUnits = unitsThisMonth(commissions, period);
+  const openRequests = requests.filter((r) => isOpenBrokerRequest(r.status));
 
   const rmName = (id: string | null) =>
     members.find((m) => m.id === id)?.full_name ?? null;
@@ -101,8 +110,9 @@ export default async function BrokerCompanyPage({
           <div>
             <h1 className="text-xl font-bold text-brand-700">{company.name}</h1>
             <p className="text-sm text-gray-500">
-              نسبة العمولة {company.commission_rate}٪
+              {company.is_active ? "شركة فعّالة" : "موقوفة"}
               {company.phone && ` · ${company.phone}`}
+              {company.license_no && ` · إجازة ${company.license_no}`}
             </p>
           </div>
         </div>
@@ -176,18 +186,134 @@ export default async function BrokerCompanyPage({
               )}
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {links.map((l) => (
-                <span
-                  key={l.project_id}
-                  className="rounded-xl bg-gray-50 px-4 py-2 text-sm"
-                >
-                  <b className="text-gray-800">{l.projects?.name ?? "—"}</b>
-                  <span className="text-gray-500">
-                    {" · "}
-                    {rmName(l.rm_id) ?? "بلا مدير علاقات"}
-                  </span>
+            <div className="space-y-3">
+              {links.map((l) => {
+                const own = tiers.filter(
+                  (t) => t.project_id === l.project_id && t.company_id === company.id
+                );
+                const eff = effectiveTiers(tiers, l.project_id, company.id);
+                const n = monthUnits.get(`${company.id}|${l.project_id}`) ?? 0;
+                const next = nextTier(eff, n);
+                return (
+                  <div key={l.project_id} className="rounded-xl bg-gray-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <b className="text-gray-800">{l.projects?.name ?? "—"}</b>
+                        <span className="text-sm text-gray-500">
+                          {" · "}
+                          {rmName(l.rm_id) ?? "بلا مدير علاقات"}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs">
+                        <span className="rounded-full bg-white px-2.5 py-1 text-gray-600">
+                          الوحدات: {l.units_scope === "الكل" ? "كل المتاح" : `مختارة (${visibleCount})`}
+                        </span>
+                        {admin && (
+                          <Link
+                            href={`/dashboard/brokers/${company.id}/units?project=${l.project_id}`}
+                            className="font-semibold text-brand-700 hover:underline"
+                          >
+                            اختيار الوحدات
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="mt-2 text-sm text-gray-600">
+                      هذا الشهر: <b>{n}</b> وحدة ← نسبتها الآن{" "}
+                      <b>{tierRate(eff, n)}٪</b>
+                      {next && (
+                        <span className="text-gray-500">
+                          {" "}· باقٍ {next.remaining} للشريحة {next.rate}٪
+                        </span>
+                      )}
+                    </p>
+
+                    <div className="mt-2">
+                      <span className="me-2 text-xs font-bold text-gray-500">
+                        {own.length ? "شرائح خاصة:" : "شرائح المشروع:"}
+                      </span>
+                      {own.length ? (
+                        <TiersEditor
+                          projectId={l.project_id}
+                          companyId={company.id}
+                          tiers={own}
+                          canEdit={admin}
+                        />
+                      ) : (
+                        <>
+                          <TiersEditor
+                            projectId={l.project_id}
+                            companyId={null}
+                            tiers={eff}
+                            canEdit={false}
+                            emptyHint="⚠️ لا شرائح لهذا المشروع — العمولة صفر"
+                          />
+                          {admin && (
+                            <details className="mt-1 text-xs">
+                              <summary className="cursor-pointer text-brand-700">
+                                إعطاء الشركة شرائح خاصة في هذا المشروع
+                              </summary>
+                              <div className="mt-2">
+                                <TiersEditor
+                                  projectId={l.project_id}
+                                  companyId={company.id}
+                                  tiers={[]}
+                                  canEdit
+                                  emptyHint="تتبع شرائح المشروع"
+                                />
+                              </div>
+                            </details>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* طلبات الحجز */}
+        <div className="glass-card p-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-bold text-gray-800">
+              طلبات الحجز ({requests.length})
+              {openRequests.length > 0 && (
+                <span className="ms-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
+                  {openRequests.length} مفتوح
                 </span>
+              )}
+            </h2>
+            <Link
+              href="/dashboard/brokers/requests"
+              className="text-sm font-bold text-brand-700 hover:underline"
+            >
+              متابعة الطلبات
+            </Link>
+          </div>
+          {requests.length === 0 ? (
+            <p className="text-sm text-gray-400">لم ترفع الشركة طلب حجز بعد.</p>
+          ) : (
+            <div className="space-y-2">
+              {requests.slice(0, 8).map((r) => (
+                <div
+                  key={r.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-2.5 text-sm"
+                >
+                  <span>
+                    <b className="text-gray-800">الوحدة {r.unit_code ?? "—"}</b>
+                    <span className="text-gray-500">
+                      {" · "}
+                      {r.clients?.name ?? "—"} · {r.projects?.name ?? ""}
+                    </span>
+                  </span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${BROKER_REQUEST_COLORS[r.status]}`}>
+                    {r.status}
+                    {r.reservation_status && r.reservation_status !== "حجز" ? ` · ${r.reservation_status}` : ""}
+                  </span>
+                </div>
               ))}
             </div>
           )}
@@ -316,8 +442,21 @@ export default async function BrokerCompanyPage({
                         <td className="px-4 py-3 text-gray-600" dir="ltr">
                           {formatPrice(Number(c.deal_amount))}
                         </td>
-                        <td className="px-4 py-3 text-gray-600" dir="ltr">
-                          {c.rate}%
+                        <td className="px-4 py-3 text-gray-600">
+                          {c.reversed_at ? (
+                            <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-600">
+                              مفسوخة
+                            </span>
+                          ) : (
+                            <>
+                              <span dir="ltr">{c.rate}%</span>
+                              {c.tier_units != null && (
+                                <span className="ms-1 text-xs text-gray-400">
+                                  ({c.tier_units} بالشهر)
+                                </span>
+                              )}
+                            </>
+                          )}
                         </td>
                         <td className="px-4 py-3 font-bold text-gray-800" dir="ltr">
                           {formatPrice(Number(c.amount))}
@@ -346,7 +485,6 @@ export default async function BrokerCompanyPage({
           <CompanyAccounts
             companyId={company.id}
             accounts={accounts}
-            freeProfiles={freeProfiles}
           />
         )}
       </section>

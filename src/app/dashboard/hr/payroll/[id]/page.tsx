@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canManageFinance, canManageHr } from "@/lib/auth";
+import { canManageFinance, canManageHr, isAdmin } from "@/lib/auth";
 import {
   Employee,
   Payroll,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/types";
 import PayrollDetail from "@/components/payroll-detail";
 import PayPayroll from "../pay-payroll";
+import DeletePayrollButton from "./delete-payroll-button";
 
 // ============================================================
 // كشف راتب واحد — صفحته المستقلّة.
@@ -29,7 +30,11 @@ export default async function PayrollPage({
 }) {
   // يفتحها الطرفان: من يبني الكشف ومن يعتمده. والأزرار تنقسم
   // بينهما داخل PayrollDetail، والقاعدة تفرض القسمة (sql/068).
-  const [hrCan, finCan] = await Promise.all([canManageHr(), canManageFinance()]);
+  const [hrCan, finCan, admin] = await Promise.all([
+    canManageHr(),
+    canManageFinance(),
+    isAdmin(),
+  ]);
   if (!hrCan && !finCan) redirect("/dashboard");
 
   const supabase = await createClient();
@@ -102,6 +107,15 @@ export default async function PayrollPage({
               remaining={st.remaining}
             />
           )}
+          {/* الحذف للمدير، وما لم يُدفع منه شيء ولم يُقفل (sql/106) */}
+          {admin && p.state !== "مقفل" && paid === 0 && (
+            <DeletePayrollButton
+              id={p.id}
+              employeeName={name}
+              period={p.period}
+              approved={p.state === "معتمد"}
+            />
+          )}
         </div>
       </header>
 
@@ -112,7 +126,7 @@ export default async function PayrollPage({
           <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-relaxed text-gray-700">
             <b className="text-blue-800">تريد تعديل هذا الكشف؟</b> اضغط{" "}
             <b>«إعادة فتح»</b> أدناه — يعود مسوّدةً ويُسحب قيده من الدفاتر،
-            فتُضيف البنود وتحذفها بحرّية، ثم تعتمده من جديد. هذا جائز ما دام
+            فتُعدّل مبالغ البنود وتُضيفها وتحذفها بحرّية، ثم تعتمده من جديد. هذا جائز ما دام
             لم يُدفع منه شيء، وبعد أول دفعة يُقفل الباب.
           </div>
         )}

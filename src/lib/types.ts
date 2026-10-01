@@ -748,7 +748,15 @@ export type PayrollLine = {
   created_at: string;
   created_by: string | null;
   created_by_name: string | null;
+  // التعديل اليدوي (sql/105) — original_amount فارغ ما لم يتغيّر المبلغ
+  original_amount: number | null;
+  edited_at: string | null;
+  edited_by_name: string | null;
 };
+
+// بنود مبلغها من مصدرٍ آخر يُعدَّل هناك: العمولة مُرحَّلة عند
+// استحقاقها، والقسط من رصيد السلفة (sql/105). الوصف يُعدَّل.
+export const PAYROLL_LOCKED_AMOUNT_SOURCES = ["commissions", "advance_installments"];
 
 export const PAYROLL_EARNING_CATEGORIES = [
   "بدل",

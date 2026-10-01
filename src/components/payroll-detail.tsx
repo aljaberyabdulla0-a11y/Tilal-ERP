@@ -7,6 +7,7 @@ import {
   PAYROLL_DEDUCTION_CATEGORIES,
   PAYROLL_EARNING_CATEGORIES,
   PAYROLL_LINE_ICONS,
+  PAYROLL_LOCKED_AMOUNT_SOURCES,
   PAYROLL_STATE_COLORS,
   PAYROLL_STATE_HINTS,
   Payroll,
@@ -19,7 +20,7 @@ import {
 // تفاصيل كشف الراتب: بنوده، وما يُضاف إليه، وقرار اعتماده.
 //
 // مكوّن واحد لثلاث حالات لأن الكشف واحد وإنما تتبدّل حرّيتك فيه:
-//   مسودة : تُضاف البنود وتُحذف، ويُعتمد.
+//   مسودة : تُضاف البنود وتُعدَّل وتُحذف، ويُعتمد.
 //   معتمد : يُقرأ ويُدفع، ويُعاد فتحه ما لم يُدفع منه شيء.
 //   مقفل  : يُقرأ لا غير.
 //
@@ -51,6 +52,8 @@ export default function PayrollDetail({
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState<"استحقاق" | "استقطاع" | null>(null);
   const [form, setForm] = useState({ category: "", description: "", amount: "" });
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ description: "", amount: "" });
 
   const draft = payroll.state === "مسودة";
   const locked = payroll.state === "مقفل";
@@ -103,14 +106,94 @@ export default function PayrollDetail({
     router.refresh();
   }
 
+  function startEdit(l: PayrollLine) {
+    setAdding(null);
+    setErr(null);
+    setEditing(l.id);
+    setEditForm({ description: l.description ?? "", amount: String(l.amount) });
+  }
+
+  async function saveEdit() {
+    const amount = Number(editForm.amount);
+    if (!amount || amount <= 0) {
+      setErr("اكتب مبلغاً أكبر من صفر.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("update_payroll_line", {
+      p_line: editing,
+      p_amount: amount,
+      p_description: editForm.description.trim() || null,
+    });
+    setBusy(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    setEditing(null);
+    router.refresh();
+  }
+
   const input =
     "rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500";
 
-  // صفّ بند واحد
-  function Line({ l }: { l: PayrollLine }) {
+  // صفّ بند واحد. دالةٌ تُنادى لا مكوّنٌ متداخل: المكوّن المعرَّف
+  // داخل الرسم يُعاد تركيبه كل مرة فيفقد حقل التعديل تركيزه.
+  function renderLine(l: PayrollLine) {
     const minus = l.kind === "استقطاع";
+
+    if (editing === l.id) {
+      const amountLocked = PAYROLL_LOCKED_AMOUNT_SOURCES.includes(l.source_table ?? "");
+      return (
+        <div key={l.id} className="border-b border-gray-100 py-2.5 last:border-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={editForm.description}
+              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+              placeholder={l.category}
+              className={input + " min-w-0 flex-1"}
+            />
+            <input
+              value={editForm.amount}
+              onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+              type="number"
+              min={0}
+              dir="ltr"
+              disabled={amountLocked}
+              className={input + " w-32 text-start disabled:bg-gray-100 disabled:text-gray-500"}
+            />
+            <button
+              onClick={saveEdit}
+              disabled={busy}
+              className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+            >
+              {busy ? "جارٍ…" : "حفظ"}
+            </button>
+            <button
+              onClick={() => setEditing(null)}
+              disabled={busy}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+            >
+              إلغاء
+            </button>
+          </div>
+          {amountLocked && (
+            <p className="mt-1 text-[11px] text-gray-400">
+              {l.source_table === "commissions"
+                ? "مبلغ العمولة مُرحَّل عند استحقاقها — يُعدَّل من العمولة نفسها. الوصف يُعدَّل هنا."
+                : "مبلغ القسط من جدول السلفة — يُعدَّل من ملفّ السلفة. الوصف يُعدَّل هنا."}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    const edited =
+      l.original_amount != null && Number(l.original_amount) !== Number(l.amount);
+
     return (
-      <div className="flex items-center gap-3 border-b border-gray-100 py-2.5 last:border-0">
+      <div key={l.id} className="flex items-center gap-3 border-b border-gray-100 py-2.5 last:border-0">
         <span
           className={`material-symbols-outlined text-[18px] ${
             minus ? "text-red-400" : "text-green-500"
@@ -126,6 +209,15 @@ export default function PayrollDetail({
           <span className="block text-[11px] text-gray-400">
             {l.category}
             {l.manual && l.created_by_name && ` · أضافه ${l.created_by_name}`}
+            {edited && (
+              <>
+                {" · "}
+                <span className="text-amber-600">
+                  عُدّل من <span dir="ltr">{formatPrice(l.original_amount!)}</span>
+                  {l.edited_by_name && ` بيد ${l.edited_by_name}`}
+                </span>
+              </>
+            )}
           </span>
         </span>
 
@@ -137,6 +229,18 @@ export default function PayrollDetail({
         >
           {minus ? "−" : "+"} {formatPrice(l.amount)}
         </span>
+
+        {draft && canEdit && (
+          <button
+            onClick={() => startEdit(l)}
+            disabled={busy}
+            title="تعديل البند"
+            aria-label="تعديل البند"
+            className="shrink-0 rounded p-1 text-gray-300 transition hover:bg-brand-50 hover:text-brand-600 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[18px]">edit</span>
+          </button>
+        )}
 
         {draft && canEdit && (
           <button
@@ -248,11 +352,12 @@ export default function PayrollDetail({
           {earnings.length === 0 ? (
             <p className="py-3 text-sm text-gray-400">لا استحقاقات.</p>
           ) : (
-            earnings.map((l) => <Line key={l.id} l={l} />)
+            earnings.map(renderLine)
           )}
           {draft && canEdit && (
             <button
               onClick={() => {
+                setEditing(null);
                 setAdding("استحقاق");
                 setForm({ category: "بدل", description: "", amount: "" });
                 setErr(null);
@@ -272,11 +377,12 @@ export default function PayrollDetail({
           {deductions.length === 0 ? (
             <p className="py-3 text-sm text-gray-400">لا استقطاعات.</p>
           ) : (
-            deductions.map((l) => <Line key={l.id} l={l} />)
+            deductions.map(renderLine)
           )}
           {draft && canEdit && (
             <button
               onClick={() => {
+                setEditing(null);
                 setAdding("استقطاع");
                 setForm({ category: "استقطاع آخر", description: "", amount: "" });
                 setErr(null);

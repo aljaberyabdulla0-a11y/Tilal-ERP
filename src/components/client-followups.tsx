@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Client, toIntlPhone } from "@/lib/types";
-import { getMyFollowUps } from "@/lib/client-followups";
+import { getMyFollowUps, FollowUpRow } from "@/lib/client-followups";
 
 // ============================================================
 // «متابعات العملاء» — العملاء الذين حان أو فات موعد متابعتهم.
@@ -18,10 +18,12 @@ function FollowUpRowView({
   c,
   daysLate,
   stalled,
+  projectName,
 }: {
   c: Client;
   daysLate: number;
   stalled?: boolean;
+  projectName?: string;
 }) {
   const intl = c.phone ? toIntlPhone(c.phone) : "";
 
@@ -36,6 +38,11 @@ function FollowUpRowView({
         </Link>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
           <span>{c.stage ?? "ليد"}</span>
+          {projectName && (
+            <span className="rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700">
+              {projectName}
+            </span>
+          )}
           {c.sales_employee && <span>{c.sales_employee}</span>}
           {c.phone && (
             <span dir="ltr" className="text-gray-400">
@@ -86,17 +93,36 @@ function FollowUpRowView({
   );
 }
 
+// قيمة فرز «بلا مشروع» في الرابط (?proj=none)
+const NO_PROJECT = "none";
+
 export default async function ClientFollowUps({
   compact = false,
   limit = 50,
+  project = "",
+  params = {},
 }: {
   compact?: boolean;
   limit?: number;
+  project?: string;                // فرز المشروع (النمط الكامل): "" = الكل
+  params?: Record<string, string>; // بقية فلاتر الصفحة تُحفظ في روابط الفرز
 }) {
-  const { overdue, dueToday, total, ready } = await getMyFollowUps();
+  const all = await getMyFollowUps();
+  const { total, projects, noProject, ready } = all;
 
   // تعذّرت القراءة (جدول/عمود غير جاهز) — لا نكسر الصفحة
   if (!ready) return null;
+
+  // الفرز بالمشروع للنمط الكامل فقط؛ البطاقة المختصرة تعرض الكل دائماً
+  const projectFilter = compact ? "" : project;
+  const keep = (r: FollowUpRow) =>
+    !projectFilter ||
+    (projectFilter === NO_PROJECT
+      ? !r.projectId || !projects.some((p) => p.id === r.projectId)
+      : r.projectId === projectFilter);
+  const overdue = all.overdue.filter(keep);
+  const dueToday = all.dueToday.filter(keep);
+  const projectName = new Map(projects.map((p) => [p.id, p.name]));
 
   // ===== النمط المختصر: بطاقة في لوحة التحكم =====
   if (compact) {
@@ -152,16 +178,63 @@ export default async function ClientFollowUps({
   }
 
   // ===== النمط الكامل: عمودان في صفحة المهام =====
+
+  // أزرار الفرز: «الكل» ثم كل مشروع له متابعات ثم «بلا مشروع».
+  // تظهر فقط حين يكون هناك ما يُفرز (أكثر من مجموعة واحدة)
+  const chips = [
+    { value: "", label: "كل المشاريع", count: total },
+    ...projects.map((p) => ({ value: p.id, label: p.name, count: p.count })),
+    ...(noProject > 0 ? [{ value: NO_PROJECT, label: "بلا مشروع", count: noProject }] : []),
+  ];
+  const showChips = chips.length > 2;
+  const chipHref = (value: string) => {
+    const q = new URLSearchParams(params);
+    if (value) q.set("proj", value);
+    else q.delete("proj");
+    const s = q.toString();
+    return s ? `/dashboard/tasks?${s}` : "/dashboard/tasks";
+  };
+  const shown = overdue.length + dueToday.length;
+  // اسم المشروع على الصف حين نعرض الكل — لا داعي له بعد الفرز
+  const badge = (r: FollowUpRow) =>
+    showChips && !projectFilter && r.projectId ? projectName.get(r.projectId) : undefined;
+
   return (
     <section>
       <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-amber-800">
         <span className="material-symbols-outlined">groups</span>
-        متابعات العملاء ({total})
+        متابعات العملاء ({shown === total ? total : `${shown} من ${total}`})
       </h2>
       <p className="mb-3 text-sm text-gray-500">
         عملاء حان أو فات موعد متابعتهم. سجّل المكالمة من صفحة العميل ليتحدّث
         الموعد تلقائياً.
       </p>
+
+      {showChips && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="material-symbols-outlined text-[18px] text-gray-400">apartment</span>
+          {chips.map((ch) => {
+            const active = ch.value === projectFilter;
+            return (
+              <Link
+                key={ch.value || "all"}
+                href={chipHref(ch.value)}
+                scroll={false}
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                  active
+                    ? "border-brand-600 bg-brand-600 text-white"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-brand-300 hover:bg-brand-50"
+                }`}
+              >
+                {ch.label}{" "}
+                <span className={active ? "text-white/80" : "text-gray-400"} dir="ltr">
+                  ({ch.count})
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {/* المتأخرة */}
@@ -184,6 +257,7 @@ export default async function ClientFollowUps({
                   c={r.client}
                   daysLate={r.daysLate}
                   stalled={r.stalled}
+                  projectName={badge(r)}
                 />
               ))}
             </div>
@@ -204,7 +278,12 @@ export default async function ClientFollowUps({
           ) : (
             <div className="max-h-[420px] overflow-y-auto">
               {dueToday.slice(0, limit).map((r) => (
-                <FollowUpRowView key={r.client.id} c={r.client} daysLate={0} />
+                <FollowUpRowView
+                  key={r.client.id}
+                  c={r.client}
+                  daysLate={0}
+                  projectName={badge(r)}
+                />
               ))}
             </div>
           )}

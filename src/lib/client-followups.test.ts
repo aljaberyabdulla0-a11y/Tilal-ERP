@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("react", () => ({ cache: (fn: unknown) => fn }));
 
-import { buildFollowUps } from "./client-followups";
+import { buildFollowUps, projectResolver } from "./client-followups";
 import type { Client } from "./types";
 
 function client(p: Partial<Client>): Client {
@@ -85,5 +85,38 @@ describe("buildFollowUps — اليوم مقابل متأخر مقابل متو�
       today
     );
     expect(overdue.map((r) => r.daysLate)).toEqual([10, 3, 1]);
+  });
+});
+
+describe("projectResolver — مشروع المتابعة للفرز", () => {
+  const members = [
+    { id: "e1", full_name: "نرمين", project_id: "lamak" },
+    { id: "e2", full_name: "ريتا", project_id: "damac" },
+    { id: "e3", full_name: "عبدالله", project_id: null },
+  ];
+  const projectOf = projectResolver(members);
+
+  it("مشروع العميل نفسه يسبق مشروع مالكه", () => {
+    expect(projectOf(client({ owner_id: "e2", preferred_project_id: "zawraa" }))).toBe("zawraa");
+    expect(projectOf(client({ owner_id: "e2", project_id: "furqan" }))).toBe("furqan");
+  });
+
+  it("وإلا مشروع المالك بالمفتاح، ثم بالاسم النصّي للعملاء القدامى", () => {
+    expect(projectOf(client({ owner_id: "e2", sales_employee: "نرمين" }))).toBe("damac");
+    expect(projectOf(client({ sales_employee: " نرمين " }))).toBe("lamak");
+  });
+
+  it("موظف بلا مشروع أو مالك مجهول → بلا مشروع", () => {
+    expect(projectOf(client({ owner_id: "e3" }))).toBeNull();
+    expect(projectOf(client({ sales_employee: "غريب" }))).toBeNull();
+  });
+
+  it("buildFollowUps يحمل المشروع على كل صف", () => {
+    const { overdue } = buildFollowUps(
+      [client({ follow_up_date: "2026-09-20", sales_employee: "ريتا" })],
+      "2026-09-22",
+      projectOf
+    );
+    expect(overdue[0].projectId).toBe("damac");
   });
 });

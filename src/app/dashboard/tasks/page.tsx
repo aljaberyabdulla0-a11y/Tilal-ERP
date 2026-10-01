@@ -21,7 +21,7 @@ import EmployeeFilter from "./employee-filter";
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: { emp?: string; done?: string };
+  searchParams: { emp?: string; done?: string; proj?: string };
 }) {
   const supabase = await createClient();
   const [user, admin, people] = await Promise.all([
@@ -34,6 +34,7 @@ export default async function TasksPage({
   const today = baghdadDate();
   const empFilter = admin ? (searchParams.emp ?? "") : "";
   const showDone = searchParams.done === "1";
+  const projFilter = searchParams.proj ?? "";
 
   // المفتوحة + آخر المنجزة (استعلامان بدل جلب كل التاريخ)
   let openQuery = supabase
@@ -125,7 +126,13 @@ export default async function TasksPage({
 
       {/* متابعات العملاء — العمل الميداني لليوم (لكل موظف عملاؤه) */}
       <section className="mb-8">
-        <ClientFollowUps />
+        <ClientFollowUps
+          project={projFilter}
+          params={{
+            ...(empFilter ? { emp: empFilter } : {}),
+            ...(showDone ? { done: "1" } : {}),
+          }}
+        />
       </section>
 
       {/* متابعات مكتوبة داخل المهام نفسها */}
@@ -194,6 +201,7 @@ export default async function TasksPage({
               href={`/dashboard/tasks?${new URLSearchParams({
                 ...(empFilter ? { emp: empFilter } : {}),
                 ...(showDone ? {} : { done: "1" }),
+                ...(projFilter ? { proj: projFilter } : {}),
               }).toString()}`}
               className="text-sm font-medium text-brand-700 hover:underline"
             >

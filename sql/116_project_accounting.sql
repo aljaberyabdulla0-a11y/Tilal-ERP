@@ -524,9 +524,9 @@ begin
             '[{"account_code":"5800","debit":50},{"account_code":"1100","credit":50}]'::jsonb, 'إداري عام', p_a);
     log := log || extensions.is((select project_id from public.journal_entries where id = m1), p_a,
       'القيد اليدوي يحمل مشروعه');
-    log := log || extensions.is(
-      (select project_id from public.journal_entries
-        where id = public.reverse_journal_entry(m1, '2020-01-07', 'اختبار')), p_a,
+    -- ⚠️ النداء في متغيّر: داخل where يُنفَّذ لكل صفّ فيُعكس مرّتين
+    je := public.reverse_journal_entry(m1, '2020-01-07', 'اختبار');
+    log := log || extensions.is((select project_id from public.journal_entries where id = je), p_a,
       'عكس القيد يرث مشروعه');
 
     -- «عام»

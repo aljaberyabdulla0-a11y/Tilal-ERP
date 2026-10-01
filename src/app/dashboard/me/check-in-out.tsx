@@ -114,8 +114,18 @@ export default function CheckInOut({
 
   const canStamp = !geofenceOn || (geo.status === "ok" && !outOfRange);
 
+  // صفحة بقيت مفتوحة من يوم سابق: «اليوم» وسجلّه فيها قديمان، فالبصمة
+  // ستُكتب على يوم مضى (أو يُسجَّل الانصراف على سجلّ أمس). نُحدّث أولاً.
+  function dayChanged(): boolean {
+    if (baghdadDate() === today) return false;
+    setError("تغيّر اليوم منذ فتحت الصفحة — حدّثناها، اضغط مرة ثانية.");
+    router.refresh();
+    return true;
+  }
+
   async function checkIn() {
     setError(null);
+    if (dayChanged()) return;
     if (geofenceOn && geo.status !== "ok") {
       setError("انتظر حتى يُحدَّد موقعك أولاً.");
       return;
@@ -141,6 +151,7 @@ export default function CheckInOut({
   async function checkOut() {
     setError(null);
     if (!todayRecord) return;
+    if (dayChanged()) return;
     if (geofenceOn && geo.status !== "ok") {
       setError("انتظر حتى يُحدَّد موقعك أولاً.");
       return;

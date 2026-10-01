@@ -14,8 +14,12 @@ export default async function NewMovePage({
   if (!(await canManageFinance())) redirect("/dashboard");
 
   const supabase = await createClient();
-  const { data } = await supabase.from("partners").select("*").order("created_at");
+  const [{ data }, { data: pj }] = await Promise.all([
+    supabase.from("partners").select("*").order("created_at"),
+    supabase.from("projects").select("id, name").order("name"),
+  ]);
   const partners = (data ?? []) as Partner[];
+  const projects = (pj ?? []) as { id: string; name: string }[];
 
   const dir: MoneyDirection = searchParams.dir === "قبض" ? "قبض" : "صرف";
 
@@ -32,7 +36,7 @@ export default async function NewMovePage({
       </header>
 
       <section className="mx-auto max-w-4xl p-6">
-        <MoveForm partners={partners} initialDirection={dir} />
+        <MoveForm partners={partners} projects={projects} initialDirection={dir} />
       </section>
     </main>
   );

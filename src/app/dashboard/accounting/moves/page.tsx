@@ -5,12 +5,13 @@ import { canManageFinance } from "@/lib/auth";
 import { ARMS, ARM_COLORS, CashMove, Partner, formatPrice } from "@/lib/types";
 import AccTabs from "../acc-tabs";
 import DeleteMoveButton from "./delete-move-button";
+import ProjectSelect from "@/components/project-select";
 
 // قائمة كل الحركات المالية (صرف/قبض) مع فلاتر بسيطة
 export default async function MovesPage({
   searchParams,
 }: {
-  searchParams: { dir?: string; arm?: string; q?: string };
+  searchParams: { dir?: string; arm?: string; q?: string; project?: string };
 }) {
   if (!(await canManageFinance())) redirect("/dashboard");
 
@@ -27,11 +28,16 @@ export default async function MovesPage({
   }
   if (searchParams.arm) query = query.eq("arm", searchParams.arm);
   if (searchParams.q) query = query.ilike("description", `%${searchParams.q}%`);
+  // المشروع (sql/116): "general" = الحركات التي لا مشروع لها
+  if (searchParams.project === "general") query = query.is("project_id", null);
+  else if (searchParams.project) query = query.eq("project_id", searchParams.project);
 
-  const [{ data: mData }, { data: pData }] = await Promise.all([
+  const [{ data: mData }, { data: pData }, { data: pjData }] = await Promise.all([
     query,
     supabase.from("partners").select("*"),
+    supabase.from("projects").select("id, name").order("name"),
   ]);
+  const projects = (pjData ?? []) as { id: string; name: string }[];
 
   const moves = (mData ?? []) as CashMove[];
   const partners = (pData ?? []) as Partner[];
@@ -111,7 +117,22 @@ export default async function MovesPage({
               </Link>
             ))}
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500">المشروع:</span>
+            <Link href={linkWith({ project: undefined })} className={chip(!searchParams.project)}>
+              الكل
+            </Link>
+            <Link href={linkWith({ project: "general" })} className={chip(searchParams.project === "general")}>
+              عام (بلا مشروع)
+            </Link>
+            {projects.map((p) => (
+              <Link key={p.id} href={linkWith({ project: p.id })} className={chip(searchParams.project === p.id)}>
+                {p.name}
+              </Link>
+            ))}
+          </div>
           <form className="flex gap-2">
+            {searchParams.project && <input type="hidden" name="project" value={searchParams.project} />}
             {searchParams.dir && <input type="hidden" name="dir" value={searchParams.dir} />}
             {searchParams.arm && <input type="hidden" name="arm" value={searchParams.arm} />}
             <input
@@ -168,13 +189,14 @@ export default async function MovesPage({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-start text-sm">
+              <table className="w-full min-w-[940px] text-start text-sm">
                 <thead className="border-b text-gray-500">
                   <tr>
                     <th className="pb-2 font-medium">التاريخ</th>
                     <th className="pb-2 font-medium">البيان</th>
                     <th className="pb-2 font-medium">التصنيف</th>
                     <th className="pb-2 font-medium">الذراع</th>
+                    <th className="pb-2 font-medium">المشروع</th>
                     <th className="pb-2 font-medium">من دفع</th>
                     <th className="pb-2 font-medium">المبلغ</th>
                     <th className="pb-2 font-medium"></th>
@@ -205,6 +227,14 @@ export default async function MovesPage({
                           >
                             {m.arm}
                           </span>
+                        </td>
+                        <td className="py-3">
+                          {/* حركات الشريك (2500) ليست إيراداً ولا مصروفاً — لا مشروع لها */}
+                          {m.account_code === "2500" ? (
+                            <span className="text-xs text-gray-300">—</span>
+                          ) : (
+                            <ProjectSelect table="cash_moves" rowId={m.id} value={m.project_id ?? null} projects={projects} />
+                          )}
                         </td>
                         <td className="py-3 text-gray-600">
                           {who ? (

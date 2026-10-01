@@ -149,7 +149,8 @@
 | `112_financial_aggregation` | `account_balances`، `money_overview`، `account_ledger` | لا | 115 + مطابقة الأرصدة |
 | `113_sale_reversal` | عمود قيد العكس، `reverse_sale`، المعاينة | لا | 115 |
 | `114_accounting_health` | `accounting_health` | لا | 115 + تشغيل على الحيّ |
-| `115_accounting_tests` | `tests.run_accounting()` — ٥٦ اختباراً | لا (يُلغي أثره) | 56/56 ✓ |
+| `115_accounting_tests` | `tests.run_accounting()` — ٥٩ اختباراً | لا (يُلغي أثره) | 59/59 ✓ |
+| `116_project_accounting` | المشروع على القيد والحركة والكشف، `project_finance`، `project_ledger`، `tests.run_project_accounting()` | لا (تصنيف فقط) | — |
 
 **طريقة الاختبار:** كل الهجرات طُبِّقت على القاعدة الحيّة **داخل معاملة تُلغى** (`raise exception` في آخرها)، فلم يبقَ منها شيء. وفيها شُغّلت `tests.run_accounting()`: ٥٦ اختباراً، كلّها ok، في ١.٣ ثانية. **لم يُطبَّق شيء على القاعدة الحيّة بعد** — ينتظر موافقة المالك.
 

@@ -62,7 +62,7 @@ export default async function EntryDetailsPage({
   const lines = entry.journal_lines ?? [];
   const isAuto = !!entry.source;
 
-  const [{ data: authorProfile }, { data: authorEmployee }, { data: reversedBy }, href] = await Promise.all([
+  const [{ data: authorProfile }, { data: authorEmployee }, { data: reversedBy }, href, { data: project }] = await Promise.all([
     entry.created_by
       ? supabase.from("profiles").select("email").eq("id", entry.created_by).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -71,7 +71,11 @@ export default async function EntryDetailsPage({
       : Promise.resolve({ data: null }),
     supabase.from("journal_entries").select("id, entry_date").eq("reversal_of", entry.id).maybeSingle(),
     isAuto && entry.source_id ? sourceHref(supabase, entry.source!, entry.source_id) : Promise.resolve(null),
+    entry.project_id
+      ? supabase.from("projects").select("id, name").eq("id", entry.project_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+  const projectRow = project as { id: string; name: string } | null;
 
   const authorName =
     (authorEmployee as { full_name: string } | null)?.full_name ??
@@ -115,7 +119,7 @@ export default async function EntryDetailsPage({
             </div>
           </div>
 
-          <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl bg-gray-50 p-4 text-sm sm:grid-cols-4">
+          <dl className="mb-5 grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl bg-gray-50 p-4 text-sm sm:grid-cols-5">
             <div>
               <dt className="text-xs text-gray-500">المصدر</dt>
               <dd className="font-medium text-gray-800">{journalSourceLabel(entry.source ?? null)}</dd>
@@ -123,6 +127,18 @@ export default async function EntryDetailsPage({
             <div>
               <dt className="text-xs text-gray-500">المرجع</dt>
               <dd className="font-mono text-gray-800" dir="ltr">{entry.reference ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">المشروع</dt>
+              <dd className="text-gray-800">
+                {projectRow ? (
+                  <Link href={`/dashboard/accounting/reports/projects/${projectRow.id}`} className="hover:text-brand-700 hover:underline">
+                    {projectRow.name}
+                  </Link>
+                ) : (
+                  "عام"
+                )}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-gray-500">الذراع</dt>

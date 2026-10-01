@@ -502,6 +502,8 @@ export type JournalEntry = {
   source_id?: string | null;
   // القيد الذي يعكسه هذا القيد (sql/111)
   reversal_of?: string | null;
+  // المشروع الذي يُحمَّل عليه القيد — فارغ = عام (sql/116)
+  project_id?: string | null;
   // مرتبط (من الربط)
   journal_lines?: JournalLine[];
 };
@@ -727,6 +729,8 @@ export type Payroll = {
   approved_at: string | null;
   approved_by: string | null;
   locked_at: string | null;
+  // المشروع الذي يُحمَّل عليه الراتب — لقطة من مشروع الموظف (sql/116)
+  project_id?: string | null;
 };
 
 // ============================================================
@@ -1516,6 +1520,8 @@ export type CashMove = {
   description: string;
   notes: string | null;
   journal_entry_id: string | null;
+  // المشروع الذي صُرفت له الحركة أو قُبضت منه — فارغ = عام (sql/116)
+  project_id?: string | null;
 };
 
 // ===== المهام اليومية =====

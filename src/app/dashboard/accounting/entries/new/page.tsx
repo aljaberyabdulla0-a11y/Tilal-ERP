@@ -9,13 +9,13 @@ export default async function NewEntryPage() {
   if (!(await canManageFinance())) redirect("/dashboard");
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("accounts")
-    .select("*")
-    .eq("is_active", true)
-    .order("code");
+  const [{ data }, { data: pj }] = await Promise.all([
+    supabase.from("accounts").select("*").eq("is_active", true).order("code"),
+    supabase.from("projects").select("id, name").order("name"),
+  ]);
 
   const accounts = (data ?? []) as Account[];
+  const projects = (pj ?? []) as { id: string; name: string }[];
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -35,7 +35,7 @@ export default async function NewEntryPage() {
             لا توجد حسابات بعد. تأكّد من تشغيل ملف SQL للمحاسبة أولاً.
           </p>
         ) : (
-          <EntryForm accounts={accounts} />
+          <EntryForm accounts={accounts} projects={projects} />
         )}
       </section>
     </main>

@@ -6,6 +6,7 @@ const TABS = [
   { key: "moves", label: "الحركات المالية", href: "/dashboard/accounting/moves" },
   { key: "debts", label: "الديون الخارجية", href: "/dashboard/accounting/debts" },
   { key: "partners", label: "الشركاء والتصفية", href: "/dashboard/accounting/partners" },
+  { key: "projects", label: "حسابات المشاريع", href: "/dashboard/accounting/reports/projects" },
   { key: "profit", label: "ربحية المشاريع", href: "/dashboard/accounting/reports/profitability" },
   { key: "periods", label: "الفترات المحاسبية", href: "/dashboard/accounting/periods" },
   { key: "health", label: "صحّة المحاسبة", href: "/dashboard/accounting/health" },

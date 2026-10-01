@@ -13,6 +13,7 @@ import {
 import PayrollDetail from "@/components/payroll-detail";
 import PayPayroll from "../pay-payroll";
 import DeletePayrollButton from "./delete-payroll-button";
+import ProjectSelect from "@/components/project-select";
 
 // ============================================================
 // كشف راتب واحد — صفحته المستقلّة.
@@ -48,7 +49,7 @@ export default async function PayrollPage({
   if (!data) notFound();
   const p = data as Payroll & { employees?: Partial<Employee> | null };
 
-  const [{ data: lineData }, { data: payData }] = await Promise.all([
+  const [{ data: lineData }, { data: payData }, { data: pjData }] = await Promise.all([
     supabase
       .from("payroll_lines")
       .select("*")
@@ -60,7 +61,9 @@ export default async function PayrollPage({
       .select("*")
       .eq("payroll_id", p.id)
       .order("pay_date", { ascending: false }),
+    supabase.from("projects").select("id, name").order("name"),
   ]);
+  const projects = (pjData ?? []) as { id: string; name: string }[];
 
   const lines = (lineData ?? []) as PayrollLine[];
   const payments = (payData ?? []) as PayrollPayment[];
@@ -83,8 +86,11 @@ export default async function PayrollPage({
             <h1 className="text-xl font-bold text-brand-700">
               كشف {name}
             </h1>
-            <p className="text-sm text-gray-500" dir="ltr">
-              {p.period}
+            <p className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+              <span dir="ltr">{p.period}</span>
+              {/* المشروع الذي يُحمَّل عليه الراتب (sql/116) — لقطة من مشروع الموظف */}
+              <span className="text-xs">· المشروع:</span>
+              <ProjectSelect table="payrolls" rowId={p.id} value={p.project_id ?? null} projects={projects} />
             </p>
           </div>
         </div>

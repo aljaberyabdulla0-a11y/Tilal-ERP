@@ -10,12 +10,19 @@ import { baghdadDate } from "@/lib/time";
 type Line = { account_id: string; debit: string; credit: string };
 
 // نموذج قيد يومية — قوالب جاهزة + محرّر يدوي متوازن (مدين = دائن)
-export default function EntryForm({ accounts }: { accounts: Account[] }) {
+export default function EntryForm({
+  accounts,
+  projects = [],
+}: {
+  accounts: Account[];
+  projects?: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const supabase = createClient();
 
   const [entryDate, setEntryDate] = useState(baghdadDate());
   const [description, setDescription] = useState("");
+  const [projectId, setProjectId] = useState(""); // "" = عام (sql/116)
   const [lines, setLines] = useState<Line[]>([
     { account_id: "", debit: "", credit: "" },
     { account_id: "", debit: "", credit: "" },
@@ -109,6 +116,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
       p_date: entryDate,
       p_description: description.trim(),
       p_reference: null,
+      p_project: projectId || null,
       p_lines: validLines.map((l) => ({
         account_id: l.account_id,
         debit: Number(l.debit) || 0,
@@ -178,7 +186,7 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
 
       {/* رأس القيد */}
       <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
               التاريخ <span className="text-red-500">*</span>
@@ -204,6 +212,21 @@ export default function EntryForm({ accounts }: { accounts: Account[] }) {
               className={inputClass}
               placeholder="وصف العملية"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">المشروع</label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className={inputClass + " bg-white"}
+            >
+              <option value="">عام — على الشركة</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

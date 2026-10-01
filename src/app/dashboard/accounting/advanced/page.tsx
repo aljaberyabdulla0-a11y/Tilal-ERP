@@ -63,6 +63,12 @@ export default async function AdvancedAccounting() {
       icon: "pie_chart",
     },
     {
+      href: "/dashboard/accounting/reports/projects",
+      title: "حسابات المشاريع",
+      desc: "إيراد كل مشروع وصرفياته: رواتب، عمولات، تسويق، أخرى",
+      icon: "domain",
+    },
+    {
       href: "/dashboard/accounting/health",
       title: "صحّة المحاسبة",
       desc: "قيود بلا مصدر، مصادر بلا قيد، ذمم لا تطابق، رواتب قد تتكرّر",

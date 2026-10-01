@@ -21,9 +21,11 @@ import { baghdadDate } from "@/lib/time";
 // ============================================================
 export default function MoveForm({
   partners,
+  projects = [],
   initialDirection = "صرف",
 }: {
   partners: Partner[];
+  projects?: { id: string; name: string }[];
   initialDirection?: MoneyDirection;
 }) {
   const router = useRouter();
@@ -36,6 +38,7 @@ export default function MoveForm({
   const [arm, setArm] = useState<string>("إداري عام");
   const [method, setMethod] = useState<"نقد" | "بنك">("نقد");
   const [payer, setPayer] = useState<string>("company"); // company | معرّف الشريك
+  const [projectId, setProjectId] = useState<string>(""); // "" = عام على الشركة
   const [description, setDescription] = useState("");
   const [moveDate, setMoveDate] = useState(today);
   const [notes, setNotes] = useState("");
@@ -99,6 +102,8 @@ export default function MoveForm({
       arm,
       method,
       partner_id: partnerId,
+      // حركات الشريك (إيداع/سداد) ليست إيراداً ولا مصروفاً — لا مشروع لها
+      project_id: needsPartner ? null : projectId || null,
       description: description.trim(),
       notes: notes.trim() || null,
     });
@@ -214,8 +219,35 @@ export default function MoveForm({
         )}
       </div>
 
-      {/* 4) الذراع ومن دفع */}
+      {/* 4) الذراع والمشروع ومن دفع */}
       <div className="glass-card space-y-5 p-5">
+        {/* المشروع (sql/116): عليه يُحمَّل المصروف أو يُنسب الإيراد في «حسابات المشاريع» */}
+        {!needsPartner && projects.length > 0 && (
+          <div>
+            <p className={label}>{direction === "صرف" ? "على أي مشروع؟" : "من أي مشروع؟"}</p>
+            <div className="flex flex-wrap gap-2">
+              {[{ id: "", name: "عام — على الشركة" }, ...projects].map((p) => (
+                <button
+                  key={p.id || "general"}
+                  type="button"
+                  onClick={() => setProjectId(p.id)}
+                  className={`rounded-lg border px-4 py-2 text-sm transition ${
+                    projectId === p.id
+                      ? "border-brand-500 bg-brand-50 font-semibold text-brand-700"
+                      : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-400">
+              اختر المشروع إن كان المبلغ له (إعلان مشروع، أجور تصوير له…) — فيظهر في حساب المشروع منفصلاً.
+              مصاريف المكتب العامة تبقى «عام».
+            </p>
+          </div>
+        )}
+
         <div>
           <p className={label}>٤. أي ذراع في الشركة؟</p>
           <div className="flex flex-wrap gap-2">

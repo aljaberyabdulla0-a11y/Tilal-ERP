@@ -38,12 +38,16 @@ export default function PayrollDetail({
   paid,
   canEdit,
   canPost,
+  canDelete = false,
 }: {
   payroll: Payroll;
   lines: PayrollLine[];
   paid: number;
   canEdit: boolean;
   canPost: boolean;
+  // حذف المسوّدة من لوحة التعديل — للمدير (sql/106). صفحة الكشف
+  // المستقلّة لها زرّ حذفها في ترويستها فلا تمرّره.
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -54,6 +58,8 @@ export default function PayrollDetail({
   const [form, setForm] = useState({ category: "", description: "", amount: "" });
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ description: "", amount: "" });
+  const [editingSheet, setEditingSheet] = useState(false);
+  const [sheetForm, setSheetForm] = useState({ period: payroll.period, rebuild: true });
 
   const draft = payroll.state === "مسودة";
   const locked = payroll.state === "مقفل";
@@ -62,6 +68,51 @@ export default function PayrollDetail({
   const deductions = lines.filter((l) => l.kind === "استقطاع");
   const gross = sumLines(lines, "استحقاق");
   const totalDed = sumLines(lines, "استقطاع");
+
+  // الأساسي لا يُضاف يدوياً ما دام في الكشف — لكن إن حُذف بقي الكشف
+  // بلا طريقٍ لإعادته إلا إعادة الحساب التي تمسح كل تعديل.
+  const hasBasic = earnings.some((l) => l.category === "راتب أساسي");
+  const earningCategories = hasBasic
+    ? PAYROLL_EARNING_CATEGORIES
+    : ["راتب أساسي", ...PAYROLL_EARNING_CATEGORIES];
+
+  function openSheetEdit() {
+    setAdding(null);
+    setEditing(null);
+    setErr(null);
+    setSheetForm({ period: payroll.period, rebuild: true });
+    setEditingSheet(true);
+  }
+
+  async function saveSheet() {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(sheetForm.period)) {
+      setErr("اختر الشهر.");
+      return;
+    }
+    if (
+      sheetForm.rebuild &&
+      lines.some((l) => l.manual || l.original_amount != null) &&
+      !window.confirm(
+        "إعادة بناء البنود تمسح ما أُضيف أو عُدّل يدوياً في هذا الكشف. متابعة؟"
+      )
+    )
+      return;
+
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("update_payroll_period", {
+      p_id: payroll.id,
+      p_period: sheetForm.period,
+      p_rebuild: sheetForm.rebuild,
+    });
+    setBusy(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    setEditingSheet(false);
+    router.refresh();
+  }
 
   async function call(fn: string, args: Record<string, unknown>, confirm?: string) {
     if (confirm && !window.confirm(confirm)) return;
@@ -285,9 +336,20 @@ export default function PayrollDetail({
           </span>
         )}
 
-        {canPost && (
+        {(canPost || (draft && canEdit)) && (
           <div className="ms-auto flex flex-wrap items-center gap-2">
-            {draft && (
+            {draft && canEdit && !editingSheet && (
+              <button
+                onClick={openSheetEdit}
+                disabled={busy}
+                className="flex items-center gap-1.5 rounded-lg border border-brand-300 bg-brand-50 px-4 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-100 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">edit</span>
+                تعديل الكشف
+              </button>
+            )}
+
+            {canPost && draft && (
               <button
                 onClick={() =>
                   call(
@@ -303,7 +365,7 @@ export default function PayrollDetail({
               </button>
             )}
 
-            {payroll.state === "معتمد" && paid === 0 && (
+            {canPost && payroll.state === "معتمد" && paid === 0 && (
               <button
                 onClick={() =>
                   call(
@@ -323,7 +385,7 @@ export default function PayrollDetail({
               </button>
             )}
 
-            {payroll.state === "معتمد" && (
+            {canPost && payroll.state === "معتمد" && (
               <button
                 onClick={() =>
                   call(
@@ -342,6 +404,80 @@ export default function PayrollDetail({
         )}
       </div>
 
+      {/* ===== لوحة تعديل الكشف: شهره، وإعادة بناء بنوده، وحذفه ===== */}
+      {editingSheet && (
+        <div className="mx-5 mt-4 rounded-xl border border-brand-200 bg-brand-50/40 p-4">
+          <h4 className="mb-3 text-sm font-semibold text-gray-700">تعديل الكشف</h4>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-xs text-gray-500">شهر الكشف</label>
+              <input
+                type="month"
+                dir="ltr"
+                value={sheetForm.period}
+                onChange={(e) => setSheetForm({ ...sheetForm, period: e.target.value })}
+                className={input + " text-start"}
+              />
+            </div>
+
+            <label className="flex max-w-md items-start gap-2 pb-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={sheetForm.rebuild}
+                onChange={(e) => setSheetForm({ ...sheetForm, rebuild: e.target.checked })}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+              />
+              <span>
+                أعد بناء البنود لهذا الشهر
+                <span className="block text-[11px] text-gray-400">
+                  الدوام والإجازات والأقساط تُحسب للشهر الجديد — وتُمسح البنود اليدوية
+                  والتعديلات. بدونه يتغيّر الشهر وحده وتبقى البنود كما هي.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              onClick={saveSheet}
+              disabled={busy}
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+            >
+              {busy ? "جارٍ…" : "حفظ"}
+            </button>
+            <button
+              onClick={() => setEditingSheet(false)}
+              disabled={busy}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+            >
+              إلغاء
+            </button>
+
+            {canDelete && (
+              <button
+                onClick={() =>
+                  call(
+                    "delete_payroll",
+                    { p_id: payroll.id },
+                    `حذف كشف ${payroll.period} نهائياً؟ تعود عمولاته واستقطاعاته حرّةً لكشفٍ قادم.`
+                  )
+                }
+                disabled={busy}
+                className="ms-auto flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">delete</span>
+                حذف الكشف
+              </button>
+            )}
+          </div>
+
+          <p className="mt-3 text-[11px] text-gray-400">
+            مبالغ البنود ووصفها تُعدَّل من أيقونة ✎ بجانب كل بند، وتُضاف من «+ إضافة» تحت كل عمود.
+          </p>
+        </div>
+      )}
+
       {/* ===== البنود ===== */}
       <div className="grid grid-cols-1 gap-x-8 px-5 py-4 md:grid-cols-2">
         <div>
@@ -359,7 +495,7 @@ export default function PayrollDetail({
               onClick={() => {
                 setEditing(null);
                 setAdding("استحقاق");
-                setForm({ category: "بدل", description: "", amount: "" });
+                setForm({ category: hasBasic ? "بدل" : "راتب أساسي", description: "", amount: "" });
                 setErr(null);
               }}
               className="mt-2 text-xs font-medium text-brand-600 hover:underline"
@@ -408,7 +544,7 @@ export default function PayrollDetail({
               className={input}
             >
               {(adding === "استحقاق"
-                ? PAYROLL_EARNING_CATEGORIES
+                ? earningCategories
                 : PAYROLL_DEDUCTION_CATEGORIES
               ).map((c) => (
                 <option key={c} value={c}>

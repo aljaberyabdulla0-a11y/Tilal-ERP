@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canManageFinance, canManageHr } from "@/lib/auth";
+import { canManageFinance, canManageHr, isAdmin } from "@/lib/auth";
 import {
   Employee,
   Commission,
@@ -36,7 +36,11 @@ export default async function EmployeeDetailsPage({
 }: {
   params: { id: string };
 }) {
-  const [hrCan, finCan] = await Promise.all([canManageHr(), canManageFinance()]);
+  const [hrCan, finCan, admin] = await Promise.all([
+    canManageHr(),
+    canManageFinance(),
+    isAdmin(),
+  ]);
   if (!hrCan) redirect("/dashboard");
 
   const supabase = await createClient();
@@ -113,9 +117,10 @@ export default async function EmployeeDetailsPage({
   const linesOf = (payrollId: string) =>
     allLines.filter((l) => l.payroll_id === payrollId);
 
-  // المسوّدة القائمة (إن وُجدت) تُعرض مفتوحة بتفاصيلها، وبقيّة
-  // الكشوف في جدول — لأن المسوّدة هي ما يُعمل عليه الآن.
-  const draft = payrolls.find((p) => p.state === "مسودة") ?? null;
+  // المسوّدات تُعرض مفتوحة بتفاصيلها، وبقيّة الكشوف في جدول — لأن
+  // المسوّدة هي ما يُعمل عليه الآن. ⚠️ كلّها لا أولاها: مسوّدتان لشهرين
+  // كانت تُخفي إحداهما (الأحدث تُعرض والأقدم لا هنا ولا في الجدول).
+  const drafts = payrolls.filter((p) => p.state === "مسودة");
   const settled = payrolls.filter((p) => p.state !== "مسودة");
   const draftPeriods = payrolls
     .filter((p) => p.state === "مسودة")
@@ -323,20 +328,21 @@ export default async function EmployeeDetailsPage({
             <GeneratePayroll employeeId={emp.id} draftPeriods={draftPeriods} />
           </div>
 
-          {/* المسوّدة القائمة مفتوحة ببنودها — هي ما يُعمل عليه الآن */}
-          {draft && (
-            <div className="mb-5">
+          {/* المسوّدات مفتوحة ببنودها — هي ما يُعمل عليه الآن */}
+          {drafts.map((d) => (
+            <div key={d.id} className="mb-5">
               <PayrollDetail
-                payroll={draft}
-                lines={linesOf(draft.id)}
-                paid={paidOf(draft.id)}
+                payroll={d}
+                lines={linesOf(d.id)}
+                paid={paidOf(d.id)}
                 canEdit={hrCan}
                 canPost={finCan}
+                canDelete={admin}
               />
             </div>
-          )}
+          ))}
 
-          {settled.length === 0 && !draft ? (
+          {settled.length === 0 && drafts.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد كشوف رواتب.</p>
           ) : (
             <div className="overflow-x-auto">

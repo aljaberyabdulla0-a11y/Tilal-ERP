@@ -670,9 +670,9 @@ export type Commission = {
   // الفاتورة التي استحقّت عنها — فريدة، فلا تتكرّر العمولة (sql/046)
   invoice_id: string | null;
   auto: boolean;             // أنشأها النظام لا موظف بيده
-  // ===== متى تصير قابلة للدفع (sql/056) =====
-  // فارغ = استُحقّت للموظف ولم تقبض تلال عمولتها من المطوّر بعد،
-  // فلا تدخل كشف راتب. «لا أدفع عمولة من جيبي على مال لم يصلني».
+  // ===== متى تصير قابلة للدفع (sql/056، 120) =====
+  // عمولة البيع: يوم تأكيد المقدمة (120 — كانت تنتظر التحصيل من
+  // المطوّر). فارغ = لا تدخل كشف راتب بعد.
   payable_at: string | null;
 };
 
@@ -683,7 +683,7 @@ export function commissionStage(c: Pick<Commission, "payable_at" | "payroll_id">
   if (c.payable_at)
     return { label: "جاهزة للكشف القادم", color: "bg-blue-100 text-blue-700" };
   return {
-    label: "مستحقّة — بانتظار تحصيل الشركة",
+    label: "مستحقّة — لم تُجدوَل للدفع",
     color: "bg-amber-100 text-amber-700",
   };
 }
@@ -2472,6 +2472,7 @@ export const UNIT_EVENT_ICONS: Record<string, string> = {
   "رفض بيع": "cancel",
   "فاتورة": "receipt_long",
   "دفعة": "payments",
+  "موظف البيع": "badge",
 };
 
 export type UnitFinance = {

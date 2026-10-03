@@ -23,7 +23,10 @@ import {
 //                        وعمولة الموظف   (مدين 5500 / دائن 2300)
 //   ٢) فاتورة العمولة للمطوّر → ورقةٌ يحوّل عليها، بلا قيد (sql/103)
 //   ٣) تحصيلها من المطوّر → مدين 1100 / دائن 1250، وعلى الفاتورة وحدها
-//      وعندها فقط تدخل عمولة الموظف كشف راتبه.
+//
+// وعمولة الموظف مستحقّة الدفع من يوم تأكيد المقدمة — تدخل كشف راتبه
+// تلقائياً ولا تنتظر التحصيل (sql/120). وموظف البيع يعيّنه المدير من
+// هنا؛ تغييره يعيد حساب العمولة بقاعدة الموظف الجديد.
 //
 // كلّها بدوالّ في القاعدة تفحص الصلاحية وتكتب — لا حساب هنا ولا
 // كتابة في الدفاتر من المتصفّح.
@@ -38,6 +41,8 @@ export default function DealCommission({
   unitPrice,
   canManage,
   canFinance,
+  canAssign,
+  salesEmployees,
   developerInvoice,
   suggestedDeveloper,
 }: {
@@ -46,6 +51,8 @@ export default function DealCommission({
   unitPrice: number | null; // سعر القائمة إن وُجد — يُقترح ولا يُفرض
   canManage: boolean;   // المدير أو مشرف المشروع — يؤكّد المقدمة
   canFinance: boolean;  // المدير أو المحاسب — يُصدر الفاتورة ويسجّل التحصيل
+  canAssign: boolean;   // المدير — يعيّن موظف البيع
+  salesEmployees: { id: string; full_name: string }[]; // للمدير وحده
   developerInvoice: DeveloperInvoice | null; // الفاتورة السارية إن وُجدت
   suggestedDeveloper: string; // آخر مطوّر فُوتر في المشروع نفسه
 }) {
@@ -61,6 +68,9 @@ export default function DealCommission({
   const [developer, setDeveloper] = useState(suggestedDeveloper);
   const [dueDate, setDueDate] = useState("");
   const [invNotes, setInvNotes] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [empPick, setEmpPick] = useState("");
+  const [assignNote, setAssignNote] = useState<string | null>(null);
 
   const r = reservation;
   const sc = saleCommission;
@@ -101,6 +111,36 @@ export default function DealCommission({
     setAsking(false);
     setAmount("");
     setPrice("");
+    router.refresh();
+  }
+
+  // موظف البيع: صاحب العمولة إن حُسبت، وإلا المسؤول عن الحجز
+  const sellerId = sc?.employee_id ?? r.agent_id;
+  const sellerName =
+    salesEmployees.find((e) => e.id === sellerId)?.full_name ??
+    (sellerId === r.agent_id ? r.agent_name : null);
+
+  async function assignEmployee() {
+    if (!empPick) {
+      setErr("اختر موظف البيع.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    const { data, error } = await supabase.rpc("set_sale_employee", {
+      p_res: r.id,
+      p_employee: empPick,
+    });
+    setBusy(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    const res = data as { changed: boolean; old?: string; new?: string };
+    setAssignNote(
+      res.changed ? `${res.new ?? ""}${res.old ? ` · ${res.old}` : ""}` : null,
+    );
+    setAssigning(false);
     router.refresh();
   }
 
@@ -167,7 +207,7 @@ export default function DealCommission({
   async function collect() {
     if (
       !window.confirm(
-        `تسجيل تحصيل الفاتورة ${inv?.invoice_number ?? ""} من المطوّر؟ سيدخل المبلغ الصندوق، وتصير عمولة الموظف جاهزة لكشف راتبه.`
+        `تسجيل تحصيل الفاتورة ${inv?.invoice_number ?? ""} من المطوّر؟ سيدخل المبلغ الصندوق.`
       )
     )
       return;
@@ -251,6 +291,88 @@ export default function DealCommission({
           </div>
         )}
 
+        {/* موظف البيع — صاحب عمولة البيع المباشرة (sql/120) */}
+        <div className="rounded-lg border border-gray-200 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-xs text-gray-500">موظف البيع</span>{" "}
+              <b className="text-sm text-gray-800">{sellerName ?? "— لم يُعيَّن"}</b>
+              {sc && sc.employee_amount > 0 && (
+                <span className="text-xs text-gray-500">
+                  {" "}
+                  · عمولته <b dir="ltr">{formatPrice(sc.employee_amount)}</b>
+                  {sc.employee_basis && (
+                    <span className="text-gray-400"> ({sc.employee_basis})</span>
+                  )}
+                </span>
+              )}
+              {sc && sellerId && sc.employee_amount <= 0 && (
+                <span className="text-xs text-amber-700">
+                  {" "}
+                  · لا قاعدة عمولة تنطبق عليه — راجع قواعد العمولات
+                </span>
+              )}
+            </div>
+            {canAssign && !assigning && (
+              <button
+                onClick={() => {
+                  setAssigning(true);
+                  setEmpPick(sellerId ?? "");
+                  setErr(null);
+                  setAssignNote(null);
+                }}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+              >
+                {sellerId ? "تغيير" : "تعيين"}
+              </button>
+            )}
+          </div>
+
+          {assigning && (
+            <div className="mt-2 space-y-2">
+              <div className="flex flex-wrap items-end gap-2">
+                <select
+                  value={empPick}
+                  onChange={(e) => setEmpPick(e.target.value)}
+                  autoFocus
+                  className={input + " w-64"}
+                >
+                  <option value="">اختر الموظف…</option>
+                  {salesEmployees.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.full_name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={assignEmployee}
+                  disabled={busy}
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-50"
+                >
+                  {busy ? "جارٍ…" : "حفظ"}
+                </button>
+                <button
+                  onClick={() => setAssigning(false)}
+                  disabled={busy}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100"
+                >
+                  إلغاء
+                </button>
+              </div>
+              <p className="text-[11px] leading-relaxed text-gray-400">
+                تُحسب عمولته بقاعدته على سعر البيع المجمَّد
+                {confirmed
+                  ? "، وتدخل كشف راتبه مستحقّةً من تاريخ تأكيد المقدمة. وعمولة السابق تُسحب من كشفه — أو تُسترد في كشفه القادم إن كان معتمداً."
+                  : "، وتُستحقّ عند تأكيد المقدمة."}
+              </p>
+            </div>
+          )}
+
+          {assignNote && (
+            <p className="mt-2 text-xs text-green-700">✓ {assignNote}</p>
+          )}
+        </div>
+
         <Step n={1} title="تأكيد المقدمة" done={confirmed}>
           {confirmed ? (
             <>
@@ -275,7 +397,8 @@ export default function DealCommission({
                     <>
                       {" "}
                       · وعمولة الموظف{" "}
-                      <b dir="ltr">{formatPrice(sc.employee_amount)}</b>
+                      <b dir="ltr">{formatPrice(sc.employee_amount)}</b> — تدخل
+                      كشف راتبه من هذا التاريخ
                     </>
                   )}
                 </p>
@@ -520,9 +643,6 @@ export default function DealCommission({
               <span className="text-xs text-gray-400" dir="ltr">
                 {sc?.collected_at}
               </span>
-              <p className="mt-1 text-xs text-green-700">
-                ✓ وعمولة الموظف صارت جاهزة لكشف راتبه.
-              </p>
             </>
           ) : !confirmed ? (
             <span className="text-xs text-gray-400">

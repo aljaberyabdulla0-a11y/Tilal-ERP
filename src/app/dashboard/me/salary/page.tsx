@@ -178,8 +178,8 @@ export default async function MySalaryPage() {
           <h3 className="mb-1 text-lg font-semibold text-gray-800">عمولاتي</h3>
           {/* الموظف يسأل: «أين عمولتي؟» — والشارة تُجيب بلا مراجعة أحد */}
           <p className="mb-3 text-xs text-gray-400">
-            العمولة تُستحقّ لك عند تأكيد مقدمة الصفقة، وتدخل كشف راتبك بعد أن
-            تُحصّل الشركة عمولتها من المطوّر.
+            العمولة تُستحقّ لك عند تأكيد مقدمة الصفقة، وتدخل كشف راتب ذلك
+            الشهر تلقائياً.
           </p>
           {commissions.length === 0 ? (
             <p className="text-sm text-gray-400">لا توجد عمولات.</p>

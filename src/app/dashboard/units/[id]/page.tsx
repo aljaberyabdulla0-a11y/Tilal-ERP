@@ -100,6 +100,20 @@ export default async function UnitDetailsPage({
     : { data: null };
   const saleCommission = (scData as SaleCommission) ?? null;
 
+  // موظف البيع: المدير يعيّنه من هنا فتُحسب عمولته وتدخل كشفه (sql/120)
+  const { data: empData } =
+    sold && admin
+      ? await supabase
+          .from("employees")
+          .select("id, full_name, status")
+          .order("full_name")
+      : { data: null };
+  const salesEmployees = (
+    (empData ?? []) as { id: string; full_name: string; status: string }[]
+  ).filter(
+    (e) => e.status === "active" || e.id === saleCommission?.employee_id || e.id === sold?.agent_id,
+  );
+
   // فاتورة العمولة على المطوّر (sql/103) — يراها من يحصّل وحده. ويُقترح
   // اسم المطوّر من آخر فاتورة في المشروع نفسه، فلا يُكتب كل مرة.
   const canFinance = await canManageFinance();
@@ -259,6 +273,8 @@ export default async function UnitDetailsPage({
             unitPrice={unit.price}
             canManage={canEdit}
             canFinance={canFinance}
+            canAssign={admin}
+            salesEmployees={salesEmployees}
             developerInvoice={developerInvoice}
             suggestedDeveloper={suggestedDeveloper}
           />

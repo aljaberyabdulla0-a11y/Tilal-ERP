@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 export default function GeneratePayroll({
   employeeId,
   draftPeriods,
+  hireDate = null,
 }: {
   employeeId: string;
   // الشهور التي للموظف فيها مسوّدة — يتغيّر بها نصّ الزرّ حتى لا
@@ -32,6 +33,8 @@ export default function GeneratePayroll({
   //    دالّة هنا كان يُسقط الصفحة كلها عند التشغيل، ولا يكشفه
   //    البناء لأنه خطأ نقلٍ لا خطأ أنواع.
   draftPeriods: string[];
+  // لا كشف لشهرٍ قبل المباشرة، وشهر المباشرة يُجزَّأ أساسيّه (sql/119)
+  hireDate?: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -41,7 +44,10 @@ export default function GeneratePayroll({
     .toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" })
     .slice(0, 7);
 
-  const [period, setPeriod] = useState(thisMonth);
+  const hireMonth = hireDate ? hireDate.slice(0, 7) : undefined;
+  const [period, setPeriod] = useState(
+    hireMonth && hireMonth > thisMonth ? hireMonth : thisMonth
+  );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -74,6 +80,7 @@ export default function GeneratePayroll({
             type="month"
             dir="ltr"
             value={period}
+            min={hireMonth}
             onChange={(e) => setPeriod(e.target.value)}
             className={cls + " text-start"}
           />
@@ -102,6 +109,13 @@ export default function GeneratePayroll({
       <p className="mt-2 text-xs text-gray-400">
         يُبنى الكشف <b>مسوّدة</b>: الأساسي من ملفّ الموظف، وكل عمولة واستقطاع
         لم يدخل كشفاً بعد — بنداً بنداً. ولا يدخل دفاتر الشركة حتى تعتمده.
+        {hireDate && (
+          <>
+            {" "}
+            الراتب من تاريخ المباشرة <b dir="ltr">{hireDate}</b>: شهرها يُحسب بأيامه فقط،
+            ولا كشف لما قبله.
+          </>
+        )}
       </p>
     </div>
   );

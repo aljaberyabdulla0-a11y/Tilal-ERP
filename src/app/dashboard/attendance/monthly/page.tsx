@@ -10,6 +10,7 @@ import {
   formatDuration,
   formatDurationShort,
   monthRange,
+  serviceOf,
 } from "@/lib/attendance";
 import AttendanceTabs from "../attendance-tabs";
 
@@ -61,7 +62,8 @@ export default async function MonthlyAttendancePage({
       leaves.filter((l) => l.employee_id === e.id),
       schedule,
       undefined,
-      e.exempt_from_attendance
+      e.exempt_from_attendance,
+      serviceOf(e)
     );
     return { employee: e, summary, schedule };
   });

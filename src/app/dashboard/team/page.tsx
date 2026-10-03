@@ -199,7 +199,8 @@ export default async function TeamPage() {
                     [],
                     schedule,
                     today,
-                    m.exempt_from_attendance
+                    m.exempt_from_attendance,
+                    { start: m.hire_date, end: null }
                   );
                   const lastContact = mine
                     .map((c) => c.last_contact_at)

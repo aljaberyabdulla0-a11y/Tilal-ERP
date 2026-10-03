@@ -325,7 +325,11 @@ export default async function EmployeeDetailsPage({
             كاملاً أو على دفعات.
           </p>
           <div className="mb-4">
-            <GeneratePayroll employeeId={emp.id} draftPeriods={draftPeriods} />
+            <GeneratePayroll
+              employeeId={emp.id}
+              draftPeriods={draftPeriods}
+              hireDate={emp.hire_date}
+            />
           </div>
 
           {/* المسوّدات مفتوحة ببنودها — هي ما يُعمل عليه الآن */}

@@ -17,6 +17,7 @@ import {
   formatDuration,
   formatDurationShort,
   monthRange,
+  serviceOf,
   todayISO,
   weekdayName,
 } from "@/lib/attendance";
@@ -72,7 +73,8 @@ export default async function EmployeeAttendancePage({
     (lData ?? []) as Leave[],
     schedule,
     today,
-    employee.exempt_from_attendance
+    employee.exempt_from_attendance,
+    serviceOf(employee)
   );
 
   const kpi = "rounded-2xl border bg-white p-5 shadow-sm";

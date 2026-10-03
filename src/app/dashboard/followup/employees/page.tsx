@@ -95,7 +95,9 @@ export default async function FollowupEmployeesPage() {
       myLeaves,
       effectiveSchedule(m, settings),
       today,
-      m.exempt_from_attendance ?? false
+      m.exempt_from_attendance ?? false,
+      // team_members لا تحمل end_date — والصفحة للنشطين اليوم أصلاً
+      { start: m.hire_date, end: null }
     );
     const myTasks = m.user_id
       ? tasks.filter((t) => t.assigned_to === m.user_id && isOpenTask(t.status))

@@ -19,6 +19,7 @@ import {
   formatDurationShort,
   formatDuration,
   isWorkDay,
+  serviceOf,
   todayISO,
   weekdayName,
 } from "@/lib/attendance";
@@ -75,7 +76,8 @@ export default async function AttendanceTodayPage({
         empLeaves,
         schedule,
         today,
-        e.exempt_from_attendance
+        e.exempt_from_attendance,
+        serviceOf(e)
       ),
     };
   });

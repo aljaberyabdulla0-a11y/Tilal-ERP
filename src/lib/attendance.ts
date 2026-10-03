@@ -96,6 +96,23 @@ export function isWorkDay(dateISO: string, schedule: Schedule): boolean {
   return schedule.days.includes(baghdadWeekday(dateISO));
 }
 
+// ===== مدة الخدمة =====
+// ما قبل المباشرة وما بعد نهاية الخدمة ليس يوم دوام ولا غياباً —
+// كما تحسبه attendance_deductions في القاعدة (sql/119).
+export type Service = { start: string | null; end: string | null };
+
+export function serviceOf(
+  employee: Pick<Employee, "hire_date" | "end_date"> | null | undefined
+): Service {
+  return { start: employee?.hire_date ?? null, end: employee?.end_date ?? null };
+}
+
+function outOfService(date: string, service?: Service): "before" | "after" | null {
+  if (service?.start && date < service.start) return "before";
+  if (service?.end && date > service.end) return "after";
+  return null;
+}
+
 // ===== أدوات الوقت =====
 
 // "09:00:00" → عدد الدقائق من منتصف الليل
@@ -140,7 +157,8 @@ export type DayStatusKey =
   | "leave"         // إجازة معتمدة
   | "absent"        // يوم دوام بلا بصمة
   | "exempt"        // معفى من البصمة (الإدارة)
-  | "off";          // عطلة أسبوعية
+  | "off"           // عطلة أسبوعية
+  | "out_of_service"; // قبل المباشرة أو بعد نهاية الخدمة
 
 export type DayResult = {
   date: string;
@@ -162,6 +180,7 @@ const STATUS_META: Record<DayStatusKey, { label: string; color: string }> = {
   absent: { label: "غياب", color: "bg-red-100 text-red-700" },
   exempt: { label: "معفى من البصمة", color: "bg-slate-100 text-slate-600" },
   off: { label: "عطلة", color: "bg-gray-100 text-gray-500" },
+  out_of_service: { label: "قبل المباشرة", color: "bg-gray-50 text-gray-400" },
 };
 
 // هل تغطّي هذه الإجازة المعتمدة هذا اليوم؟
@@ -181,7 +200,8 @@ export function evaluateDay(
   leaves: Leave[],
   schedule: Schedule,
   today = todayISO(),
-  exempt = false
+  exempt = false,
+  service?: Service
 ): DayResult {
   const startM = timeToMinutes(schedule.start) ?? 9 * 60;
   const endM = timeToMinutes(schedule.end) ?? 17 * 60;
@@ -203,9 +223,11 @@ export function evaluateDay(
 
   const leave = leaveCovering(date, leaves);
   const workDay = isWorkDay(date, schedule);
+  const outside = outOfService(date, service);
 
   let status: DayStatusKey;
-  if (record?.check_in && record?.check_out) status = "complete";
+  if (outside) status = "out_of_service";
+  else if (record?.check_in && record?.check_out) status = "complete";
   else if (record?.check_in) status = date === today ? "working" : "missing_out";
   else if (leave) status = "leave";
   else if (!workDay) status = "off";
@@ -217,7 +239,7 @@ export function evaluateDay(
     date,
     record,
     status,
-    statusLabel: STATUS_META[status].label,
+    statusLabel: outside === "after" ? "بعد نهاية الخدمة" : STATUS_META[status].label,
     statusColor: STATUS_META[status].color,
     workedMinutes: worked,
     lateMinutes,
@@ -258,6 +280,8 @@ export function summarizePeriod(days: DayResult[]): PeriodSummary {
   };
 
   for (const d of days) {
+    // خارج مدة الخدمة لا يُعدّ في شيء — لا حضور ولا غياب ولا يوم دوام
+    if (d.status === "out_of_service") continue;
     if (d.status !== "off" && d.status !== "exempt") s.workDays++;
     if (d.record?.check_in) s.presentDays++;
     if (d.status === "complete") s.completeDays++;
@@ -285,14 +309,15 @@ export function buildMonth(
   leaves: Leave[],
   schedule: Schedule,
   today = todayISO(),
-  exempt = false
+  exempt = false,
+  service?: Service
 ): { days: DayResult[]; summary: PeriodSummary } {
   const byDate = new Map(records.map((r) => [r.work_date, r]));
   // لا نحاسب على أيام لم تأتِ بعد
   const days = daysOfMonth(month)
     .filter((d) => d <= today)
     .map((d) =>
-      evaluateDay(d, byDate.get(d) ?? null, leaves, schedule, today, exempt)
+      evaluateDay(d, byDate.get(d) ?? null, leaves, schedule, today, exempt, service)
     );
 
   return { days, summary: summarizePeriod(days) };

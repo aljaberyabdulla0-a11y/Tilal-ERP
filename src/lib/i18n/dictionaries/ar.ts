@@ -63,6 +63,7 @@ const ar = {
     roleRm: "مدير علاقات",
     roleBroker: "شركة وسيطة",
     roleMarketing: "تسويق",
+    marketing: "التسويق",
     roleViewer: "مُطالِع",
     roleEmployee: "موظف",
     language: "اللغة",

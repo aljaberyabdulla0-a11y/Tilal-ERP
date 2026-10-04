@@ -194,3 +194,43 @@ export const canManageInventory = cache(async (): Promise<boolean> => {
   const role = await getUserRole();
   return role === "admin" || role === "followup_manager";
 });
+
+// ============================================================
+// قسم التسويق (sql/121).
+//
+// الدخول بالدور `marketing` أو بعضوية فريق التسويق (mkt_team) على ملفّ
+// الموظف — فمصمّمٌ بدور `employee` يدخل القسم بلا تغيير دوره. والدور
+// الوظيفي يُقرأ من القاعدة (my_mkt_role) لا من الجلسة.
+//
+// ⚠️ الأربع تطابق can_read_marketing() و can_write_marketing() و
+//    is_marketing_manager() و can_read_marketing_money() حرفياً.
+// ============================================================
+export const getMyMktRole = cache(async (): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_mkt_role");
+  if (error) return null; // قبل 121 لا فريق
+  return (data as string | null) ?? null;
+});
+
+export const canReadMarketing = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  if (role === "admin" || role === "marketing" || role === "viewer") return true;
+  return (await getMyMktRole()) !== null;
+});
+
+export const canWriteMarketing = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  if (role === "admin" || role === "marketing") return true;
+  return (await getMyMktRole()) !== null;
+});
+
+export const isMarketingManager = cache(async (): Promise<boolean> => {
+  if ((await getUserRole()) === "admin") return true;
+  return (await getMyMktRole()) === "مدير التسويق";
+});
+
+// أرقام التسويق المالية: القسم نفسه والمحاسب (يدفع المصروف)
+export const canReadMarketingMoney = cache(async (): Promise<boolean> => {
+  if ((await getUserRole()) === "accountant") return true;
+  return canReadMarketing();
+});

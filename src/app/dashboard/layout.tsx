@@ -1,4 +1,4 @@
-import { getCurrentUser, getUserRole, isAccountActive } from "@/lib/auth";
+import { getCurrentUser, getMyMktRole, getUserRole, isAccountActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import AppShell, { NavItem } from "./app-shell";
 import ChatWidget from "@/components/chat-widget";
@@ -47,10 +47,11 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // الثلاثة مخزّنة لكل طلب، فلا تكلّف رحلات شبكة إضافية
-  const [user, role, active] = await Promise.all([
+  const [user, role, active, mktRole] = await Promise.all([
     getCurrentUser(),
     getUserRole(),
     isAccountActive(),
+    getMyMktRole(),
   ]);
   const t = getT();
 
@@ -97,6 +98,14 @@ export default async function DashboardLayout({
 
   // ⚠️ تطابق can_manage_finance() في القاعدة.
   const finance = admin || accountant;
+
+  // قسم التسويق (sql/121): المدير والتسويق والمُطالِع، وأعضاء فريق التسويق
+  // بأيّ دور — يطابق can_read_marketing(). المحاسب يدخل مصروفاته من
+  // بوابة المالية لا من هنا.
+  const marketingNav: NavItem = {
+    href: "/dashboard/marketing", label: t.nav.marketing, icon: "campaign", prefixes: ["/dashboard/marketing"],
+  };
+  const seesMarketing = admin || mktRole !== null;
 
   // ============================================================
   // الشركة الوسيطة: قائمة مستقلة تماماً.
@@ -158,6 +167,7 @@ export default async function DashboardLayout({
   if (readOnlyCrm) {
     const readOnlyNav: NavItem[] = [
       { href: "/dashboard", label: t.nav.dashboard, icon: "dashboard", prefixes: ["/dashboard"], exact: true },
+      marketingNav,
       {
         // التسويق يدخل على «نظرة»: لا شاشات أشخاص في قائمته (092)
         href: marketing ? "/dashboard/crm/overview" : "/dashboard/crm",
@@ -239,6 +249,9 @@ export default async function DashboardLayout({
       badge: "chat",
     },
 
+    // التسويق: للمدير ولمن ضُمّ إلى فريق التسويق
+    ...(seesMarketing ? [marketingNav] : []),
+
     // فريقي — للمشرف وحده (المدير عنده شاشات الإدارة الكاملة)
     ...(supervisor
       ? [{ href: "/dashboard/team", label: t.nav.myTeam, icon: "supervisor_account", prefixes: ["/dashboard/team"] }]
@@ -269,7 +282,7 @@ export default async function DashboardLayout({
             "/dashboard/accounting",
             // الرواتب باب من أبواب المال عند المحاسب، فيُضاء البند
             // معه وهو داخلها — وإلا بدا وكأنه خرج من قائمته.
-            ...(accountant ? ["/dashboard/hr/payroll", "/dashboard/hr/month-close"] : []),
+            ...(accountant ? ["/dashboard/hr/payroll", "/dashboard/hr/month-close", "/dashboard/marketing"] : []),
           ],
         }]
       : []),

@@ -64,6 +64,9 @@ export default async function FinanceHome() {
   let payrollDue = 0;
   let draftPayrolls = 0;
   let approvedPayrolls = 0;
+  // مصروفات التسويق المعتمدة بانتظار الدفع (sql/122) — الدفع من المالية
+  let mktAwaiting = 0;
+  let mktAwaitingAmount = 0;
 
   if (fin) {
     const [{ data: comms }, { data: sales }, money, drafts, approved] =
@@ -86,6 +89,9 @@ export default async function FinanceHome() {
     ]);
 
     draftPayrolls = drafts.count ?? 0;
+    const { data: mkt } = await supabase.from("mkt_expenses").select("amount_iqd").eq("status", "معتمد");
+    mktAwaiting = (mkt ?? []).length;
+    mktAwaitingAmount = (mkt ?? []).reduce((s: number, e: { amount_iqd: number }) => s + Number(e.amount_iqd), 0);
     approvedPayrolls = approved.count ?? 0;
 
     pendingCommissions = (comms ?? []).reduce(
@@ -180,6 +186,24 @@ export default async function FinanceHome() {
                 label: "معتمدة ولم تُدفع كاملةً",
                 value: String(approvedPayrolls),
                 tone: approvedPayrolls > 0 ? "text-brand-700" : "text-gray-600",
+              },
+            ],
+          },
+          {
+            href: "/dashboard/marketing/expenses?status=معتمد",
+            title: "مصروفات التسويق",
+            desc: "ما اعتمده التسويق بانتظار دفعك — يُرحَّل على 5700 عند الدفع.",
+            icon: "campaign",
+            stats: [
+              {
+                label: "معتمدة بانتظار الدفع",
+                value: String(mktAwaiting),
+                tone: mktAwaiting > 0 ? "text-amber-700" : "text-green-700",
+              },
+              {
+                label: "مبلغها",
+                value: formatPrice(mktAwaitingAmount),
+                tone: mktAwaitingAmount > 0 ? "text-amber-700" : "text-gray-600",
               },
             ],
           },

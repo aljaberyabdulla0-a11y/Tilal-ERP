@@ -40,11 +40,15 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isLoginPage = path.startsWith("/login");
   // صفحات عامة لا تتطلب تسجيل دخول (الدخول والاستعادة)
+  // + /r/ (تتبّع النقر ومسح QR) و /f/ (نموذج صفحة الهبوط) — للزائر لا
+  //   للموظف. لا تقرآن جدولاً: أربع دوالّ anon محدودة (sql/124).
   const isPublic =
     isLoginPage ||
     path.startsWith("/forgot-password") ||
     path.startsWith("/reset-password") ||
-    path.startsWith("/auth");
+    path.startsWith("/auth") ||
+    path.startsWith("/r/") ||
+    path.startsWith("/f/");
 
   // غير مسجل دخول + يحاول دخول صفحة محمية → إعادة توجيه لصفحة الدخول
   if (!user && !isPublic) {

@@ -21,6 +21,7 @@ import StageSelect from "@/components/stage-select";
 import ReserveUnit from "./reserve-unit";
 import CrmInsights from "@/components/crm-insights";
 import CrmHistory from "@/components/crm-history";
+import ClientTouchpoints from "@/components/marketing/client-touchpoints";
 import { getPipelineConfig } from "@/lib/crm-config";
 import QualificationPanel from "./qualification-panel";
 import NewOpportunity from "./new-opportunity";
@@ -431,6 +432,7 @@ function buildTabs(a: TabArgs): ClientTab[] {
       content: (
         <div className="mx-auto max-w-3xl">
           <CrmHistory clientId={c.id} />
+          <ClientTouchpoints clientId={c.id} canWrite={canWrite} />
         </div>
       ),
     },

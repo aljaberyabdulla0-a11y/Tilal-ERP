@@ -1,123 +1,20 @@
 -- ============================================================
--- تلال ERP — 141: ذكاء الخسائر — «لماذا نخسر المبيعات؟»
+-- تلال ERP — 144: إصلاح ثانٍ لـ crm_lost_intelligence (141/143)
 -- انسخ هذا الملف كاملاً والصقه في: Supabase ← SQL Editor ← New query ← Run
 --
--- ============================================================
--- دالة واحدة لكل التقارير: crm_lost_intelligence(مُرشِّحات)
+-- كشفه tests.run_lost_sales() على القاعدة الحيّة بعد 143 (الاختبارات ٢٧–٣٠ و٣٣):
+-- التقرير لا يعدّ إلا الخسائر «بلا تحليل».
 --
--- لماذا واحدة: المؤشّرات والتفصيل والاتجاه والرؤى يجب أن تُقرأ من
--- نفس المجموعة بنفس المُرشِّحات. عشر دوال تعني عشر فرصٍ لأن يختلف
--- رقمان في الشاشة نفسها — وقد حدث ذلك في «معدّل الإغلاق» قبل 076.
+-- السبب: علَم مُرشِّح «بلا تحليل» كان
+--     f_cat_none := f->>'category_id' = 'none'
+-- وبلا مُرشِّح يكون الطرف الأيسر null فالعلَم null لا false. والشرط
+--     (not f_cat_none or outcome <> 'lost' or category_id is null)
+-- يصير null لكل خسارة لها فئة — فتسقط من التقرير كله. على الحيّة:
+-- ٣٢٤ خسارة ظاهرة من ٣٣٢، والثماني المحلَّلة غائبة.
 --
--- ============================================================
--- التعريفات الملزمة
---
---   المجموعة   فرص المدة: كل فرصة أُغلقت فيها (ربحاً أو خسارة)، وكل
---              فرصة كانت مفتوحة في نهايتها. الفرصة تُعدّ مرة واحدة
---              بآخر نتيجة لها داخل المدة. فـ«الإجمالي = رابحة + خاسرة
---              + مفتوحة» دائماً.
---   Win Rate   رابحة ÷ (رابحة + خاسرة) — المفتوحة خارج المقام (§53)
---   Lost Rate  خاسرة ÷ (رابحة + خاسرة)
---   Won Value  won_value ثم expected_value للرابحة
---   Lost Value lost_value المجمَّدة يوم الخسارة (crm_lost_sales)، بأساسها
---   القابلة للاسترجاع  خاسرة مستوى استرجاعها is_recoverable (مرتفعة/متوسطة)
---   المسترجعة  رابحة في المدة سبقتها خسارة (outcome = recovered)
---   الأبعاد    للخاسرة: ما كان يوم الخسارة (المالك، المشروع، الحملة…)؛
---              للرابحة والمفتوحة: ما هو الآن.
---   مُرشِّحا الفئة والمنافس  يضيّقان الخسائر وحدها؛ الرابحة والمفتوحة
---              لا فئة لها ولا منافس.
---
--- ⚠️ بلا security definer — كما 076: كل قارئ يرى نطاقه عبر RLS على
---    v_crm_opportunities و crm_lost_sales و clients. الموظف يرى
---    خسائره، والمشرف فريقه، والإدارة الكل.
---
--- يتطلب: 140. آمن لإعادة التشغيل.
+-- الإصلاح سطر واحد: coalesce(…, false). لا تغيير آخر. آمن لإعادة التشغيل.
 -- ============================================================
 
--- ------------------------------------------------------------
--- 1) v_crm_opportunities — عمودان في آخره
---    حملة العميل (079) حين لا حملة على الفرصة نفسها، ولحظة تأهيله
---    (074). الإضافة في الآخر وحده: create or replace view يقبلها ولا
---    يمسّ قارئاً قائماً. التعريف أدناه هو الحيّ حرفياً (095 + 092).
--- ------------------------------------------------------------
-create or replace view public.v_crm_opportunities with (security_invoker = true) as
- SELECT o.id,
-    o.client_id,
-        CASE
-            WHEN should_mask_client_pii() THEN mask_name(c.name)
-            ELSE c.name
-        END AS client_name,
-    c.source AS client_source,
-    o.owner_id,
-    e.full_name AS owner_name,
-    e.project_id AS team_id,
-    o.project_id,
-    p.name AS project_name,
-    o.unit_id,
-    o.source_id,
-    COALESCE(src.name, c.source) AS source_name,
-    o.campaign_id,
-    o.stage_id,
-    g.name AS stage_name,
-    g.stage_type,
-    g.sort_order AS stage_order,
-    o.probability,
-    o.expected_value,
-        CASE
-            WHEN (g.stage_type = 'open'::text) THEN ((COALESCE(o.expected_value, (0)::numeric) * COALESCE(o.probability, (0)::numeric)) / 100.0)
-            ELSE (0)::numeric
-        END AS weighted_value,
-    o.won_value,
-    o.lost_reason_id,
-    lr.name AS lost_reason,
-    o.created_at,
-    o.closed_at,
-    o.expected_close_date,
-    o.stage_entered_at,
-    o.last_activity_at,
-    o.next_action_date,
-    (EXTRACT(epoch FROM (now() - o.stage_entered_at)) / 86400.0) AS days_in_stage,
-    (EXTRACT(epoch FROM (COALESCE(o.closed_at, now()) - o.created_at)) / 86400.0) AS days_open,
-        CASE
-            WHEN (o.closed_at IS NOT NULL) THEN (EXTRACT(epoch FROM (o.closed_at - o.created_at)) / 86400.0)
-            ELSE NULL::numeric
-        END AS sales_cycle_days,
-    (EXTRACT(epoch FROM (now() - COALESCE(o.last_activity_at, o.created_at))) / 86400.0) AS days_silent,
-    (o.next_action_date < baghdad_today()) AS is_overdue,
-    c.lead_score,
-    c.lead_temperature,
-    c.campaign_id  AS client_campaign_id,
-    c.qualified_at AS client_qualified_at
-   FROM ((((((opportunities o
-     JOIN crm_stages g ON ((g.id = o.stage_id)))
-     JOIN clients c ON ((c.id = o.client_id)))
-     LEFT JOIN crm_owner_directory() e(id, full_name, project_id, user_id) ON ((e.id = o.owner_id)))
-     LEFT JOIN projects p ON ((p.id = o.project_id)))
-     LEFT JOIN crm_sources src ON ((src.id = o.source_id)))
-     LEFT JOIN crm_lost_reasons lr ON ((lr.id = o.lost_reason_id)))
-  WHERE (o.deleted_at IS NULL);
-
--- ------------------------------------------------------------
--- 2) شرائح السعر — مفتاحٌ ثابت تترجمه الواجهة
--- ------------------------------------------------------------
-create or replace function public.crm_price_band(v numeric)
-returns text language sql immutable as $$
-  select case
-    when v is null or v <= 0 then 'unknown'
-    when v < 200000000 then 'lt200'
-    when v < 300000000 then '200_300'
-    when v < 500000000 then '300_500'
-    when v < 750000000 then '500_750'
-    else '750p'
-  end;
-$$;
-
-comment on function public.crm_price_band(numeric) is
-  'شريحة قيمة الصفقة بالدينار: <200م، 200–300م، 300–500م، 500–750م، 750م+، unknown (141).';
-
--- ------------------------------------------------------------
--- 3) المحرّك
--- ------------------------------------------------------------
 create or replace function public.crm_lost_intelligence(p_filters jsonb default '{}'::jsonb)
 returns jsonb language plpgsql stable set search_path = public as $$
 declare
@@ -638,52 +535,5 @@ begin
 
   return res || jsonb_build_object('insights', ins, 'generated_at', now());
 end $$;
-
-comment on function public.crm_lost_intelligence(jsonb) is
-  'ذكاء الخسائر: المؤشّرات والتفصيل بكل بُعد والاتجاه الشهري والرؤى التلقائية بمُرشِّحات موحّدة (from, to, project_id, owner_id, team_id, source, campaign_id, unit_size, price_band, category_id|none, competitor_id). invoker: RLS تسري (141).';
-
--- ------------------------------------------------------------
--- 4) تاريخ مبيعات العميل — لا يُعدّ العميل «خاسراً» لأن صفقةً خسرت
--- ------------------------------------------------------------
-create or replace function public.crm_client_sales_history(p_client_id uuid)
-returns jsonb language sql stable set search_path = public as $$
-  with o as (
-    select * from public.v_crm_opportunities where client_id = p_client_id
-  ), l as (
-    select v.* from public.v_crm_lost_sales v where v.client_id = p_client_id
-  )
-  select jsonb_build_object(
-    'total', (select count(*) from o),
-    'won',   (select count(*) from o where stage_type = 'won'),
-    'lost',  (select count(*) from o where stage_type = 'lost'),
-    'open',  (select count(*) from o where stage_type = 'open'),
-    'won_value',  (select coalesce(sum(coalesce(won_value, expected_value)), 0) from o where stage_type = 'won'),
-    'lost_value', (select coalesce(sum(lost_value), 0) from l where outcome = 'lost'),
-    'recovered',  (select count(*) from l where outcome = 'recovered'),
-    'recovered_value', (select coalesce(sum(recovered_value), 0) from l where outcome = 'recovered'),
-    'opportunities', (select coalesce(jsonb_agg(jsonb_build_object(
-          'id', o.id, 'title', coalesce(o.project_name, '—'), 'stage_name', o.stage_name,
-          'stage_type', o.stage_type, 'value', case when o.stage_type = 'won' then coalesce(o.won_value, o.expected_value) else o.expected_value end,
-          'created_at', o.created_at, 'closed_at', o.closed_at,
-          'losses', (select count(*) from l where l.opportunity_id = o.id),
-          'reactivated', exists (select 1 from l where l.opportunity_id = o.id and l.outcome in ('reactivated', 'recovered', 'relost'))
-        ) order by o.created_at desc), '[]'::jsonb) from o),
-    'losses', (select coalesce(jsonb_agg(jsonb_build_object(
-          'id', l.id, 'opportunity_id', l.opportunity_id, 'lost_at', l.lost_at, 'loss_no', l.loss_no,
-          'category_code', coalesce(l.category_code, 'unanalysed'),
-          'category_name_ar', l.category_name_ar, 'category_name_en', l.category_name_en,
-          'reason_name_ar', l.reason_name_ar, 'reason_name_en', l.reason_name_en,
-          'lost_stage_name', l.lost_stage_name, 'lost_value', l.lost_value, 'outcome', l.outcome,
-          'project_name', l.project_name, 'competitor', l.competitor_display_name
-        ) order by l.lost_at desc), '[]'::jsonb) from l)
-  );
-$$;
-
-revoke all on function public.crm_price_band(numeric)            from public, anon;
-revoke all on function public.crm_lost_intelligence(jsonb)       from public, anon;
-revoke all on function public.crm_client_sales_history(uuid)     from public, anon;
-grant execute on function public.crm_price_band(numeric)         to authenticated, service_role;
-grant execute on function public.crm_lost_intelligence(jsonb)    to authenticated, service_role;
-grant execute on function public.crm_client_sales_history(uuid)  to authenticated, service_role;
 
 notify pgrst, 'reload schema';

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Employee } from "@/lib/types";
+import { baghdadDate } from "@/lib/time";
 
 // ============================================================
 // إنهاء خدمة موظف وتسليم ملفاته.
@@ -34,6 +35,10 @@ export default function EndService({
   const [toId, setToId] = useState("");
   const [note, setNote] = useState("");
   const [revoke, setRevoke] = useState(true);
+  // يوم المغادرة الفعلي — قد يسبق يوم تسجيلها. منه يُجزَّأ راتب الشهر
+  // الأخير، ولا كشف لما بعده (sql/123).
+  const today = baghdadDate();
+  const [endDate, setEndDate] = useState(today);
 
   const ended = employee.status !== "active";
 
@@ -43,11 +48,26 @@ export default function EndService({
       setErr("اختر الموظف الذي سيستلم الملفات — الإنهاء بلا تسليم يوقف متابعة عملائه.");
       return;
     }
+    if (!endDate) {
+      setErr("حدّد تاريخ إنهاء الخدمة.");
+      return;
+    }
+    if (endDate > today) {
+      setErr("تاريخ إنهاء الخدمة لا يكون بعد اليوم — الإنهاء يسري فوراً.");
+      return;
+    }
+    if (employee.hire_date && endDate < employee.hire_date) {
+      setErr(`تاريخ إنهاء الخدمة قبل تاريخ المباشرة (${employee.hire_date}).`);
+      return;
+    }
 
     const to = candidates.find((c) => c.id === toId);
     if (
       !window.confirm(
-        `إنهاء خدمة ${employee.full_name} ونقل كل عملائه ومهامّه المفتوحة وحجوزاته القائمة إلى ${to?.full_name}؟` +
+        `إنهاء خدمة ${employee.full_name} بتاريخ ${endDate} ونقل كل عملائه ومهامّه المفتوحة وحجوزاته القائمة إلى ${to?.full_name}؟` +
+          (endDate < today
+            ? "\n\nيُجزَّأ راتب شهره الأخير حتى هذا التاريخ، وتُحذف مسوّدات الأشهر التي بعده."
+            : "") +
           (revoke ? "\n\nوسيُغلق حسابه فلا يستطيع الدخول." : ""),
       )
     ) {
@@ -61,6 +81,7 @@ export default function EndService({
       p_note: note.trim() || null,
       p_end_service: true,
       p_revoke_access: revoke,
+      p_end_date: endDate,
     });
     setBusy(false);
 
@@ -178,6 +199,21 @@ export default function EndService({
               <b className="text-gray-800">ما لا يُمسّ:</b> ليدات الشركات
               الوسيطة، فهي ملك الشركة لا الموظف.
             </div>
+
+            <label className="mb-1 block text-xs font-medium text-gray-600">
+              تاريخ إنهاء الخدمة *
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              min={employee.hire_date ?? undefined}
+              max={today}
+              onChange={(e) => setEndDate(e.target.value)}
+              className={input + " mb-1"}
+            />
+            <p className="mb-4 text-xs text-gray-500">
+              آخر يوم عمل فيه. يُحسب راتب شهره الأخير حتى هذا اليوم.
+            </p>
 
             <label className="mb-1 block text-xs font-medium text-gray-600">
               السبب / ملاحظة

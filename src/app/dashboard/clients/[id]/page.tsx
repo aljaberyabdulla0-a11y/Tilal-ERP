@@ -22,6 +22,7 @@ import ReserveUnit from "./reserve-unit";
 import CrmInsights from "@/components/crm-insights";
 import CrmHistory from "@/components/crm-history";
 import ClientTouchpoints from "@/components/marketing/client-touchpoints";
+import SalesHistory from "@/components/lost-sale/sales-history";
 import { getPipelineConfig } from "@/lib/crm-config";
 import QualificationPanel from "./qualification-panel";
 import NewOpportunity from "./new-opportunity";
@@ -312,6 +313,9 @@ function buildTabs(a: TabArgs): ClientTab[] {
       badge: oppCount,
       content: (
         <div className="mx-auto max-w-3xl space-y-6">
+          {/* تاريخ المبيعات (141): لكل فرصة نتيجتها — العميل لا يُوسم «خاسراً» */}
+          <SalesHistory clientId={c.id} />
+
           {/* التأهيل — ما يفرّق الليد عن الفرصة، وأثره في الدرجة فوراً */}
           {canWrite && stages.length > 0 && (
             <QualificationPanel client={c} qualification={qualification} projects={projects} />

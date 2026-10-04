@@ -77,17 +77,21 @@ export default async function CrmSettingsPage() {
                 categories={["تسويق رقمي", "إحالة", "مباشر", "فعالية", "آخر"]}
               />
             </div>
+            {/* أسباب الخسارة صارت فئاتٍ وأسباباً فرعية ومصادر ومستويات استرجاع
+                ومنافسين (140) — لها صفحتها. القائمة القديمة كانت تُدرج سبباً بلا فئة. */}
             <div>
-              <h2 className="text-lg font-bold text-gray-800">أسباب الخسارة</h2>
+              <h2 className="text-lg font-bold text-gray-800">تحليل الخسارة</h2>
               <p className="mb-4 text-sm text-gray-500">
-                «فشل البيع» بلا سبب رقمٌ لا يُفيد. السبب الذي «يتطلّب توضيحاً» يُلزم الموظف بسطر يشرحه.
+                «فشل البيع» لا يُغلق إلا بتحليل: فئة وسبب فرعي ومصدر وجودة العميل وإمكانية الاسترجاع والمنافس.
+                {reasons.length > 0 && ` ${reasons.filter((r) => r.is_active).length} سبباً فعّالاً.`}
               </p>
-              <ListEditor
-                table="crm_lost_reasons"
-                rows={reasons}
-                categories={["سعر", "منتج", "منافسة", "عميل", "تمويل", "توقيت", "آخر"]}
-                withNote
-              />
+              <Link
+                href="/dashboard/settings/crm/lost"
+                className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                <span className="material-symbols-outlined text-[18px]">tune</span>
+                الفئات والأسباب والمنافسون وقواعد الاسترجاع
+              </Link>
             </div>
           </div>
 

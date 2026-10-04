@@ -161,9 +161,9 @@ export default async function CrmInsights({ clientId }: { clientId: string }) {
                 >
                   {o.stage_name}
                 </span>
-                <span className="font-medium text-gray-800">
+                <Link href={`/dashboard/crm/opportunities/${o.id}`} className="font-medium text-gray-800 hover:text-brand-600">
                   {o.project_name ?? "بلا مشروع"}
-                </span>
+                </Link>
                 {o.expected_value !== null && (
                   <span className="text-gray-500">{fmt(o.expected_value)}</span>
                 )}
@@ -172,8 +172,10 @@ export default async function CrmInsights({ clientId }: { clientId: string }) {
                     {Math.round(Number(o.days_in_stage))} يوماً في المرحلة · {o.probability ?? 0}%
                   </span>
                 )}
-                {o.lost_reason && (
-                  <span className="ms-auto text-xs text-red-600">{o.lost_reason}</span>
+                {o.stage_type === "lost" && (
+                  <Link href={`/dashboard/crm/opportunities/${o.id}?tab=lost`} className="ms-auto text-xs text-red-600 hover:underline">
+                    {o.lost_reason ?? "تحليل الخسارة"}
+                  </Link>
                 )}
               </li>
             ))}

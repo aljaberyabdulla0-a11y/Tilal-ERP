@@ -122,7 +122,24 @@ export const MERGE_TYPE: ActivityTypeMeta = {
   color: "bg-slate-100 text-slate-700",
 };
 
-export const SYSTEM_ACTIVITY_TYPES = [STAGE_CHANGE_TYPE, HANDOVER_TYPE, RESERVATION_TYPE, MERGE_TYPE];
+// إغلاق فرصة كخاسرة بتحليلها، وإعادة تنشيطها — يكتبهما close_opportunity_lost
+// و reactivate_lost_opportunity (sql/140) — لا تواصل
+export const LOST_ANALYSIS_TYPE: ActivityTypeMeta = {
+  key: "تحليل خسارة",
+  icon: "heart_broken",
+  color: "bg-red-100 text-red-700",
+};
+
+export const REACTIVATION_TYPE: ActivityTypeMeta = {
+  key: "إعادة تنشيط",
+  icon: "restart_alt",
+  color: "bg-emerald-100 text-emerald-700",
+};
+
+// ⚠️ تطابق is_system_activity() في القاعدة حرفياً (آخر تعريف: sql/140)
+export const SYSTEM_ACTIVITY_TYPES = [
+  STAGE_CHANGE_TYPE, HANDOVER_TYPE, RESERVATION_TYPE, MERGE_TYPE, LOST_ANALYSIS_TYPE, REACTIVATION_TYPE,
+];
 
 /**
  * حدثٌ كتبه النظام لا تواصلٌ قام به موظف — لا يُحتسب في عدّاد

@@ -139,7 +139,11 @@ export default async function OpportunitiesPage({
                         {o.client_name}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 text-gray-600">{o.project_name ?? "—"}</td>
+                    <td className="px-4 py-2 text-gray-600">
+                      <Link href={`/dashboard/crm/opportunities/${o.id}`} className="hover:text-brand-600 hover:underline">
+                        {o.project_name ?? "—"}
+                      </Link>
+                    </td>
                     <td className="px-4 py-2">
                       {canWrite ? (
                         <OpportunityStage id={o.id} stageId={o.stage_id} stages={stages} />
@@ -197,7 +201,9 @@ function Card({ o, stages, canWrite }: { o: OpportunityRow; stages: { id: string
       <Link href={`/dashboard/clients/${o.client_id}`} className="font-medium text-gray-800 hover:text-brand-600">
         {o.client_name}
       </Link>
-      <p className="text-xs text-gray-500">{o.project_name ?? "بلا مشروع"}</p>
+      <Link href={`/dashboard/crm/opportunities/${o.id}`} className="block text-xs text-gray-500 hover:text-brand-600">
+        {o.project_name ?? "بلا مشروع"}
+      </Link>
       <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
         {o.expected_value !== null && <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-700">{fmt(o.expected_value)}</span>}
         {o.lead_temperature && (

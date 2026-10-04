@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PIPELINE_STAGES, PIPELINE_STAGE_COLORS } from "@/lib/types";
+import ClientLostFlow from "@/components/lost-sale/client-lost-flow";
 
-export type StageOption = { name: string; color: string };
+export type StageOption = { name: string; color: string; lost?: boolean };
 
 // الافتراض القديم — يُستعمل حين لا تمرّر الصفحة مراحل من القاعدة
 const FALLBACK_STAGES: StageOption[] = PIPELINE_STAGES.map((name) => ({
   name,
   color: PIPELINE_STAGE_COLORS[name] ?? "bg-gray-100 text-gray-700",
+  lost: name === "فشل البيع",
 }));
 
 // ============================================================
@@ -37,9 +39,18 @@ export default function StageSelect({
   const [value, setValue] = useState(stage ?? "ليد");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lostFlow, setLostFlow] = useState(false);
+  // بعد إغلاق الفرصة بالنموذج تتغيّر مرحلة البطاقة في القاعدة (المرآة) — نتبعها
+  useEffect(() => setValue(stage ?? "ليد"), [stage]);
 
-  async function change(next: string) {
+  async function change(next: string, force = false) {
     if (next === value) return;
+    // «فشل البيع» يُحلَّل على الفرصة لا يُكتب على البطاقة (140):
+    // النموذج يغلق الفرصة، والبطاقة تتبعها بالمرآة إن كانت وحيدة.
+    if (!force && options.find((s) => s.name === next)?.lost) {
+      setLostFlow(true);
+      return;
+    }
     const previous = value;
 
     setValue(next); // تحديث فوري ثم تراجع عند الفشل
@@ -87,6 +98,18 @@ export default function StageSelect({
       </select>
 
       {error && <span className="text-[11px] text-red-600">{error}</span>}
+
+      {lostFlow && (
+        <ClientLostFlow
+          clientId={clientId}
+          onClose={() => setLostFlow(false)}
+          onDone={() => router.refresh()}
+          onNoOpportunity={() => {
+            setLostFlow(false);
+            change(options.find((s) => s.lost)?.name ?? "فشل البيع", true);
+          }}
+        />
+      )}
     </div>
   );
 }

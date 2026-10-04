@@ -59,6 +59,8 @@ const EN: Record<string, string> = {
 
   // الحجوزات
   "حجز": "Reservation",
+  "تحليل خسارة": "Lost analysis",
+  "إعادة تنشيط": "Reactivation",
   "بيع مكتمل": "Completed sale",
   "ملغى": "Cancelled",
 

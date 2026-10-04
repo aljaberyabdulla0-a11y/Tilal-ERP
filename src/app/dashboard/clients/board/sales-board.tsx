@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import ClientLostFlow from "@/components/lost-sale/client-lost-flow";
 import {
   Client,
   PIPELINE_STAGES,
@@ -20,6 +22,7 @@ const FALLBACK_STAGES: StageLite[] = PIPELINE_STAGES.map((name) => ({
   name,
   color: PIPELINE_STAGE_COLORS[name] ?? "bg-gray-100 text-gray-700",
   closed: isClosedStage(name),
+  lost: name === "فشل البيع",
 }));
 import { baghdadDate } from "@/lib/time";
 
@@ -50,6 +53,8 @@ export default function SalesBoard({
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [editDateId, setEditDateId] = useState<string | null>(null);
+  const [lostFor, setLostFor] = useState<string | null>(null);
+  const router = useRouter();
 
   // ===== الفلاتر (كلها في المتصفح — الاستجابة فورية بلا تحميل صفحة) =====
   const [employee, setEmployee] = useState("");     // "" = كل الموظفين
@@ -125,9 +130,14 @@ export default function SalesBoard({
   }
 
   // تحريك عميل إلى مرحلة
-  async function moveTo(id: string, stage: string) {
+  async function moveTo(id: string, stage: string, force = false) {
     const current = items.find((c) => c.id === id);
     if (!current || current.stage === stage) return;
+    // «فشل البيع» لا يُسحب إليه سحباً: الخسارة تُحلَّل على الفرصة (140)
+    if (!force && stages.find((s) => s.name === stage)?.lost) {
+      setLostFor(id);
+      return;
+    }
     setItems((prev) => prev.map((c) => (c.id === id ? { ...c, stage } : c)));
     const { error } = await supabase.from("clients").update({ stage }).eq("id", id);
     if (error) alert("تعذّر النقل: " + error.message);
@@ -259,6 +269,27 @@ export default function SalesBoard({
           </span>
         </div>
       </div>
+
+      {lostFor && (
+        <ClientLostFlow
+          clientId={lostFor}
+          onClose={() => setLostFor(null)}
+          onDone={async () => {
+            // البطاقة تتبع فرصتها الوحيدة بالمرآة؛ ولعميلٍ بعدة فرص تبقى كما هي —
+            // فنقرأ مرحلتها من القاعدة بدل افتراضها
+            const id = lostFor;
+            const { data } = await supabase.from("clients").select("stage").eq("id", id).single();
+            if (data) setItems((prev) => prev.map((c) => (c.id === id ? { ...c, stage: data.stage } : c)));
+            router.refresh();
+          }}
+          onNoOpportunity={() => {
+            const id = lostFor;
+            setLostFor(null);
+            const lostStage = stages.find((s) => s.lost)?.name ?? "فشل البيع";
+            moveTo(id, lostStage, true);
+          }}
+        />
+      )}
 
       <div className="flex gap-4 overflow-x-auto p-6">
       {stages.map(({ name: stage, color: stageColor, closed }) => {

@@ -25,7 +25,12 @@ export default function DeleteClientButton({
     setDeleting(false);
 
     if (error) {
-      alert("تعذّر الحذف: " + error.message);
+      // 23503: للعميل صفقة لها تحليل خسارة (140) — سجلّ مبيعات لا يُمحى حذفاً صلباً
+      alert(
+        error.code === "23503"
+          ? "للعميل سجلّ مبيعات (تحليل خسارة) لا يُمحى. استعمل الحذف الناعم من لوحة جودة البيانات — يُخفي العميل ويُبقي تاريخه."
+          : "تعذّر الحذف: " + error.message
+      );
       return;
     }
     router.refresh();

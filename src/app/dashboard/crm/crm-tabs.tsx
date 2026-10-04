@@ -42,6 +42,7 @@ export default async function CrmTabs({ active }: { active: string }) {
               { key: "opportunities", label: "الفرص", href: "/dashboard/crm/opportunities" },
             ]),
         { key: "reports", label: "التقارير", href: "/dashboard/crm/reports" },
+        { key: "lost", label: "لماذا نخسر؟", href: "/dashboard/crm/lost" },
         { key: "forecast", label: "التنبؤ", href: "/dashboard/crm/forecast" },
         { key: "campaigns", label: "الحملات", href: "/dashboard/crm/campaigns" },
       ]
@@ -54,6 +55,8 @@ export default async function CrmTabs({ active }: { active: string }) {
     // التقارير للجميع منذ محرّك التقارير (099): الموظف يرى «تقاريري» —
     // RLS على الأحداث واللقطات تعطيه نشاطه وليداته وحدها (§71)
     { key: "reports", label: manages ? "التقارير" : "تقاريري", href: "/dashboard/crm/reports" },
+    // تحليل الخسائر (141): الموظف يرى خسائره بنفس الشاشة — RLS تحصر النطاق
+    { key: "lost", label: "لماذا نخسر؟", href: "/dashboard/crm/lost" },
     ...(manages
       ? [
           { key: "distribution", label: "التوزيع", href: "/dashboard/crm/distribution" },

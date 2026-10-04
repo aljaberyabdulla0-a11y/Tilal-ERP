@@ -4,6 +4,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { Task, isOpenTask } from "@/lib/types";
 import { baghdadDate } from "@/lib/time";
 import { getUnworkedLeads, TEMPERATURE_STYLE, scoreStyle } from "@/lib/crm";
+import { getUserRole } from "@/lib/auth";
+import { getMyEmployee } from "@/lib/hr";
+import { getDueRecontacts, type LostSaleRow } from "@/lib/lost-sales";
+import { compactMoney } from "@/lib/lost-sales-i18n";
 import CrmTabs from "../crm-tabs";
 
 // ============================================================
@@ -70,6 +74,11 @@ export default async function CrmTodayPage() {
       .limit(50),
     getUnworkedLeads(),
   ]);
+
+  // إعادة التواصل مع فرص خاسرة (140): الموظف يرى ما يخصّه، والمشرف فريقه بـRLS
+  const role = await getUserRole();
+  const me = role === "employee" ? await getMyEmployee() : null;
+  const recontacts: LostSaleRow[] = await getDueRecontacts(role === "employee" ? me?.id ?? "00000000-0000-0000-0000-000000000000" : null);
 
   const clients = (clientData ?? []) as ClientRow[];
   const tasks = ((taskData ?? []) as Task[]).filter((t) => isOpenTask(t.status));
@@ -149,6 +158,36 @@ export default async function CrmTodayPage() {
             `درجته ${c.lead_score} وصامت منذ ${daysSince(c.last_contact_at)} يوماً`
           }
         />
+
+        {/* ===== فرص خاسرة حان موعد إعادة التواصل معها =====
+            حُدِّد الموعد عند تحليل الخسارة بقاعدة مستوى الاسترجاع — وقد
+            تعود الفرصة رابحة فتُحتسب «مسترجعة». */}
+        {recontacts.length > 0 && (
+          <section>
+            <div className="mb-2 flex items-baseline gap-2">
+              <h2 className="font-bold text-emerald-700">إعادة تواصل مع فرص خاسرة</h2>
+              <span className="text-sm text-gray-400">({recontacts.length})</span>
+            </div>
+            <p className="mb-3 text-xs text-gray-500">حدّدتَ موعدها عند تحليل الخسارة — قد تعود فرصةً رابحة.</p>
+            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+              {recontacts.map((l) => (
+                <li key={l.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <Link href={`/dashboard/crm/opportunities/${l.opportunity_id}?tab=lost`} className="font-medium text-gray-800 hover:text-brand-600">
+                    {l.client_name}
+                  </Link>
+                  <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">
+                    {l.category_name_ar ?? "—"}{l.reason_name_ar ? ` — ${l.reason_name_ar}` : ""}
+                  </span>
+                  {l.project_name && <span className="text-xs text-gray-500">{l.project_name}</span>}
+                  {l.lost_value !== null && <span className="text-xs text-gray-500">{compactMoney(l.lost_value, "ar")}</span>}
+                  <span className={`ms-auto whitespace-nowrap text-sm ${l.recontact_date && l.recontact_date < today ? "font-semibold text-red-700" : "text-gray-500"}`}>
+                    {l.recontact_date}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* ===== المهام ===== */}
         <section>

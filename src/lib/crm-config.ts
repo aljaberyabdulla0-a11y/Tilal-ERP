@@ -20,7 +20,8 @@ import {
 //    صفحتها، ولا تستورد هذا الملف.
 // ============================================================
 
-export type StageLite = { name: string; color: string; closed: boolean };
+// lost: مرحلة خسارة — اختيارها يفتح نموذج تحليل الخسارة (140) بدل تحديث البطاقة
+export type StageLite = { name: string; color: string; closed: boolean; lost?: boolean };
 
 export type PipelineConfig = {
   stages: StageLite[];             // الفعّالة بترتيبها
@@ -50,6 +51,7 @@ export const getPipelineConfig = cache(async (): Promise<PipelineConfig> => {
         name,
         color: PIPELINE_STAGE_COLORS[name] ?? "bg-gray-100 text-gray-700",
         closed: (CLOSED_STAGES as readonly string[]).includes(name),
+        lost: name === "فشل البيع",
       })),
       stageNames: [...PIPELINE_STAGES],
       colors: { ...PIPELINE_STAGE_COLORS },
@@ -64,7 +66,7 @@ export const getPipelineConfig = cache(async (): Promise<PipelineConfig> => {
 
   const active = stages
     .filter((s) => s.is_active)
-    .map((s) => ({ name: s.name, color: colors[s.name], closed: s.stage_type !== "open" }));
+    .map((s) => ({ name: s.name, color: colors[s.name], closed: s.stage_type !== "open", lost: s.stage_type === "lost" }));
 
   return {
     stages: active,

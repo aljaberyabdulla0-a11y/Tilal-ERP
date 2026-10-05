@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canManageHr } from "@/lib/auth";
-import { Employee, formatPrice } from "@/lib/types";
+import { EMPLOYMENT_STATUS_STYLE, Employee, formatPrice } from "@/lib/types";
 
 // قائمة الموظفين (للمدير)
 export default async function EmployeesPage() {
@@ -83,12 +83,10 @@ export default async function EmployeesPage() {
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          e.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-200 text-gray-600"
+                          EMPLOYMENT_STATUS_STYLE[e.employment_status] ?? "bg-gray-200 text-gray-600"
                         }`}
                       >
-                        {e.status === "active" ? "على رأس العمل" : "غير نشط"}
+                        {e.employment_status ?? (e.status === "active" ? "على رأس العمل" : "غير نشط")}
                       </span>
                     </td>
                     <td className="px-4 py-3">

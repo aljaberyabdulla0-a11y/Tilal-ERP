@@ -9,12 +9,19 @@ export default async function HrHome() {
   if (!(await canManageHr())) redirect("/dashboard/me");
 
   const supabase = await createClient();
-  const [{ count: empCount }, { count: pendingLeaves }] = await Promise.all([
+  // مستندات تنتهي خلال 30 يوماً أو انتهت (sql/148)
+  const soon = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  const [{ count: empCount }, { count: pendingLeaves }, { count: expiringDocs }] = await Promise.all([
     supabase.from("employees").select("*", { count: "exact", head: true }),
     supabase
       .from("leaves")
       .select("*", { count: "exact", head: true })
       .eq("status", "معلقة"),
+    supabase
+      .from("employee_documents")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .lte("expiry_date", soon),
   ]);
 
   const sections = [
@@ -51,6 +58,12 @@ export default async function HrHome() {
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
             <span className="text-sm text-gray-500">طلبات إجازة معلّقة</span>
             <p className="mt-2 text-3xl font-bold text-amber-600">{pendingLeaves ?? 0}</p>
+          </div>
+          <div className="rounded-2xl border bg-white p-5 shadow-sm">
+            <span className="text-sm text-gray-500">مستندات تنتهي خلال 30 يوماً أو انتهت</span>
+            <p className={`mt-2 text-3xl font-bold ${(expiringDocs ?? 0) > 0 ? "text-red-600" : "text-gray-800"}`}>
+              {expiringDocs ?? 0}
+            </p>
           </div>
         </div>
 

@@ -28,6 +28,12 @@ import EndService from "./end-service";
 import AddCommission from "./add-commission";
 import AddDeduction from "./add-deduction";
 import GeneratePayroll from "./generate-payroll";
+import SalaryPanel from "./salary-panel";
+import EmploymentStatus from "./employment-status";
+import EmployeeDocumentsPanel from "@/components/employee-documents-panel";
+import EmployeeTimeline from "@/components/employee-timeline";
+import { baghdadDate } from "@/lib/time";
+import type { EmployeeDocument, EmployeeDocumentType, SalaryHistoryRow, TimelineEvent } from "@/lib/types";
 import LeaveDecision from "../../leave-decision";
 import AttendanceSummary from "@/components/attendance-summary";
 
@@ -83,6 +89,26 @@ export default async function EmployeeDetailsPage({
     .eq("status", "active")
     .neq("id", id)
     .order("full_name");
+
+  // الملف الكامل (sql/148): تاريخ الراتب، المستندات، الانتقالات، الخط الزمني
+  const [
+    { data: salaryHistory },
+    { data: docs },
+    { data: docTypes },
+    { data: trans },
+    { data: timeline, error: timelineError },
+  ] = await Promise.all([
+    supabase.from("employee_salary_history").select("*").eq("employee_id", id).order("effective_from", { ascending: false }),
+    supabase.from("employee_documents").select("*").eq("employee_id", id).order("created_at", { ascending: false }),
+    supabase.from("employee_document_types").select("*").order("sort_order"),
+    supabase.from("employment_status_transitions").select("to_status").eq("from_status", emp.employment_status),
+    supabase.rpc("employee_timeline", { p_employee: id, p_limit: 100 }),
+  ]);
+  const exitStates = ["غير نشط", "مستقيل", "منتهية خدمته"];
+  const transitions = ((trans ?? []) as { to_status: string }[])
+    .map((t) => t.to_status)
+    // موظف نشط لا يخرج من هنا — الخروج بـ«إنهاء الخدمة»
+    .filter((s) => (emp.status === "active" ? !exitStates.includes(s) : exitStates.includes(s)));
 
   const commissions = (comms ?? []) as Commission[];
   const deductions = (deds ?? []) as Deduction[];
@@ -199,8 +225,67 @@ export default async function EmployeeDetailsPage({
                 )}
               </dd>
             </div>
+            <div>
+              <dt className="text-gray-500">الحالة الوظيفية</dt>
+              <dd className="mt-0.5">
+                <EmploymentStatus
+                  employeeId={emp.id}
+                  current={emp.employment_status}
+                  transitions={transitions}
+                  canEdit={hrCan}
+                />
+              </dd>
+            </div>
+            {(emp.probation_start || emp.probation_end) && (
+              <div>
+                <dt className="text-gray-500">فترة التجربة</dt>
+                <dd className="font-medium" dir="ltr">{emp.probation_start ?? "—"} → {emp.probation_end ?? "—"}</dd>
+              </div>
+            )}
           </dl>
         </div>
+
+        {/* البيانات الشخصية والطوارئ والبنك (sql/148) */}
+        <div className={card}>
+          <h3 className={h3}>البيانات الشخصية</h3>
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-3">
+            <div><dt className="text-gray-500">الاسم بالإنجليزية</dt><dd className="font-medium" dir="ltr">{emp.name_en || "—"}</dd></div>
+            <div><dt className="text-gray-500">الجنس</dt><dd className="font-medium">{emp.gender || "—"}</dd></div>
+            <div><dt className="text-gray-500">تاريخ الميلاد</dt><dd className="font-medium" dir="ltr">{emp.birth_date || "—"}</dd></div>
+            <div><dt className="text-gray-500">الجنسية</dt><dd className="font-medium">{emp.nationality || "—"}</dd></div>
+            <div><dt className="text-gray-500">رقم الهوية</dt><dd className="font-medium" dir="ltr">{emp.national_id_no || "—"}</dd></div>
+            <div><dt className="text-gray-500">البريد</dt><dd className="font-medium" dir="ltr">{emp.email || "—"}</dd></div>
+            <div className="sm:col-span-3"><dt className="text-gray-500">العنوان</dt><dd className="font-medium">{emp.address || "—"}</dd></div>
+            <div>
+              <dt className="text-gray-500">جهة الطوارئ</dt>
+              <dd className="font-medium">
+                {emp.emergency_contact_name || "—"}
+                {emp.emergency_contact_relation ? ` (${emp.emergency_contact_relation})` : ""}
+                {emp.emergency_contact_phone && <span className="block text-xs text-gray-500" dir="ltr">{emp.emergency_contact_phone}</span>}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">البنك</dt>
+              <dd className="font-medium">{emp.bank_name || "—"}{emp.bank_account_name ? ` — ${emp.bank_account_name}` : ""}</dd>
+            </div>
+            <div><dt className="text-gray-500">IBAN / الحساب</dt><dd className="font-mono text-xs font-medium" dir="ltr">{emp.bank_iban || "—"}</dd></div>
+          </dl>
+        </div>
+
+        <SalaryPanel
+          employeeId={emp.id}
+          history={(salaryHistory ?? []) as SalaryHistoryRow[]}
+          today={baghdadDate()}
+          canEdit={hrCan}
+        />
+
+        <EmployeeDocumentsPanel
+          employeeId={emp.id}
+          documents={(docs ?? []) as EmployeeDocument[]}
+          types={(docTypes ?? []) as EmployeeDocumentType[]}
+          canWrite={hrCan}
+          today={baghdadDate()}
+        />
 
         {/* سجلّ التسليم — «أين ذهب عملاء فلان؟» له جواب بعد سنة */}
         {(hands ?? []).length > 0 && (
@@ -503,6 +588,8 @@ export default async function EmployeeDetailsPage({
             </table>
           )}
         </div>
+
+        <EmployeeTimeline events={(timeline ?? []) as TimelineEvent[]} error={timelineError?.message} />
       </section>
     </main>
   );

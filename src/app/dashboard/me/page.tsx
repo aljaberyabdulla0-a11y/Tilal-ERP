@@ -129,7 +129,9 @@ export default async function MyPortalHome() {
           </Link>
           <h1 className="text-xl font-bold text-brand-700">HR</h1>
         </div>
-        <span className="text-sm text-gray-600">{emp.full_name}</span>
+        <Link href="/dashboard/me/profile" className="text-sm text-brand-700 hover:underline">
+          {emp.full_name} — ملفي ←
+        </Link>
       </header>
 
       <HrTabs active="portal" manager={admin} />

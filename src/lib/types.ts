@@ -583,6 +583,84 @@ export type Employee = {
   manager_id: string | null;
   branch_id: string | null;
   employment_type: string | null;
+  // الملف الكامل (sql/148). employment_status وصفٌ بآلة حالات، و status
+  // أعلاه يبقى مفتاح الوصول الذي تقرؤه القاعدة.
+  employment_status: string;
+  name_en: string | null;
+  gender: string | null;
+  birth_date: string | null;
+  nationality: string | null;
+  national_id_no: string | null;
+  email: string | null;
+  address: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  emergency_contact_relation: string | null;
+  probation_start: string | null;
+  probation_end: string | null;
+  bank_name: string | null;
+  bank_account_name: string | null;
+  bank_iban: string | null;
+};
+
+// سطر من تاريخ الراتب (sql/057، موسّع في 148)
+export type SalaryHistoryRow = {
+  id: string;
+  employee_id: string;
+  amount: number;
+  previous_amount: number | null;
+  change_pct: number | null;
+  effective_from: string;
+  reason: string | null;
+  created_by_name: string | null;
+  approved_by_name: string | null;
+  created_at: string;
+};
+
+// مستند موظف (sql/148) — الملف في دلو خاصّ ويُفتح برابط موقَّع
+export type EmployeeDocument = {
+  id: string;
+  employee_id: string;
+  type_code: string;
+  title: string | null;
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  issue_date: string | null;
+  expiry_date: string | null;
+  notes: string | null;
+  uploaded_by_name: string | null;
+  created_at: string;
+};
+
+export type EmployeeDocumentType = {
+  code: string;
+  name_ar: string;
+  requires_expiry: boolean;
+  employee_visible: boolean;
+  finance_visible: boolean;
+  sort_order: number;
+  active: boolean;
+};
+
+// حدث في الخط الزمني للموظف — employee_timeline() (sql/148)
+export type TimelineEvent = {
+  occurred_at: string;
+  kind: string;
+  title: string;
+  details: string | null;
+  actor: string | null;
+};
+
+export const EMPLOYMENT_STATUS_STYLE: Record<string, string> = {
+  "تحت التجربة": "bg-amber-100 text-amber-700",
+  "نشط": "bg-green-100 text-green-700",
+  "في إجازة": "bg-sky-100 text-sky-700",
+  "موقوف": "bg-red-100 text-red-700",
+  "غير نشط": "bg-gray-200 text-gray-600",
+  "مستقيل": "bg-gray-200 text-gray-600",
+  "منتهية خدمته": "bg-gray-200 text-gray-600",
 };
 
 // موقع عمل تُقبل البصمة منه — يمكن أن تكون هناك عدة مواقع

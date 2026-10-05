@@ -50,6 +50,22 @@ export default function EmployeeForm({
     branch_id: initial?.branch_id ?? org?.branches[0]?.id ?? "",
     employment_type: initial?.employment_type ?? "full_time",
     employee_code: initial?.employee_code ?? "",
+    // الملف الكامل (sql/148)
+    name_en: initial?.name_en ?? "",
+    gender: initial?.gender ?? "",
+    birth_date: initial?.birth_date ?? "",
+    nationality: initial?.nationality ?? "",
+    national_id_no: initial?.national_id_no ?? "",
+    email: initial?.email ?? "",
+    address: initial?.address ?? "",
+    emergency_contact_name: initial?.emergency_contact_name ?? "",
+    emergency_contact_phone: initial?.emergency_contact_phone ?? "",
+    emergency_contact_relation: initial?.emergency_contact_relation ?? "",
+    probation_start: initial?.probation_start ?? "",
+    probation_end: initial?.probation_end ?? "",
+    bank_name: initial?.bank_name ?? "",
+    bank_account_name: initial?.bank_account_name ?? "",
+    bank_iban: initial?.bank_iban ?? "",
     phone: initial?.phone ?? "",
     hire_date: initial?.hire_date ?? "",
     base_salary: initial?.base_salary?.toString() ?? "",
@@ -131,6 +147,21 @@ export default function EmployeeForm({
       ...(form.employee_code.trim() ? { employee_code: form.employee_code.trim() } : {}),
       phone: form.phone.trim() || null,
       hire_date: form.hire_date || null,
+      name_en: form.name_en.trim() || null,
+      gender: form.gender || null,
+      birth_date: form.birth_date || null,
+      nationality: form.nationality.trim() || null,
+      national_id_no: form.national_id_no.trim() || null,
+      email: form.email.trim() || null,
+      address: form.address.trim() || null,
+      emergency_contact_name: form.emergency_contact_name.trim() || null,
+      emergency_contact_phone: form.emergency_contact_phone.trim() || null,
+      emergency_contact_relation: form.emergency_contact_relation.trim() || null,
+      probation_start: form.probation_start || null,
+      probation_end: form.probation_end || null,
+      bank_name: form.bank_name.trim() || null,
+      bank_account_name: form.bank_account_name.trim() || null,
+      bank_iban: form.bank_iban.trim() || null,
       base_salary: form.base_salary ? Number(form.base_salary) : 0,
       // فارغة = يتبع نسبة الشركة، لا صفراً يُلغي عمولته
       commission_rate: form.commission_rate ? Number(form.commission_rate) : null,
@@ -431,6 +462,54 @@ export default function EmployeeForm({
             placeholder="أي تفاصيل إضافية..."
           />
         </div>
+      </div>
+
+      {/* ===== البيانات الشخصية والتجربة والبنك (sql/148) ===== */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+        <h3 className="font-semibold text-gray-800">البيانات الشخصية</h3>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {(
+            [
+              ["name_en", "الاسم بالإنجليزية", "text", "ltr"],
+              ["birth_date", "تاريخ الميلاد", "date", "ltr"],
+              ["nationality", "الجنسية", "text", "rtl"],
+              ["national_id_no", "رقم الهوية", "text", "ltr"],
+              ["email", "البريد الإلكتروني", "email", "ltr"],
+              ["address", "العنوان", "text", "rtl"],
+              ["emergency_contact_name", "جهة الطوارئ — الاسم", "text", "rtl"],
+              ["emergency_contact_relation", "صلة القرابة", "text", "rtl"],
+              ["emergency_contact_phone", "هاتف الطوارئ", "tel", "ltr"],
+              ["probation_start", "بداية فترة التجربة", "date", "ltr"],
+              ["probation_end", "نهاية فترة التجربة", "date", "ltr"],
+              ["bank_name", "البنك", "text", "rtl"],
+              ["bank_account_name", "اسم صاحب الحساب", "text", "rtl"],
+              ["bank_iban", "IBAN / رقم الحساب", "text", "ltr"],
+            ] as const
+          ).map(([key, lbl, type, dir]) => (
+            <div key={key}>
+              <label className={labelClass}>{lbl}</label>
+              <input
+                type={type}
+                dir={dir}
+                value={form[key]}
+                onChange={(e) => update(key, e.target.value)}
+                className={inputClass + (dir === "ltr" ? " text-start" : "")}
+              />
+            </div>
+          ))}
+          <div>
+            <label className={labelClass}>الجنس</label>
+            <select value={form.gender} onChange={(e) => update("gender", e.target.value)} className={inputClass}>
+              <option value="">—</option>
+              <option value="ذكر">ذكر</option>
+              <option value="أنثى">أنثى</option>
+            </select>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-gray-500">
+          فترة تجربة لم تنتهِ تجعل الحالة الوظيفية «تحت التجربة» تلقائياً. والبيانات البنكية يراها الموظف وHR والمالية،
+          وكل تغيير فيها مسجَّل.
+        </p>
       </div>
 
       {/* ===== الدوام والبصمة ===== */}

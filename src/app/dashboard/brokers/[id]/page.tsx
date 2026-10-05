@@ -12,9 +12,9 @@ import {
   getBrokerLeads,
   getBrokerPayments,
   getBrokerRequests,
-  getBrokerTiers,
+  getCommissionPlans,
   paidByCommission,
-  unitsThisMonth,
+  planMeasure,
 } from "@/lib/brokers";
 import {
   BrokerCompany,
@@ -22,18 +22,18 @@ import {
   BROKER_REQUEST_COLORS,
   BrokerUser,
   COMMISSION_STATUS_COLORS,
-  currentPeriod,
-  effectiveTiers,
+  effectivePlan,
   formatPrice,
   isOpenBrokerRequest,
-  nextTier,
-  tierRate,
+  nextPlanTier,
+  planRate,
   leadDaysLeft,
   leadDeadlineColor,
   leadDeadlineLabel,
 } from "@/lib/types";
 import CompanyAccounts from "./company-accounts";
-import TiersEditor from "../tiers-editor";
+import PlanEditor from "../plan-editor";
+import { getUnitTypes } from "@/lib/estate";
 
 // ============================================================
 // بطاقة الشركة الوسيطة: مشاريعها وشرائحها ووحداتها الظاهرة، وطلبات
@@ -61,9 +61,10 @@ export default async function BrokerCompanyPage({
     payments,
     members,
     admin,
-    tiers,
+    plans,
     requests,
     { data: visibleRows },
+    unitTypeRows,
   ] = await Promise.all([
     supabase.from("broker_companies").select("*").eq("id", params.id).maybeSingle(),
     supabase
@@ -76,10 +77,12 @@ export default async function BrokerCompanyPage({
     getBrokerPayments(),
     getTeamMembers(),
     isAdmin(),
-    getBrokerTiers(),
+    getCommissionPlans(),
     getBrokerRequests(params.id),
     supabase.from("broker_visible_units").select("unit_id").eq("company_id", params.id),
+    getUnitTypes(),
   ]);
+  const unitTypes = unitTypeRows.map((u) => u.name);
 
   if (!data) notFound();
   const company = data as BrokerCompany;
@@ -91,8 +94,6 @@ export default async function BrokerCompanyPage({
   const money = companyMoney(commissions, paid);
   const buckets = bucketLeads(leads);
 
-  const period = currentPeriod();
-  const monthUnits = unitsThisMonth(commissions, period);
   const openRequests = requests.filter((r) => isOpenBrokerRequest(r.status));
 
   const rmName = (id: string | null) =>
@@ -188,12 +189,14 @@ export default async function BrokerCompanyPage({
           ) : (
             <div className="space-y-3">
               {links.map((l) => {
-                const own = tiers.filter(
-                  (t) => t.project_id === l.project_id && t.company_id === company.id
-                );
-                const eff = effectiveTiers(tiers, l.project_id, company.id);
-                const n = monthUnits.get(`${company.id}|${l.project_id}`) ?? 0;
-                const next = nextTier(eff, n);
+                const own = plans.find(
+                  (p) => p.is_active && p.project_id === l.project_id && p.recipient_type === "وسيط" && p.company_id === company.id
+                ) ?? null;
+                const plan = effectivePlan(plans, l.project_id, "وسيط", { companyId: company.id });
+                const planTierList = plan?.commission_plan_tiers ?? [];
+                const n = plan ? planMeasure(commissions, plan, company.id) : 0;
+                const next = plan ? nextPlanTier(plan, planTierList, n) : null;
+                const valueBasis = plan?.basis === "قيمة المبيعات";
                 return (
                   <div key={l.project_id} className="rounded-xl bg-gray-50 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -219,48 +222,58 @@ export default async function BrokerCompanyPage({
                       </div>
                     </div>
 
-                    <p className="mt-2 text-sm text-gray-600">
-                      هذا الشهر: <b>{n}</b> وحدة ← نسبتها الآن{" "}
-                      <b>{tierRate(eff, n)}٪</b>
-                      {next && (
-                        <span className="text-gray-500">
-                          {" "}· باقٍ {next.remaining} للشريحة {next.rate}٪
-                        </span>
-                      )}
-                    </p>
+                    {plan && (
+                      <p className="mt-2 text-sm text-gray-600">
+                        الفترة الجارية ({plan.period}):{" "}
+                        <b dir="ltr">{valueBasis ? formatPrice(n) : n}</b>
+                        {valueBasis ? "" : " وحدة"} ← نسبتها الآن{" "}
+                        <b>{planRate(plan, planTierList, n).rate}٪</b>
+                        {next && (
+                          <span className="text-gray-500">
+                            {" "}· باقٍ {valueBasis ? formatPrice(next.remaining) : next.remaining} للشريحة {next.rate}٪
+                          </span>
+                        )}
+                      </p>
+                    )}
 
                     <div className="mt-2">
                       <span className="me-2 text-xs font-bold text-gray-500">
-                        {own.length ? "شرائح خاصة:" : "شرائح المشروع:"}
+                        {own ? "خطة خاصة بالشركة:" : "خطة المشروع:"}
                       </span>
-                      {own.length ? (
-                        <TiersEditor
+                      {own ? (
+                        <PlanEditor
+                          key={own.id}
                           projectId={l.project_id}
+                          recipientType="وسيط"
                           companyId={company.id}
-                          tiers={own}
+                          plan={own}
+                          unitTypes={unitTypes}
                           canEdit={admin}
                         />
                       ) : (
                         <>
-                          <TiersEditor
+                          <PlanEditor
                             projectId={l.project_id}
-                            companyId={null}
-                            tiers={eff}
+                            recipientType="وسيط"
+                            plan={plan}
+                            unitTypes={unitTypes}
                             canEdit={false}
-                            emptyHint="⚠️ لا شرائح لهذا المشروع — العمولة صفر"
+                            emptyHint="⚠️ لا خطة «وسيط» لهذا المشروع — العمولة صفر"
                           />
                           {admin && (
                             <details className="mt-1 text-xs">
                               <summary className="cursor-pointer text-brand-700">
-                                إعطاء الشركة شرائح خاصة في هذا المشروع
+                                إعطاء الشركة خطة خاصة في هذا المشروع
                               </summary>
                               <div className="mt-2">
-                                <TiersEditor
+                                <PlanEditor
                                   projectId={l.project_id}
+                                  recipientType="وسيط"
                                   companyId={company.id}
-                                  tiers={[]}
+                                  plan={null}
+                                  unitTypes={unitTypes}
                                   canEdit
-                                  emptyHint="تتبع شرائح المشروع"
+                                  emptyHint="تتبع خطة المشروع"
                                 />
                               </div>
                             </details>

@@ -1,4 +1,4 @@
-import { getCurrentUser, getMyMktRole, getUserRole, isAccountActive } from "@/lib/auth";
+import { canSeeBrokers, getCurrentUser, getMyMktRole, getUserRole, isAccountActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import AppShell, { NavItem } from "./app-shell";
 import ChatWidget from "@/components/chat-widget";
@@ -47,11 +47,12 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // الثلاثة مخزّنة لكل طلب، فلا تكلّف رحلات شبكة إضافية
-  const [user, role, active, mktRole] = await Promise.all([
+  const [user, role, active, mktRole, seesBrokers] = await Promise.all([
     getCurrentUser(),
     getUserRole(),
     isAccountActive(),
     getMyMktRole(),
+    canSeeBrokers(),
   ]);
   const t = getT();
 
@@ -307,8 +308,9 @@ export default async function DashboardLayout({
       ? { href: "/dashboard/me", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/me"] }
       : { href: "/dashboard/hr", label: t.nav.hr, icon: "badge", prefixes: ["/dashboard/hr", "/dashboard/me", "/dashboard/attendance"] },
 
-    // الوساطة: المدير يديرها، ومدير العلاقات يرى شركاته منها
-    ...(admin || rm
+    // الوساطة: المدير يديرها، ومدير العلاقات ومشرف المشروع يرون نطاقهم —
+    // بالعلاقة لا بالدور (sql/128): canSeeBrokers يسأل القاعدة.
+    ...(seesBrokers
       ? [{ href: "/dashboard/brokers", label: t.nav.brokers, icon: "handshake", prefixes: ["/dashboard/brokers"] }]
       : []),
 

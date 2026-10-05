@@ -4,16 +4,25 @@ import { getCurrentUser } from "@/lib/auth";
 import type {
   BrokerCommission,
   BrokerCommissionAdjustment,
-  BrokerCommissionTier,
   BrokerCompany,
   BrokerCompanyProject,
+  BrokerDashboardSummary,
   BrokerPayment,
+  BrokerPerformanceRow,
+  BrokerRequestDetail,
   BrokerReservationRequest,
+  BrokerScope,
   BrokerUnit,
   BrokerUser,
   Client,
+  CommissionLedgerRow,
+  CommissionPlan,
+  DirectVsBrokerRow,
+  RmPerformanceRow,
+  SupervisorApprovalRow,
+  SupervisorDashboardRow,
 } from "@/lib/types";
-import { commissionStatus, leadDaysLeft } from "@/lib/types";
+import { commissionStatus, leadDaysLeft, planPeriodKey } from "@/lib/types";
 
 // ============================================================
 // الوساطة — الشركات وليداتها وعمولاتها.
@@ -117,15 +126,107 @@ export async function getBrokerCommissions(
   return (data ?? []) as BrokerCommission[];
 }
 
-// شرائح العمولة — الوسيط يرى شرائح مشاريعه العامة وشرائحه الخاصة وحدها (RLS)
-export const getBrokerTiers = cache(async (): Promise<BrokerCommissionTier[]> => {
+// خطط العمولة وشرائحها (sql/129) — كلٌّ يرى نطاقه: الوسيط خطط «وسيط» في
+// مشاريعه (العامة وخاصّته)، والموظف خطط الموظفين، والمشرف والـRM مشاريعهم.
+export const getCommissionPlans = cache(async (): Promise<CommissionPlan[]> => {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("broker_commission_tiers")
-    .select("*")
-    .order("min_units");
-  return (data ?? []) as BrokerCommissionTier[];
+    .from("commission_plans")
+    .select("*, commission_plan_tiers(*)")
+    .order("created_at", { ascending: false });
+  return (data ?? []) as CommissionPlan[];
 });
+
+// نطاق الوساطة للمستخدم الحالي — للعرض وحده (الحماية في السياسات)
+export const getMyBrokerScope = cache(async (): Promise<BrokerScope> => {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("my_broker_scope");
+  return (data as BrokerScope) ?? { admin: false, rm: false, supervisor: false, broker: false };
+});
+
+// تفاصيل طلب واحد مع خطّه الزمني — null إن لم يكن في نطاق السائل
+export async function getBrokerRequestDetail(id: string): Promise<BrokerRequestDetail | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("broker_request_detail", { p_id: id });
+  if (error || !data) return null;
+  return data as BrokerRequestDetail;
+}
+
+export async function getBrokerDashboardSummary(): Promise<BrokerDashboardSummary | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("broker_dashboard_summary");
+  return (data as BrokerDashboardSummary) ?? null;
+}
+
+export async function getSupervisorBrokerDashboard(): Promise<SupervisorDashboardRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("supervisor_broker_dashboard");
+  return (data ?? []) as SupervisorDashboardRow[];
+}
+
+// دفتر العمولات الموحّد — RLS المخازن تحكم ما يُرى (security_invoker)
+export type LedgerFilters = {
+  from?: string;
+  to?: string;
+  project?: string;
+  recipientType?: string;
+  recipient?: string;
+  status?: string;
+  channel?: string;
+};
+
+export async function getCommissionLedger(f: LedgerFilters = {}): Promise<CommissionLedgerRow[]> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("commission_ledger")
+    .select("*")
+    .order("earned_at", { ascending: false })
+    .limit(1000);
+  if (f.from) q = q.gte("earned_at", f.from);
+  if (f.to) q = q.lte("earned_at", f.to);
+  if (f.project) q = q.eq("project_id", f.project);
+  if (f.recipientType) q = q.eq("recipient_type", f.recipientType);
+  if (f.recipient) q = q.eq("recipient_id", f.recipient);
+  if (f.status) q = q.eq("status", f.status);
+  if (f.channel) q = q.eq("sale_channel", f.channel);
+  const { data } = await q;
+  return (data ?? []) as CommissionLedgerRow[];
+}
+
+// ===== تقارير الأداء (sql/130) — كلّها تفحص النطاق في القاعدة =====
+type Range = { from?: string | null; to?: string | null; project?: string | null };
+
+export async function getBrokerPerformance(r: Range = {}): Promise<BrokerPerformanceRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("broker_performance", {
+    p_from: r.from || null, p_to: r.to || null, p_project: r.project || null,
+  });
+  return (data ?? []) as BrokerPerformanceRow[];
+}
+
+export async function getRmPerformance(r: Range = {}): Promise<RmPerformanceRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("rm_performance", {
+    p_from: r.from || null, p_to: r.to || null, p_project: r.project || null,
+  });
+  return (data ?? []) as RmPerformanceRow[];
+}
+
+export async function getSupervisorApprovalPerformance(r: Range = {}): Promise<SupervisorApprovalRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("supervisor_approval_performance", {
+    p_from: r.from || null, p_to: r.to || null,
+  });
+  return (data ?? []) as SupervisorApprovalRow[];
+}
+
+export async function getDirectVsBroker(r: Range = {}): Promise<DirectVsBrokerRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("direct_vs_broker", {
+    p_from: r.from || null, p_to: r.to || null,
+  });
+  return (data ?? []) as DirectVsBrokerRow[];
+}
 
 // طلبات الحجز — كلٌّ يرى نطاقه (الإدارة، مدير العلاقات، الشركة)
 export async function getBrokerRequests(
@@ -170,13 +271,15 @@ export async function getBrokerPayments(): Promise<BrokerPayment[]> {
 // خلاصات محسوبة — دوال خالصة على ما جُلب
 // ============================================================
 
-// المدفوع لكل عمولة: معرّف العمولة ← مجموع دفعاتها
+// صافي المدفوع لكل عمولة: دفعات − استرداد (sql/129) — يطابق
+// broker_commission_net_paid في القاعدة
 export function paidByCommission(
   payments: BrokerPayment[]
 ): Map<string, number> {
   const map = new Map<string, number>();
   payments.forEach((p) => {
-    map.set(p.commission_id, (map.get(p.commission_id) ?? 0) + Number(p.amount));
+    const signed = p.kind === "استرداد" ? -Number(p.amount) : Number(p.amount);
+    map.set(p.commission_id, (map.get(p.commission_id) ?? 0) + signed);
   });
   return map;
 }
@@ -203,23 +306,20 @@ export function companyMoney(
   };
 }
 
-// «YYYY-MM» لشهر الاستحقاق — دلو الشريحة
-export function commissionPeriod(c: Pick<BrokerCommission, "earned_at">): string {
-  return c.earned_at.slice(0, 7);
-}
-
-// عدد وحدات الشركة في كل مشروع هذا الشهر — مفتاح: company|project
-export function unitsThisMonth(
+// قياس الشركة في دلو خطّتها للفترة الجارية: عدد صفقاتها أو مجموع قيمها.
+// الدلو (الخطة، الشركة، الفترة) — كما يعدّ recompute_broker_bucket.
+export function planMeasure(
   commissions: BrokerCommission[],
-  period: string
-): Map<string, number> {
-  const map = new Map<string, number>();
-  commissions.forEach((c) => {
-    if (c.reversed_at || commissionPeriod(c) !== period) return;
-    const key = `${c.company_id}|${c.project_id}`;
-    map.set(key, (map.get(key) ?? 0) + 1);
-  });
-  return map;
+  plan: Pick<CommissionPlan, "id" | "basis" | "period">,
+  companyId: string
+): number {
+  const key = planPeriodKey(plan.period);
+  const inBucket = commissions.filter(
+    (c) => !c.reversed_at && c.plan_id === plan.id && c.company_id === companyId && c.period_key === key
+  );
+  return plan.basis === "قيمة المبيعات"
+    ? inBucket.reduce((s, c) => s + Number(c.deal_amount), 0)
+    : inBucket.length;
 }
 
 

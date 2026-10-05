@@ -152,11 +152,20 @@ export const isRelationshipManager = cache(async (): Promise<boolean> => {
   return (await getUserRole()) === "relationship_manager";
 });
 
-// من يفتح شاشات الوساطة (الشركات والليدات والعمولات):
-// المدير يديرها، ومدير العلاقات يرى نطاقه منها — والقاعدة تفرض النطاق.
+// من يفتح شاشات الوساطة (الشركات والطلبات والعمولات):
+// المدير يديرها، ومدير العلاقات ومشرف المشروع يرون نطاقهم منها.
+//
+// ⚠️ مدير العلاقات **علاقةٌ لا دور** (sql/128): من له rm_id في إسناد شركة —
+//    ومدراء العلاقات الحقيقيون موظفون بدور employee. والمشرف بإشرافه على
+//    مشروعٍ فيه وسطاء. كلاهما من my_broker_scope() في القاعدة.
 export const canSeeBrokers = cache(async (): Promise<boolean> => {
   const role = await getUserRole();
-  return role === "admin" || role === "relationship_manager";
+  if (role === "admin" || role === "relationship_manager") return true;
+  if (role === "broker") return false;
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("my_broker_scope");
+  const s = data as { rm?: boolean; supervisor?: boolean } | null;
+  return Boolean(s?.rm || s?.supervisor);
 });
 
 // ============================================================

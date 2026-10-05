@@ -12,15 +12,22 @@ import { BROKER_PAYMENT_METHODS, formatPrice } from "@/lib/types";
 // لما تبقّى، والدفع الجزئي مسموح. ولا نمنع تجاوز الباقي في الواجهة
 // بل نحذّر — قد يكون تصحيحاً مقصوداً، والقرار للمدير.
 // ============================================================
+//
+// منذ sql/129 القاعدة تحرس: لا صرف قبل أن تصير العمولة قابلة للصرف، ولا
+// فوق المستحق، ولا استرداد فوق صافي المصروف — والرسالة تأتي منها.
+// والاسترداد (kind = استرداد) قيده عكس الدفعة، وهو طريق فسخ صفقةٍ صُرف منها.
 export default function AddPayment({
   commissionId,
   remaining,
+  kind = "دفعة",
 }: {
   commissionId: string;
   remaining: number;
+  kind?: "دفعة" | "استرداد";
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const refund = kind === "استرداد";
 
   const today = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Baghdad",
@@ -48,6 +55,7 @@ export default function AddPayment({
       amount: value,
       payment_date: date,
       method,
+      kind,
       notes: notes.trim() || null,
     });
     setBusy(false);
@@ -69,9 +77,13 @@ export default function AddPayment({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+        className={
+          refund
+            ? "rounded-lg px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+            : "rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+        }
       >
-        صرف دفعة
+        {refund ? "تسجيل استرداد" : "صرف دفعة"}
       </button>
     );
   }
@@ -115,7 +127,7 @@ export default function AddPayment({
 
       {Number(amount) > remaining && remaining > 0 && (
         <p className="text-[11px] text-amber-700">
-          المبلغ أكبر من الباقي ({formatPrice(remaining)}).
+          المبلغ أكبر من {refund ? "صافي المصروف" : "الباقي"} ({formatPrice(remaining)}) — ستمنعه القاعدة.
         </p>
       )}
       {error && <p className="text-[11px] text-red-600">{error}</p>}

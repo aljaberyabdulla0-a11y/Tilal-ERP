@@ -1,13 +1,14 @@
 import Link from "next/link";
 
-// شريط تبويبات الوساطة — للإدارة ومدير العلاقات
+// شريط تبويبات الوساطة — للإدارة ومدير العلاقات ومشرف المشروع
 export default function BrokersTabs({ active }: { active: string }) {
   const tabs = [
-    { key: "companies", label: "الشركات", href: "/dashboard/brokers" },
     { key: "requests", label: "طلبات الحجز", href: "/dashboard/brokers/requests" },
+    { key: "companies", label: "الشركات", href: "/dashboard/brokers" },
     { key: "leads", label: "الليدات والمهل", href: "/dashboard/brokers/leads" },
-    { key: "commissions", label: "العمولات", href: "/dashboard/brokers/commissions" },
-    { key: "tiers", label: "شرائح العمولة", href: "/dashboard/brokers/tiers" },
+    { key: "commissions", label: "تقرير العمولات", href: "/dashboard/brokers/commissions" },
+    { key: "performance", label: "الأداء", href: "/dashboard/brokers/performance" },
+    { key: "plans", label: "خطط العمولة", href: "/dashboard/brokers/plans" },
   ];
 
   return (

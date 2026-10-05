@@ -9,10 +9,12 @@ import {
   isOpenBrokerRequest,
 } from "@/lib/types";
 import CancelRequest from "./cancel-request";
+import AnswerInfo from "./answer-info";
 
 // ============================================================
-// «طلباتنا» — طلبات الحجز التي رفعتها الشركة ومسار كلٍّ منها:
-// معلّق ← قيد المتابعة ← تمّ الحجز ← (بيع مكتمل) — أو مرفوض بسببه.
+// «طلباتنا» — طلبات الحجز التي رفعتها الشركة ومسار كلٍّ منها (sql/128):
+// معلّق ← قيد المتابعة ← بانتظار المشرف ← تمّ الحجز ← تمّ البيع —
+// أو مرفوض بسببه، أو منتهٍ بلا قرار. وإن سألت تلال أجبتم هنا.
 // حالة الحجز بعد إنشائه مرآةٌ في الطلب نفسه، فالوسيط لا يقرأ
 // جدول الحجوزات (sql/117).
 // ============================================================
@@ -28,17 +30,24 @@ export default async function BrokerRequestsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-bold text-gray-800">
-            الوحدة {r.unit_code ?? "—"}
+            <Link href={`/dashboard/broker/requests/${r.id}`} className="hover:underline">
+              الوحدة {r.unit_code ?? "—"}
+            </Link>
             <span className="ms-2 text-sm font-normal text-gray-500">{r.projects?.name ?? ""}</span>
           </h3>
           <p className="mt-1 text-sm text-gray-600">
             العميل{" "}
             <Link href={`/dashboard/broker/leads/${r.client_id}`} className="font-semibold hover:underline">
-              {r.clients?.name ?? "—"}
+              {r.client_name ?? r.clients?.name ?? "—"}
             </Link>
             {r.unit_price ? (
               <span className="ms-2 text-gray-500" dir="ltr">
                 {formatPrice(Number(r.unit_price))}
+              </span>
+            ) : null}
+            {r.requested_price && Number(r.requested_price) !== Number(r.unit_price) ? (
+              <span className="ms-2 text-amber-700" dir="ltr">
+                ← {formatPrice(Number(r.requested_price))}
               </span>
             ) : null}
           </p>
@@ -56,6 +65,7 @@ export default async function BrokerRequestsPage() {
               {r.decision_note}
             </p>
           )}
+          {r.status === "بحاجة لمعلومات" && <AnswerInfo id={r.id} question={r.info_request} />}
         </div>
         <div className="flex flex-col items-end gap-1">
           <span className={`rounded-full px-3 py-1 text-xs font-bold ${BROKER_REQUEST_COLORS[r.status]}`}>

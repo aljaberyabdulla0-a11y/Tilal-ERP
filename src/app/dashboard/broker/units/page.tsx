@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { isBroker } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getMyBrokerUnits } from "@/lib/brokers";
-import { Client } from "@/lib/types";
+import { Client, ProjectNode } from "@/lib/types";
 import UnitsBrowser from "./units-browser";
 
 // ============================================================
@@ -28,6 +28,20 @@ export default async function BrokerUnitsPage() {
 
   const leads = ((leadRows ?? []) as Pick<Client, "id" | "name" | "phone" | "project_id" | "stage">[])
     .filter((l) => l.stage !== "بيع");
+
+  // هيكل المشاريع (أبراج وطوابق) ليُعرض المخزون كما نعرضه نحن.
+  // سياسة القراءة تُريه هيكل مشاريعه المُسنَدة وحدها، ولا شيء فيه
+  // غير الأسماء والترتيب.
+  const projectIds = Array.from(new Set(units.map((u) => u.project_id)));
+  const { data: nodeRows } = projectIds.length
+    ? await supabase
+        .from("project_nodes")
+        .select("*")
+        .in("project_id", projectIds)
+        .order("depth")
+        .order("sort_order")
+    : { data: [] };
+  const nodes = (nodeRows ?? []) as ProjectNode[];
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -58,7 +72,7 @@ export default async function BrokerUnitsPage() {
             وحدات تظهر هنا.
           </div>
         ) : (
-          <UnitsBrowser units={units} leads={leads} />
+          <UnitsBrowser units={units} nodes={nodes} leads={leads} />
         )}
       </section>
     </main>

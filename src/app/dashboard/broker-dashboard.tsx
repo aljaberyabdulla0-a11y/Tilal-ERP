@@ -5,6 +5,7 @@ import {
   bucketLeads,
   companyMoney,
   getBrokerCommissions,
+  getBrokerDashboardSummary,
   getBrokerPayments,
   getBrokerRequests,
   getMyBrokerCompany,
@@ -31,7 +32,7 @@ export default async function BrokerDashboard() {
   const crmCfg = await getPipelineConfig();
   const supabase = await createClient();
 
-  const [company, { data: leadRows }, commissions, payments, requests] = await Promise.all([
+  const [company, { data: leadRows }, commissions, payments, requests, summary] = await Promise.all([
     getMyBrokerCompany(),
     supabase
       .from("clients")
@@ -40,6 +41,7 @@ export default async function BrokerDashboard() {
     getBrokerCommissions(),
     getBrokerPayments(),
     getBrokerRequests(),
+    getBrokerDashboardSummary(),
   ]);
   const openRequests = requests.filter((r) => isOpenBrokerRequest(r.status));
 
@@ -76,22 +78,36 @@ export default async function BrokerDashboard() {
       iconColor: "text-blue-700 bg-blue-50",
     },
     {
+      icon: "event_available",
+      label: "طلبات قيد المعالجة",
+      value: String(summary?.pending_requests ?? openRequests.length),
+      href: "/dashboard/broker/requests",
+      accent: summary?.needs_info ? "border-s-purple-500" : "border-s-blue-500",
+      iconColor: summary?.needs_info ? "text-purple-700 bg-purple-50" : "text-blue-700 bg-blue-50",
+    },
+    {
       icon: "handshake",
-      label: "صفقات مغلقة",
-      value: String(money.deals),
+      label: "حجوزات قائمة · مبيعات",
+      value: summary ? `${summary.active_deals} · ${summary.completed_sales}` : String(money.deals),
       href: "/dashboard/broker/commissions",
       accent: "border-s-brand-600",
       iconColor: "text-brand-700 bg-brand-50",
     },
-    {
-      icon: "payments",
-      label: "الباقي لنا",
-      value: formatPrice(money.remaining),
-      href: "/dashboard/broker/commissions",
-      accent: money.remaining ? "border-s-amber-500" : "border-s-emerald-500",
-      iconColor: money.remaining ? "text-amber-700 bg-amber-50" : "text-emerald-700 bg-emerald-50",
-    },
   ];
+
+  // المال بثلاث مراحل (sql/129): مستحق ← قابل للصرف ← مدفوع
+  const moneyCards = summary
+    ? [
+        { label: "إجمالي المستحق", value: summary.commission_earned, color: "text-gray-800" },
+        { label: "قابل للصرف الآن", value: summary.commission_payable, color: "text-blue-700" },
+        { label: "ينتظر تحصيل تلال", value: summary.commission_pending, color: "text-amber-700" },
+        { label: "المقبوض", value: summary.commission_paid, color: "text-emerald-700" },
+      ]
+    : [
+        { label: "إجمالي المستحق", value: money.earned, color: "text-gray-800" },
+        { label: "الباقي لنا", value: money.remaining, color: "text-amber-700" },
+        { label: "المقبوض", value: money.paid, color: "text-emerald-700" },
+      ];
 
   return (
     <main className="p-6 lg:p-8">
@@ -140,6 +156,17 @@ export default async function BrokerDashboard() {
         ))}
       </section>
 
+      <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {moneyCards.map((m) => (
+          <Link key={m.label} href="/dashboard/broker/commissions" className="glass-card p-4 transition hover:shadow-md">
+            <span className="text-xs font-bold text-gray-400">{m.label}</span>
+            <p className={`mt-1 text-xl font-bold ${m.color}`} dir="ltr">
+              {formatPrice(Number(m.value))}
+            </p>
+          </Link>
+        ))}
+      </section>
+
       {/* طلبات الحجز المفتوحة */}
       {openRequests.length > 0 && (
         <section className="mb-6">
@@ -161,12 +188,12 @@ export default async function BrokerDashboard() {
                   key={r.id}
                   className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 px-4 py-3"
                 >
-                  <span>
+                  <Link href={`/dashboard/broker/requests/${r.id}`} className="hover:underline">
                     <b className="text-gray-800">الوحدة {r.unit_code ?? "—"}</b>
                     <span className="ms-2 text-xs text-gray-500">
-                      {r.clients?.name ?? ""} · {r.projects?.name ?? ""}
+                      {r.client_name ?? r.clients?.name ?? ""} · {r.projects?.name ?? ""}
                     </span>
-                  </span>
+                  </Link>
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-semibold ${BROKER_REQUEST_COLORS[r.status]}`}
                   >

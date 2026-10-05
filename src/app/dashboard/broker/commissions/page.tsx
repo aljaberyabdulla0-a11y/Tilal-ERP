@@ -7,21 +7,20 @@ import {
   getBrokerCommissions,
   getBrokerPayments,
   getBrokerProjects,
-  getBrokerTiers,
   getCommissionAdjustments,
+  getCommissionPlans,
   getMyBrokerCompany,
   paidByCommission,
-  unitsThisMonth,
+  planMeasure,
 } from "@/lib/brokers";
 import {
   BrokerPayment,
   COMMISSION_STATUS_COLORS,
-  currentPeriod,
-  effectiveTiers,
+  effectivePlan,
   formatPrice,
-  nextTier,
-  tierRate,
-  tiersLabel,
+  nextPlanTier,
+  planRate,
+  planTiersLabel,
 } from "@/lib/types";
 
 // ============================================================
@@ -37,20 +36,25 @@ import {
 export default async function BrokerCommissionsPage() {
   if (!(await isBroker())) redirect("/dashboard");
 
-  const [company, commissions, payments, links, tiers, adjustments] = await Promise.all([
+  const [company, commissions, payments, links, plans, adjustments] = await Promise.all([
     getMyBrokerCompany(),
     getBrokerCommissions(),
     getBrokerPayments(),
     getBrokerProjects(),
-    getBrokerTiers(),
+    getCommissionPlans(),
     getCommissionAdjustments(),
   ]);
 
-  const period = currentPeriod();
-  const monthUnits = unitsThisMonth(commissions, period);
-
   const paid = paidByCommission(payments);
   const money = companyMoney(commissions, paid);
+
+  // المستحق ينقسم: قابلٌ للصرف الآن، وما ينتظر قاعدة الخطة (sql/129)
+  const payableNow = commissions
+    .filter((c) => !c.reversed_at && c.payable_at)
+    .reduce((s, c) => s + Math.max(0, Number(c.amount) - (paid.get(c.id) ?? 0)), 0);
+  const waiting = commissions
+    .filter((c) => !c.reversed_at && !c.payable_at)
+    .reduce((s, c) => s + Math.max(0, Number(c.amount) - (paid.get(c.id) ?? 0)), 0);
 
   // دفعات كل عمولة مرتبة للعرض تحتها
   const paymentsOf = (commissionId: string): BrokerPayment[] =>
@@ -96,6 +100,12 @@ export default async function BrokerCommissionsPage() {
             >
               {formatPrice(money.remaining)}
             </p>
+            {money.remaining > 0 && (
+              <p className="mt-1 text-[11px] text-gray-500">
+                قابل للصرف الآن <span dir="ltr">{formatPrice(payableNow)}</span> · ينتظر{" "}
+                <span dir="ltr">{formatPrice(waiting)}</span>
+              </p>
+            )}
           </div>
           <div className={kpi + " border-s-blue-500"}>
             <span className="text-sm text-gray-500">صفقات مغلقة</span>
@@ -106,35 +116,45 @@ export default async function BrokerCommissionsPage() {
         {/* الشرائح — أين نحن هذا الشهر */}
         {company && links.length > 0 && (
           <div className="glass-card p-5">
-            <h2 className="mb-3 text-lg font-bold text-gray-800">شرائحنا هذا الشهر</h2>
+            <h2 className="mb-3 text-lg font-bold text-gray-800">شرائحنا في الفترة الجارية</h2>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {links.map((l) => {
-                const eff = effectiveTiers(tiers, l.project_id, company.id);
-                const n = monthUnits.get(`${company.id}|${l.project_id}`) ?? 0;
-                const next = nextTier(eff, n);
-                const top = eff.length ? eff[eff.length - 1].min_units : 1;
+                const plan = effectivePlan(plans, l.project_id, "وسيط", { companyId: company.id });
+                const tiers = plan?.commission_plan_tiers ?? [];
+                const value = plan?.basis === "قيمة المبيعات";
+                const n = plan ? planMeasure(commissions, plan, company.id) : 0;
+                const next = plan ? nextPlanTier(plan, tiers, n) : null;
+                const top = Math.max(1, ...tiers.map((t) => Number(value ? t.min_value ?? 0 : t.min_units ?? 1)));
+                const show = (x: number) => (value ? formatPrice(x) : `${x} وحدة`);
                 return (
                   <div key={l.project_id} className="rounded-xl bg-gray-50 p-4">
                     <div className="flex items-center justify-between gap-2">
                       <b className="text-gray-800">{l.projects?.name ?? "مشروع"}</b>
                       <span className="text-sm text-gray-600">
-                        {n} وحدة ← <b className="text-brand-800">{tierRate(eff, n)}٪</b>
+                        <span dir="ltr">{show(n)}</span> ←{" "}
+                        <b className="text-brand-800">{plan ? planRate(plan, tiers, n).rate : 0}٪</b>
                       </span>
                     </div>
                     <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-200">
                       <div
                         className="h-full rounded-full bg-brand-600"
-                        style={{ width: `${Math.min(100, (n / Math.max(top, 1)) * 100)}%` }}
+                        style={{ width: `${Math.min(100, (n / top) * 100)}%` }}
                       />
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
-                      {next
-                        ? `باقٍ ${next.remaining} وحدة لتصير كل صفقات الشهر ${next.rate}٪`
-                        : eff.length
-                        ? "بلغتم أعلى شريحة هذا الشهر 🎯"
-                        : "لم تُعرَّف شرائح لهذا المشروع بعد"}
+                      {!plan
+                        ? "لم تُعرَّف خطة عمولة لهذا المشروع بعد"
+                        : next
+                        ? plan.formula === "شرائح رجعية"
+                          ? `باقٍ ${show(next.remaining)} لتصير كل صفقات الفترة ${next.rate}٪`
+                          : `باقٍ ${show(next.remaining)} لتصير صفقاتكم التالية ${next.rate}٪`
+                        : "بلغتم أعلى شريحة في هذه الفترة 🎯"}
                     </p>
-                    <p className="mt-1 text-[11px] text-gray-400">{tiersLabel(eff)}</p>
+                    {plan && (
+                      <p className="mt-1 text-[11px] text-gray-400">
+                        {plan.formula} · {plan.period} · {planTiersLabel(plan, tiers)} · تُصرف {plan.payable_rule}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -170,11 +190,22 @@ export default async function BrokerCommissionsPage() {
                         <span dir="ltr">{c.earned_at}</span>
                       </p>
                     </div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-bold ${COMMISSION_STATUS_COLORS[status]}`}
-                    >
-                      {status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-bold ${COMMISSION_STATUS_COLORS[status]}`}
+                      >
+                        {status}
+                      </span>
+                      {!c.reversed_at && remaining > 0 && (
+                        <span className="text-[11px] text-gray-500">
+                          {c.payable_at ? (
+                            <>قابلة للصرف منذ <span dir="ltr">{c.payable_at}</span></>
+                          ) : (
+                            `تُصرف ${c.payable_rule ?? "بعد تحصيل عمولة تلال"}`
+                          )}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -207,7 +238,7 @@ export default async function BrokerCommissionsPage() {
                       {changes.map((a) => (
                         <p key={a.id} className="rounded-lg bg-brand-50 px-3 py-1.5 text-xs text-brand-900">
                           <span dir="ltr">{a.created_at.slice(0, 10)}</span> · {a.reason ?? "تعديل"}:{" "}
-                          {a.old_rate}٪ ← {a.new_rate}٪ (
+                          {Number(a.old_rate)}٪ ← {Number(a.new_rate)}٪ (
                           <span dir="ltr">
                             {formatPrice(Number(a.old_amount))} → {formatPrice(Number(a.new_amount))}
                           </span>
@@ -226,9 +257,15 @@ export default async function BrokerCommissionsPage() {
                         {list.map((pay) => (
                           <div
                             key={pay.id}
-                            className="flex flex-wrap justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs"
+                            className={`flex flex-wrap justify-between gap-2 rounded-lg px-3 py-2 text-xs ${
+                              pay.kind === "استرداد" ? "bg-red-50" : "bg-emerald-50"
+                            }`}
                           >
-                            <span className="font-semibold text-emerald-800" dir="ltr">
+                            <span
+                              className={`font-semibold ${pay.kind === "استرداد" ? "text-red-700" : "text-emerald-800"}`}
+                              dir="ltr"
+                            >
+                              {pay.kind === "استرداد" ? "−" : ""}
                               {formatPrice(Number(pay.amount))}
                             </span>
                             <span className="text-gray-600">

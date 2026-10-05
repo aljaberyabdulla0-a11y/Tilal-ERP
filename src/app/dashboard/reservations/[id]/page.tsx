@@ -5,9 +5,11 @@ import { canSeeTeam, isAdmin } from "@/lib/auth";
 import {
   Reservation,
   RESERVATION_STATUS_COLORS,
+  SALE_CHANNEL_COLORS,
   formatPrice,
 } from "@/lib/types";
 import DeleteReservationButton from "../delete-reservation-button";
+import SaleChannelSwitch from "./sale-channel";
 
 // صفحة تفاصيل حجز
 export default async function ReservationDetailsPage({
@@ -18,13 +20,35 @@ export default async function ReservationDetailsPage({
   const supabase = await createClient();
   const { data } = await supabase
     .from("reservations")
-    .select("*, clients(name), units(project, unit_code)")
+    .select("*, clients(name), units(project, unit_code, project_id)")
     .eq("id", params.id)
     .single();
 
   if (!data) notFound();
-  const r = data as Reservation;
+  // قناة البيع (sql/128) — من جلب العميل، تُختم في القاعدة عند الحجز
+  const r = data as Reservation & {
+    sale_channel?: string | null;
+    broker_company_id?: string | null;
+    broker_request_id?: string | null;
+    units?: { project: string | null; unit_code: string | null; project_id?: string | null } | null;
+  };
   const admin = await isAdmin();
+
+  const channel = r.sale_channel ?? "مباشر";
+  const [{ data: brokerCo }, { data: assigned }] = await Promise.all([
+    r.broker_company_id
+      ? supabase.from("broker_companies").select("id, name").eq("id", r.broker_company_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    admin && r.status === "حجز" && r.units?.project_id
+      ? supabase
+          .from("broker_company_projects")
+          .select("company_id, broker_companies(id, name)")
+          .eq("project_id", r.units.project_id)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const companies = ((assigned ?? []) as unknown as { broker_companies: { id: string; name: string } | null }[])
+    .map((a) => a.broker_companies)
+    .filter(Boolean) as { id: string; name: string }[];
   // ما يراه المشرف من حجوزات هو نطاقه أصلاً (سياسة القاعدة تفلترها)
   const canEdit = await canSeeTeam();
 
@@ -113,6 +137,38 @@ export default async function ReservationDetailsPage({
                 >
                   {r.status}
                 </span>
+              }
+            />
+            <Field
+              label="قناة البيع"
+              value={
+                <>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      SALE_CHANNEL_COLORS[channel] ?? "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {channel}
+                  </span>
+                  {brokerCo && (
+                    <Link href={`/dashboard/brokers/${brokerCo.id}`} className="ms-2 text-sm text-brand-700 hover:underline">
+                      {brokerCo.name}
+                    </Link>
+                  )}
+                  {r.broker_request_id && (
+                    <Link href={`/dashboard/brokers/requests/${r.broker_request_id}`} className="ms-2 text-xs text-gray-500 hover:underline">
+                      طلب الوسيط
+                    </Link>
+                  )}
+                  {admin && r.status === "حجز" && (companies.length > 0 || channel === "وسيط") && (
+                    <SaleChannelSwitch
+                      reservationId={r.id}
+                      channel={channel}
+                      companyId={r.broker_company_id ?? null}
+                      companies={companies}
+                    />
+                  )}
+                </>
               }
             />
             <Field

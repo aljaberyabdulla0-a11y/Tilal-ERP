@@ -12,6 +12,7 @@ import {
   formatLeavePeriod,
 } from "@/lib/types";
 import RequestLeave from "./request-leave";
+import CancelLeave from "./cancel-leave";
 
 // إجازاتي (للموظف)
 export default async function MyLeavesPage() {
@@ -57,6 +58,30 @@ export default async function MyLeavesPage() {
   ]);
 
   const leaves = (data ?? []) as Leave[];
+
+  // أين وصل كل طلب معلّق في سلسلة موافقته (sql/153)
+  const pendingIds = leaves.filter((l) => l.status === "معلقة").map((l) => l.id);
+  const [{ data: reqs }, { data: steps }] = await Promise.all([
+    supabase
+      .from("approval_requests")
+      .select("entity_id, workflow_code, current_step")
+      .eq("entity_type", "leave")
+      .eq("status", "قيد الموافقة")
+      .in("entity_id", pendingIds.length ? pendingIds : ["00000000-0000-0000-0000-000000000000"]),
+    supabase.from("approval_steps").select("workflow_code, step_no, label"),
+  ]);
+  const stageOf = (leaveId: string) => {
+    const r = (reqs ?? []).find((x: { entity_id: string }) => x.entity_id === leaveId) as
+      | { workflow_code: string; current_step: number | null }
+      | undefined;
+    if (!r) return null;
+    if (r.current_step == null) return "المدير";
+    return (
+      ((steps ?? []) as { workflow_code: string; step_no: number; label: string }[]).find(
+        (s) => s.workflow_code === r.workflow_code && s.step_no === r.current_step
+      )?.label ?? null
+    );
+  };
   const balances = (balData ?? []) as LeaveBalance[];
   const ledger = (ledgerData ?? []) as LeaveLedgerEntry[];
 
@@ -147,6 +172,12 @@ export default async function MyLeavesPage() {
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${LEAVE_STATUS_COLORS[l.status] ?? "bg-gray-100 text-gray-600"}`}>
                           {l.status}
                         </span>
+                        {l.status === "معلقة" && (
+                          <span className="ms-2 inline-flex items-center gap-2">
+                            {stageOf(l.id) && <span className="text-[11px] text-gray-500">عند: {stageOf(l.id)}</span>}
+                            <CancelLeave leaveId={l.id} />
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

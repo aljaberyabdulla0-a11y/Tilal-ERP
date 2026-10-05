@@ -86,6 +86,7 @@ export default async function MyPortalHome() {
     { data: myIvs },
     { count: myTasks },
     { data: myProbation },
+    { data: myApprovals },
   ] = await Promise.all([
       supabase
         .from("attendance")
@@ -109,6 +110,7 @@ export default async function MyPortalHome() {
       supabase.rpc("my_interviews"),
       supabase.from("onboarding_tasks").select("*", { count: "exact", head: true }).eq("assignee_id", emp.id).eq("status", "معلّقة"),
       supabase.rpc("probation_overview"),
+      supabase.rpc("my_pending_approvals"),
     ]);
 
   const commissionsTotal = (comms ?? []).reduce(
@@ -136,9 +138,12 @@ export default async function MyPortalHome() {
           </Link>
           <h1 className="text-xl font-bold text-brand-700">HR</h1>
         </div>
-        <Link href="/dashboard/me/profile" className="text-sm text-brand-700 hover:underline">
-          {emp.full_name} — ملفي ←
-        </Link>
+        <div className="flex items-center gap-4 text-sm">
+          <Link href="/dashboard/me/requests" className="text-brand-700 hover:underline">طلباتي</Link>
+          <Link href="/dashboard/me/profile" className="text-brand-700 hover:underline">
+            {emp.full_name} — ملفي ←
+          </Link>
+        </div>
       </header>
 
       <HrTabs active="portal" manager={admin} />
@@ -164,6 +169,9 @@ export default async function MyPortalHome() {
           const pendingIvs = ((myIvs ?? []) as { status: string }[]).filter((i) => i.status === "مجدولة").length;
           const probation = (myProbation ?? []).length;
           const links = [
+            ...((myApprovals ?? []).length > 0
+              ? [{ href: "/dashboard/me/approvals", label: `موافقاتي (${(myApprovals ?? []).length})` }]
+              : []),
             ...(pendingIvs > 0 || (myIvs ?? []).length > 0
               ? [{ href: "/dashboard/me/interviews", label: `مقابلاتي${pendingIvs ? ` (${pendingIvs} بانتظار تقييمك)` : ""}` }]
               : []),

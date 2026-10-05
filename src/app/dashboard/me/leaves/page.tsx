@@ -13,6 +13,7 @@ import {
 } from "@/lib/types";
 import RequestLeave from "./request-leave";
 import CancelLeave from "./cancel-leave";
+import EncashForm from "./encash-form";
 
 // إجازاتي (للموظف)
 export default async function MyLeavesPage() {
@@ -58,6 +59,9 @@ export default async function MyLeavesPage() {
   ]);
 
   const leaves = (data ?? []) as Leave[];
+
+  const { data: encashData } = await supabase.from("leave_types").select("id, name").eq("encashable", true).eq("active", true);
+  const encashable = (encashData ?? []) as { id: string; name: string }[];
 
   // أين وصل كل طلب معلّق في سلسلة موافقته (sql/153)
   const pendingIds = leaves.filter((l) => l.status === "معلقة").map((l) => l.id);
@@ -132,6 +136,9 @@ export default async function MyLeavesPage() {
         )}
 
         <RequestLeave employeeId={emp.id} />
+
+        {/* صرف الرصيد نقداً — للأنواع التي تسمح به (sql/157) */}
+        <EncashForm types={encashable} />
 
         <div className="rounded-2xl border bg-white p-6 shadow-sm">
           <h3 className="mb-3 text-lg font-semibold text-gray-800">طلباتي</h3>

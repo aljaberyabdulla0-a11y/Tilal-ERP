@@ -861,11 +861,20 @@ export type PayrollLine = {
   original_amount: number | null;
   edited_at: string | null;
   edited_by_name: string | null;
+  // نظام | يدوي | معدَّل — إعادة البناء تمسح «نظام» وحدها (sql/157)
+  origin?: string;
 };
 
 // بنود مبلغها من مصدرٍ آخر يُعدَّل هناك: العمولة مُرحَّلة عند
 // استحقاقها، والقسط من رصيد السلفة (sql/105). الوصف يُعدَّل.
-export const PAYROLL_LOCKED_AMOUNT_SOURCES = ["commissions", "advance_installments"];
+// (157) وما اعتُمد مبلغه في سلسلة موافقة: الإضافي والمكافأة وصرف الرصيد
+export const PAYROLL_LOCKED_AMOUNT_SOURCES = [
+  "commissions",
+  "advance_installments",
+  "overtime_requests",
+  "employee_bonuses",
+  "leave_encashments",
+];
 
 export const PAYROLL_EARNING_CATEGORIES = [
   "بدل",

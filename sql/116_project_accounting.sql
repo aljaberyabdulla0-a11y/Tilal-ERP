@@ -481,6 +481,8 @@ begin
 
   begin
     update public.company_settings set attendance_rules_enabled = false where id = 1;
+    -- 119: لا كشف قبل المباشرة — موظف الاختبار يُعاد إلى ما قبل كشوف 2020 (يُلغى بالتراجع)
+    update public.employees set hire_date = date '2019-01-01' where id = emp and (hire_date is null or hire_date > date '2019-01-01');
     perform tests.act_as(admin_u);
 
     -- مجموع المشاريع = قائمة الدخل

@@ -96,6 +96,12 @@ export default async function PayrollPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/dashboard/payslip/${p.id}`}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+          >
+            القسيمة
+          </Link>
           {/* ملفّ الموظف لمن يفتحه: المحاسب لا يدخل ملفّات الأفراد */}
           {hrCan && p.employees?.id && (
             <Link

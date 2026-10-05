@@ -89,14 +89,8 @@ export default function PayrollDetail({
       setErr("اختر الشهر.");
       return;
     }
-    if (
-      sheetForm.rebuild &&
-      lines.some((l) => l.manual || l.original_amount != null) &&
-      !window.confirm(
-        "إعادة بناء البنود تمسح ما أُضيف أو عُدّل يدوياً في هذا الكشف. متابعة؟"
-      )
-    )
-      return;
+    // منذ sql/157 إعادة البناء تمسح بنود «النظام» وحدها: اليدوي والمعدَّل
+    // يبقيان بمبالغهما — فلا حاجة لتحذيرٍ من ضياعهما.
 
     setBusy(true);
     setErr(null);
@@ -259,6 +253,11 @@ export default function PayrollDetail({
           </span>
           <span className="block text-[11px] text-gray-400">
             {l.category}
+            {l.origin && l.origin !== "نظام" && (
+              <span className="ms-1 rounded bg-blue-50 px-1 text-blue-600" title="يبقى عند إعادة حساب الكشف">
+                {l.origin}
+              </span>
+            )}
             {l.manual && l.created_by_name && ` · أضافه ${l.created_by_name}`}
             {edited && (
               <>

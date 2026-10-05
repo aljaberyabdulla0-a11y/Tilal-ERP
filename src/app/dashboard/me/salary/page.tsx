@@ -149,7 +149,11 @@ export default async function MySalaryPage() {
                     const st = payrollPayStatus(Number(p.net), paid);
                     return (
                       <tr key={p.id} className="border-b last:border-0">
-                        <td className="py-2.5 text-gray-600" dir="ltr">{p.period}</td>
+                        <td className="py-2.5 text-gray-600" dir="ltr">
+                          <Link href={`/dashboard/payslip/${p.id}`} className="text-brand-700 hover:underline">
+                            {p.period}
+                          </Link>
+                        </td>
                         <td className="py-2.5" dir="ltr">{formatPrice(p.basic)}</td>
                         <td className="py-2.5" dir="ltr">{formatPrice(p.allowances)}</td>
                         <td className="py-2.5 text-green-700" dir="ltr">{formatPrice(p.commissions_total)}</td>

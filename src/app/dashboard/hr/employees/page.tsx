@@ -54,7 +54,7 @@ export default async function EmployeesPage() {
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-medium">الاسم</th>
-                  <th className="px-4 py-3 font-medium">المسمّى الوظيفي</th>
+                  <th className="px-4 py-3 font-medium">المنصب</th>
                   <th className="px-4 py-3 font-medium">القسم</th>
                   <th className="px-4 py-3 font-medium">الراتب الأساسي</th>
                   <th className="px-4 py-3 font-medium">الحالة</th>
@@ -71,6 +71,9 @@ export default async function EmployeesPage() {
                       >
                         {e.full_name}
                       </Link>
+                      <span className="ms-2 font-mono text-[10px] text-gray-400" dir="ltr">
+                        {e.employee_code}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{e.job_title || "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{e.department || "—"}</td>

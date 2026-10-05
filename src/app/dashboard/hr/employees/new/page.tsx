@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canManageHr } from "@/lib/auth";
 import { CompanySettings } from "@/lib/types";
 import { getProjects } from "@/lib/projects";
+import { getEmployeeFormOrgData } from "@/lib/org";
 import EmployeeForm from "../employee-form";
 
 // حسابات غير مرتبطة بموظف بعد (لخيار الربط)
@@ -22,9 +23,10 @@ async function getAvailableAccounts() {
 export default async function NewEmployeePage() {
   if (!(await canManageHr())) redirect("/dashboard");
   const supabase = await createClient();
-  const [accounts, { data: cfg }] = await Promise.all([
+  const [accounts, { data: cfg }, orgData] = await Promise.all([
     getAvailableAccounts(),
     supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
+    getEmployeeFormOrgData(),
   ]);
 
   return (
@@ -44,6 +46,7 @@ export default async function NewEmployeePage() {
           accounts={accounts}
           settings={(cfg as CompanySettings) ?? null}
           projects={await getProjects()}
+          {...orgData}
         />
       </section>
     </main>

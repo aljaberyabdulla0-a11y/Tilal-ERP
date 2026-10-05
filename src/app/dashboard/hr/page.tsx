@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canManageHr } from "@/lib/auth";
+import { canManageHr, isAdmin } from "@/lib/auth";
 import HrTabs from "./hr-tabs";
 
 // الصفحة الرئيسية للموارد البشرية (للمدير) — غير المدير يُحوّل لبوابة الموظف
@@ -19,6 +19,11 @@ export default async function HrHome() {
 
   const sections = [
     { href: "/dashboard/hr/employees", title: "الموظفون", desc: "بيانات الموظفين والرواتب", icon: "🧑‍💼" },
+    { href: "/dashboard/hr/organization", title: "الهيكل التنظيمي", desc: "الإدارات والأقسام والفرق ومدراؤها، ولوحة كل قسم", icon: "🏢" },
+    { href: "/dashboard/hr/positions", title: "المناصب والدرجات", desc: "المسمّيات الوظيفية وتبعيّتها، والدرجات ونطاق رواتبها", icon: "🪪" },
+    ...((await isAdmin())
+      ? [{ href: "/dashboard/settings/roles", title: "الأدوار والصلاحيات", desc: "أدوار قابلة للإدارة ومصفوفة الصلاحيات لكل وحدة", icon: "🔐" }]
+      : []),
     { href: "/dashboard/attendance", title: "الدوام", desc: "بصمات اليوم وساعات العمل والتقرير الشهري", icon: "⏱️" },
     { href: "/dashboard/hr/month-close", title: "إغلاق الشهر", desc: "ابنِ كشوف الجميع، راجع الشاذّ، ثم اعتمد دفعة واحدة", icon: "📆" },
     { href: "/dashboard/attendance/rules", title: "قواعد خصم الدوام", desc: "معاملات الغياب والتأخير، ومعاينة ما سيُخصم قبل أن يُخصم", icon: "⚖️" },

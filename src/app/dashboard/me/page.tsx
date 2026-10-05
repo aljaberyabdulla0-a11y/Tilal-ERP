@@ -82,6 +82,7 @@ export default async function MyPortalHome() {
     { data: pays },
     { data: cfg },
     { data: locs },
+    { data: myDeps },
   ] = await Promise.all([
       supabase
         .from("attendance")
@@ -99,6 +100,8 @@ export default async function MyPortalHome() {
         .limit(1),
       supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
       supabase.from("work_locations").select("*").eq("is_active", true),
+      // الأقسام التي يديرها — لوحتها مفتوحة له (sql/145–146)
+      supabase.from("departments").select("id, name_ar").eq("manager_id", emp.id).eq("status", "نشط").order("sort_order"),
     ]);
 
   const commissionsTotal = (comms ?? []).reduce(
@@ -132,6 +135,21 @@ export default async function MyPortalHome() {
       <HrTabs active="portal" manager={admin} />
 
       <section className="space-y-6 p-6">
+        {(myDeps ?? []).length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white p-4 shadow-sm">
+            <span className="text-sm font-semibold text-gray-700">أقسامي:</span>
+            {((myDeps ?? []) as { id: string; name_ar: string }[]).map((d) => (
+              <Link
+                key={d.id}
+                href={`/dashboard/hr/organization/${d.id}`}
+                className="rounded-lg bg-brand-50 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-100"
+              >
+                {d.name_ar} ←
+              </Link>
+            ))}
+          </div>
+        )}
+
         {/* تسجيل البصمة — المعفيّون (الإدارة) لا يظهر لهم */}
         {emp.exempt_from_attendance ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">

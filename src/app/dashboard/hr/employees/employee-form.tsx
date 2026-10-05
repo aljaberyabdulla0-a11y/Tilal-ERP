@@ -6,8 +6,16 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { CompanySettings, Employee, Project } from "@/lib/types";
 import { WEEKDAYS } from "@/lib/attendance";
+import { Branch, Department, EmploymentType, Position, departmentLabel } from "@/lib/org-types";
 
 type AccountOption = { id: string; email: string | null };
+type PersonOption = { id: string; full_name: string; employee_code: string };
+export type OrgLookups = {
+  departments: Department[];
+  positions: Position[];
+  branches: Branch[];
+  employmentTypes: EmploymentType[];
+};
 
 // نموذج إضافة/تعديل موظف (للمدير)
 export default function EmployeeForm({
@@ -16,12 +24,18 @@ export default function EmployeeForm({
   employeeId,
   settings,
   projects = [],
+  org,
+  people = [],
+  roleNames,
 }: {
   accounts: AccountOption[];
   initial?: Partial<Employee>;
   employeeId?: string;
   settings?: CompanySettings | null;
   projects?: Project[];
+  org?: OrgLookups;
+  people?: PersonOption[];
+  roleNames?: Record<string, string>;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -30,7 +44,12 @@ export default function EmployeeForm({
   const [form, setForm] = useState({
     full_name: initial?.full_name ?? "",
     job_title: initial?.job_title ?? "",
-    department: initial?.department ?? "",
+    department_id: initial?.department_id ?? "",
+    position_id: initial?.position_id ?? "",
+    manager_id: initial?.manager_id ?? "",
+    branch_id: initial?.branch_id ?? org?.branches[0]?.id ?? "",
+    employment_type: initial?.employment_type ?? "full_time",
+    employee_code: initial?.employee_code ?? "",
     phone: initial?.phone ?? "",
     hire_date: initial?.hire_date ?? "",
     base_salary: initial?.base_salary?.toString() ?? "",
@@ -66,6 +85,20 @@ export default function EmployeeForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  // اختيار المنصب يملأ القسم ونوع التوظيف منه — ويبقى تعديلهما ممكناً (الندب)
+  function choosePosition(id: string) {
+    const p = org?.positions.find((x) => x.id === id);
+    setForm((prev) => ({
+      ...prev,
+      position_id: id,
+      department_id: p ? p.department_id : prev.department_id,
+      employment_type: p ? p.employment_type : prev.employment_type,
+      job_title: p ? p.title_ar : prev.job_title,
+    }));
+  }
+  const chosen = org?.positions.find((x) => x.id === form.position_id);
+  const suggestedRole = chosen?.default_role_code ? roleNames?.[chosen.default_role_code] ?? chosen.default_role_code : null;
+
   function toggleDay(value: number) {
     setDays((prev) =>
       prev.includes(value) ? prev.filter((d) => d !== value) : [...prev, value].sort()
@@ -88,7 +121,14 @@ export default function EmployeeForm({
     const payload = {
       full_name: form.full_name.trim(),
       job_title: form.job_title.trim() || null,
-      department: form.department.trim() || null,
+      // القسم والمسمّى النصّيان يشتقّهما محفّز القاعدة من المرجعين (sql/145)
+      department_id: form.department_id || null,
+      position_id: form.position_id || null,
+      manager_id: form.manager_id || null,
+      branch_id: form.branch_id || null,
+      employment_type: form.employment_type || null,
+      // فارغ = تولّد القاعدة رمزاً تلقائياً (لا يُرسل فارغاً فيُستبدل رمزٌ قائم)
+      ...(form.employee_code.trim() ? { employee_code: form.employee_code.trim() } : {}),
       phone: form.phone.trim() || null,
       hire_date: form.hire_date || null,
       base_salary: form.base_salary ? Number(form.base_salary) : 0,
@@ -147,25 +187,124 @@ export default function EmployeeForm({
           />
         </div>
 
+        {/* ===== الهيكل التنظيمي (sql/145) ===== */}
         <div>
-          <label className={labelClass}>المسمّى الوظيفي</label>
-          <input
-            type="text"
-            value={form.job_title}
-            onChange={(e) => update("job_title", e.target.value)}
+          <label className={labelClass}>المنصب</label>
+          <select
+            value={form.position_id}
+            onChange={(e) => choosePosition(e.target.value)}
             className={inputClass}
-            placeholder="مثال: موظف مبيعات"
-          />
+          >
+            <option value="">— بلا منصب —</option>
+            {(org?.departments ?? []).map((d) => {
+              const items = (org?.positions ?? []).filter((p) => p.department_id === d.id);
+              if (items.length === 0) return null;
+              return (
+                <optgroup key={d.id} label={departmentLabel(d, org?.departments ?? [])}>
+                  {items.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title_ar}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+          {suggestedRole && (
+            <p className="mt-1 text-xs text-gray-400">
+              الدور المقترح لهذا المنصب: {suggestedRole} — يُعيَّن من الإعدادات، لا تلقائياً.
+            </p>
+          )}
         </div>
+
+        {/* المسمّى الحرّ لمن لا منصب له — مع المنصب يُشتق منه */}
+        {!form.position_id && (
+          <div>
+            <label className={labelClass}>المسمّى الوظيفي</label>
+            <input
+              type="text"
+              value={form.job_title}
+              onChange={(e) => update("job_title", e.target.value)}
+              className={inputClass}
+              placeholder="يُفضَّل اختيار منصب"
+            />
+          </div>
+        )}
 
         <div>
           <label className={labelClass}>القسم</label>
+          <select
+            value={form.department_id}
+            onChange={(e) => update("department_id", e.target.value)}
+            className={inputClass}
+          >
+            <option value="">— بلا قسم —</option>
+            {(org?.departments ?? []).map((d) => (
+              <option key={d.id} value={d.id}>
+                {departmentLabel(d, org?.departments ?? [])}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>المدير المباشر</label>
+          <select
+            value={form.manager_id}
+            onChange={(e) => update("manager_id", e.target.value)}
+            className={inputClass}
+          >
+            <option value="">— بلا مدير مباشر —</option>
+            {people
+              .filter((p) => p.id !== employeeId)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name} ({p.employee_code})
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>نوع التوظيف</label>
+          <select
+            value={form.employment_type}
+            onChange={(e) => update("employment_type", e.target.value)}
+            className={inputClass}
+          >
+            {(org?.employmentTypes ?? []).map((t) => (
+              <option key={t.code} value={t.code}>
+                {t.name_ar}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>الفرع</label>
+          <select
+            value={form.branch_id}
+            onChange={(e) => update("branch_id", e.target.value)}
+            className={inputClass}
+          >
+            <option value="">—</option>
+            {(org?.branches ?? []).map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name_ar}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>الرقم الوظيفي</label>
           <input
             type="text"
-            value={form.department}
-            onChange={(e) => update("department", e.target.value)}
-            className={inputClass}
-            placeholder="مثال: المبيعات"
+            dir="ltr"
+            value={form.employee_code}
+            onChange={(e) => update("employee_code", e.target.value.toUpperCase())}
+            className={inputClass + " text-start"}
+            placeholder="يُولَّد تلقائياً"
           />
         </div>
 

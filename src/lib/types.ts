@@ -575,6 +575,14 @@ export type Employee = {
   work_start_time: string | null;
   work_end_time: string | null;
   work_days: number[] | null;
+  // الهيكل التنظيمي (sql/145). department و job_title أعلاه صارا مشتقّين
+  // من هذين المرجعين — يملؤهما محفّز في القاعدة.
+  employee_code: string;
+  department_id: string | null;
+  position_id: string | null;
+  manager_id: string | null;
+  branch_id: string | null;
+  employment_type: string | null;
 };
 
 // موقع عمل تُقبل البصمة منه — يمكن أن تكون هناك عدة مواقع

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canManageHr } from "@/lib/auth";
 import { CompanySettings, Employee } from "@/lib/types";
 import { getProjects } from "@/lib/projects";
+import { getEmployeeFormOrgData } from "@/lib/org";
 import EmployeeForm from "../../employee-form";
 
 export default async function EditEmployeePage({
@@ -14,12 +15,13 @@ export default async function EditEmployeePage({
   if (!(await canManageHr())) redirect("/dashboard");
 
   const supabase = await createClient();
-  const [{ data: employee }, { data: profiles }, { data: employees }, { data: cfg }] =
+  const [{ data: employee }, { data: profiles }, { data: employees }, { data: cfg }, orgData] =
     await Promise.all([
       supabase.from("employees").select("*").eq("id", params.id).single(),
       supabase.from("profiles").select("id, email"),
       supabase.from("employees").select("user_id"),
       supabase.from("company_settings").select("*").eq("id", 1).maybeSingle(),
+      getEmployeeFormOrgData(),
     ]);
 
   if (!employee) notFound();
@@ -54,6 +56,7 @@ export default async function EditEmployeePage({
           employeeId={emp.id}
           settings={(cfg as CompanySettings) ?? null}
           projects={await getProjects()}
+          {...orgData}
         />
       </section>
     </main>

@@ -161,8 +161,26 @@ export default async function EmployeeDetailsPage({
         <div className={card}>
           <h3 className={h3}>البيانات الأساسية</h3>
           <dl className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-3">
-            <div><dt className="text-gray-500">المسمّى الوظيفي</dt><dd className="font-medium">{emp.job_title || "—"}</dd></div>
-            <div><dt className="text-gray-500">القسم</dt><dd className="font-medium">{emp.department || "—"}</dd></div>
+            <div><dt className="text-gray-500">الرقم الوظيفي</dt><dd className="font-mono font-medium" dir="ltr">{emp.employee_code}</dd></div>
+            <div><dt className="text-gray-500">المنصب</dt><dd className="font-medium">{emp.job_title || "—"}</dd></div>
+            <div>
+              <dt className="text-gray-500">القسم</dt>
+              <dd className="font-medium">
+                {emp.department_id ? (
+                  <Link href={`/dashboard/hr/organization/${emp.department_id}`} className="text-brand-700 hover:underline">
+                    {emp.department || "—"}
+                  </Link>
+                ) : (
+                  emp.department || "—"
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-gray-500">المدير المباشر</dt>
+              <dd className="font-medium">
+                {emp.manager_id ? ((peers ?? []) as Employee[]).find((p) => p.id === emp.manager_id)?.full_name ?? "—" : "—"}
+              </dd>
+            </div>
             <div><dt className="text-gray-500">الهاتف</dt><dd className="font-medium" dir="ltr">{emp.phone || "—"}</dd></div>
             <div><dt className="text-gray-500">تاريخ التعيين</dt><dd className="font-medium" dir="ltr">{emp.hire_date || "—"}</dd></div>
             <div><dt className="text-gray-500">الراتب الأساسي</dt><dd className="font-medium" dir="ltr">{formatPrice(emp.base_salary)}</dd></div>

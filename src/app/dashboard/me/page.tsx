@@ -83,6 +83,9 @@ export default async function MyPortalHome() {
     { data: cfg },
     { data: locs },
     { data: myDeps },
+    { data: myIvs },
+    { count: myTasks },
+    { data: myProbation },
   ] = await Promise.all([
       supabase
         .from("attendance")
@@ -102,6 +105,10 @@ export default async function MyPortalHome() {
       supabase.from("work_locations").select("*").eq("is_active", true),
       // الأقسام التي يديرها — لوحتها مفتوحة له (sql/145–146)
       supabase.from("departments").select("id, name_ar").eq("manager_id", emp.id).eq("status", "نشط").order("sort_order"),
+      // ما ينتظرني في HR كمقيِّم أو مدير (sql/150–151)
+      supabase.rpc("my_interviews"),
+      supabase.from("onboarding_tasks").select("*", { count: "exact", head: true }).eq("assignee_id", emp.id).eq("status", "معلّقة"),
+      supabase.rpc("probation_overview"),
     ]);
 
   const commissionsTotal = (comms ?? []).reduce(
@@ -151,6 +158,32 @@ export default async function MyPortalHome() {
             ))}
           </div>
         )}
+
+        {/* ما ينتظرني كمقيِّم أو مدير — يظهر حين يوجد فقط */}
+        {(() => {
+          const pendingIvs = ((myIvs ?? []) as { status: string }[]).filter((i) => i.status === "مجدولة").length;
+          const probation = (myProbation ?? []).length;
+          const links = [
+            ...(pendingIvs > 0 || (myIvs ?? []).length > 0
+              ? [{ href: "/dashboard/me/interviews", label: `مقابلاتي${pendingIvs ? ` (${pendingIvs} بانتظار تقييمك)` : ""}` }]
+              : []),
+            ...((myTasks ?? 0) > 0 ? [{ href: "/dashboard/hr/onboarding", label: `مهام تهيئة مكلَّف بها (${myTasks})` }] : []),
+            ...(probation > 0 ? [{ href: "/dashboard/hr/probation", label: `تجربة فريقي (${probation})` }] : []),
+            ...((myDeps ?? []).length > 0 ? [{ href: "/dashboard/hr/recruitment", label: "طلبات التوظيف لقسمي" }] : []),
+          ];
+          if (links.length === 0) return null;
+          return (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-white p-4 shadow-sm">
+              <span className="text-sm font-semibold text-gray-700">ينتظرني:</span>
+              {links.map((l) => (
+                <Link key={l.href} href={l.href}
+                  className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100">
+                  {l.label} ←
+                </Link>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* تسجيل البصمة — المعفيّون (الإدارة) لا يظهر لهم */}
         {emp.exempt_from_attendance ? (

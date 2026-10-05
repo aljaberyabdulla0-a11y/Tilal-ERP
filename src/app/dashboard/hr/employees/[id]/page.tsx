@@ -30,6 +30,8 @@ import AddDeduction from "./add-deduction";
 import GeneratePayroll from "./generate-payroll";
 import SalaryPanel from "./salary-panel";
 import EmploymentStatus from "./employment-status";
+import OnboardingPanel from "./onboarding-panel";
+import type { OnboardingTask } from "@/lib/recruitment";
 import EmployeeDocumentsPanel from "@/components/employee-documents-panel";
 import EmployeeTimeline from "@/components/employee-timeline";
 import { baghdadDate } from "@/lib/time";
@@ -97,12 +99,14 @@ export default async function EmployeeDetailsPage({
     { data: docTypes },
     { data: trans },
     { data: timeline, error: timelineError },
+    { data: onboarding },
   ] = await Promise.all([
     supabase.from("employee_salary_history").select("*").eq("employee_id", id).order("effective_from", { ascending: false }),
     supabase.from("employee_documents").select("*").eq("employee_id", id).order("created_at", { ascending: false }),
     supabase.from("employee_document_types").select("*").order("sort_order"),
     supabase.from("employment_status_transitions").select("to_status").eq("from_status", emp.employment_status),
     supabase.rpc("employee_timeline", { p_employee: id, p_limit: 100 }),
+    supabase.from("onboarding_tasks").select("*").eq("employee_id", id).order("due_date"),
   ]);
   const exitStates = ["غير نشط", "مستقيل", "منتهية خدمته"];
   const transitions = ((trans ?? []) as { to_status: string }[])
@@ -271,6 +275,12 @@ export default async function EmployeeDetailsPage({
             <div><dt className="text-gray-500">IBAN / الحساب</dt><dd className="font-mono text-xs font-medium" dir="ltr">{emp.bank_iban || "—"}</dd></div>
           </dl>
         </div>
+
+        <OnboardingPanel
+          employeeId={emp.id}
+          tasks={(onboarding ?? []) as OnboardingTask[]}
+          canEdit={hrCan && emp.status === "active"}
+        />
 
         <SalaryPanel
           employeeId={emp.id}

@@ -28,6 +28,9 @@ export default async function HrHome() {
     { href: "/dashboard/hr/employees", title: "الموظفون", desc: "بيانات الموظفين والرواتب", icon: "🧑‍💼" },
     { href: "/dashboard/hr/organization", title: "الهيكل التنظيمي", desc: "الإدارات والأقسام والفرق ومدراؤها، ولوحة كل قسم", icon: "🏢" },
     { href: "/dashboard/hr/positions", title: "المناصب والدرجات", desc: "المسمّيات الوظيفية وتبعيّتها، والدرجات ونطاق رواتبها", icon: "🪪" },
+    { href: "/dashboard/hr/recruitment", title: "التوظيف", desc: "طلبات التوظيف، الوظائف، المرشحون والمقابلات والعروض", icon: "🧲" },
+    { href: "/dashboard/hr/onboarding", title: "التهيئة", desc: "مهام الموظفين الجدد — تُنجز تلقائياً ما تحقّقت منه القاعدة", icon: "🧭" },
+    { href: "/dashboard/hr/probation", title: "فترة التجربة", desc: "تقييم المدير وHR، ثم التثبيت أو التمديد أو الإنهاء", icon: "⏳" },
     ...((await isAdmin())
       ? [{ href: "/dashboard/settings/roles", title: "الأدوار والصلاحيات", desc: "أدوار قابلة للإدارة ومصفوفة الصلاحيات لكل وحدة", icon: "🔐" }]
       : []),

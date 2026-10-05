@@ -108,7 +108,7 @@ begin
       perform public.adjust_salary(e_new, 1200000, v_today, '  ');
       log := log || extensions.fail('السبب إلزامي');
     exception when others then
-      log := log || extensions.ok(sqlerrm like '%السبب%', 'السبب إلزامي');
+      log := log || extensions.ok(sqlerrm like '%سبب التعديل إلزامي%', 'السبب إلزامي');
     end;
     begin
       perform public.adjust_salary(e_new, 1200000, v_today + 1, 'زيادة');

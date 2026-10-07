@@ -87,6 +87,7 @@ export default async function MyPortalHome() {
     { count: myTasks },
     { data: myProbation },
     { data: myApprovals },
+    { data: myReports },
   ] = await Promise.all([
       supabase
         .from("attendance")
@@ -111,6 +112,8 @@ export default async function MyPortalHome() {
       supabase.from("onboarding_tasks").select("*", { count: "exact", head: true }).eq("assignee_id", emp.id).eq("status", "معلّقة"),
       supabase.rpc("probation_overview"),
       supabase.rpc("my_pending_approvals"),
+      // تقارير فريقه إن كان مديراً (sql/165)
+      supabase.rpc("hr_report_catalog"),
     ]);
 
   const commissionsTotal = (comms ?? []).reduce(
@@ -141,6 +144,9 @@ export default async function MyPortalHome() {
         <div className="flex items-center gap-4 text-sm">
           <Link href="/dashboard/me/requests" className="text-brand-700 hover:underline">طلباتي</Link>
           <Link href="/dashboard/me/performance" className="text-brand-700 hover:underline">أدائي</Link>
+          {!admin && ((myReports ?? []) as { allowed: boolean }[]).some((c) => c.allowed) && (
+            <Link href="/dashboard/hr/reports" className="text-brand-700 hover:underline">تقارير فريقي</Link>
+          )}
           <Link href="/dashboard/me/profile" className="text-brand-700 hover:underline">
             {emp.full_name} — ملفي ←
           </Link>

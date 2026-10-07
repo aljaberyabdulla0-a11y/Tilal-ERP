@@ -1,30 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getHrDashboard } from "@/lib/hr-reports";
 import { canManageHr, isAdmin } from "@/lib/auth";
 import HrTabs from "./hr-tabs";
+import HrDashboardPanel from "./hr-dashboard-panel";
 
 // الصفحة الرئيسية للموارد البشرية (للمدير) — غير المدير يُحوّل لبوابة الموظف
 export default async function HrHome() {
   if (!(await canManageHr())) redirect("/dashboard/me");
 
-  const supabase = await createClient();
-  // مستندات تنتهي خلال 30 يوماً أو انتهت (sql/148)
-  const soon = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
-  const [{ count: empCount }, { count: pendingLeaves }, { count: expiringDocs }] = await Promise.all([
-    supabase.from("employees").select("*", { count: "exact", head: true }),
-    supabase
-      .from("leaves")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "معلقة"),
-    supabase
-      .from("employee_documents")
-      .select("*", { count: "exact", head: true })
-      .is("deleted_at", null)
-      .lte("expiry_date", soon),
-  ]);
+  // مؤشرات اللوحة من القاعدة (sql/165) — لا عدّ في المتصفح
+  const { data: dash, error: dashError } = await getHrDashboard();
 
   const sections = [
+    { href: "/dashboard/hr/reports", title: "التقارير", desc: "17 تقريراً: الدوام والغياب والرواتب والدوران والأداء… بتصدير Excel وPDF", icon: "📈" },
     { href: "/dashboard/hr/employees", title: "الموظفون", desc: "بيانات الموظفين والرواتب", icon: "🧑‍💼" },
     { href: "/dashboard/hr/organization", title: "الهيكل التنظيمي", desc: "الإدارات والأقسام والفرق ومدراؤها، ولوحة كل قسم", icon: "🏢" },
     { href: "/dashboard/hr/positions", title: "المناصب والدرجات", desc: "المسمّيات الوظيفية وتبعيّتها، والدرجات ونطاق رواتبها", icon: "🪪" },
@@ -58,22 +47,7 @@ export default async function HrHome() {
       <HrTabs active="admin" manager={true} />
 
       <section className="p-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <span className="text-sm text-gray-500">عدد الموظفين</span>
-            <p className="mt-2 text-3xl font-bold text-gray-800">{empCount ?? 0}</p>
-          </div>
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <span className="text-sm text-gray-500">طلبات إجازة معلّقة</span>
-            <p className="mt-2 text-3xl font-bold text-amber-600">{pendingLeaves ?? 0}</p>
-          </div>
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <span className="text-sm text-gray-500">مستندات تنتهي خلال 30 يوماً أو انتهت</span>
-            <p className={`mt-2 text-3xl font-bold ${(expiringDocs ?? 0) > 0 ? "text-red-600" : "text-gray-800"}`}>
-              {expiringDocs ?? 0}
-            </p>
-          </div>
-        </div>
+        <HrDashboardPanel data={dash} error={dashError} />
 
         <h3 className="mt-8 text-lg font-semibold text-gray-700">الأقسام</h3>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

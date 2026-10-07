@@ -24,7 +24,7 @@ export default async function OpportunityPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { tab?: string };
+  searchParams: { tab?: string; analyse?: string };
 }) {
   const role = await getUserRole();
   if (role === "marketing" || role === "broker" || role === "accountant") redirect("/dashboard/crm/overview");
@@ -144,6 +144,7 @@ export default async function OpportunityPage({
             canWrite={canWrite}
             isManager={isManager}
             isLostNow={opp.stage_type === "lost"}
+            autoAnalyse={searchParams.analyse ?? null}
           />
         </div>
       ),

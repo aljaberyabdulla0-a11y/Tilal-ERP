@@ -44,6 +44,7 @@ export default function LostAnalysisPanel({
   canWrite,
   isManager,
   isLostNow,
+  autoAnalyse = null,
 }: {
   opportunityId: string;
   losses: LostSaleRow[];
@@ -51,12 +52,16 @@ export default function LostAnalysisPanel({
   canWrite: boolean;
   isManager: boolean;
   isLostNow: boolean;
+  // من مهمة «استمارة فشل البيع» (175): الاستمارة تُفتح مباشرة إن بقيت بلا تحليل
+  autoAnalyse?: string | null;
 }) {
   const router = useRouter();
   const { locale } = useI18n();
   const lang = locale as Lang;
   const t = lostDict(lang);
-  const [editing, setEditing] = useState<LostSaleRow | null>(null);
+  const [editing, setEditing] = useState<LostSaleRow | null>(() =>
+    canWrite && autoAnalyse ? losses.find((l) => l.id === autoAnalyse && l.needs_analysis) ?? null : null
+  );
   const [reactivating, setReactivating] = useState(false);
 
   const name = (ar: string | null, en: string | null) => (lang === "en" ? en || ar : ar || en) ?? "—";
@@ -225,7 +230,8 @@ export default function LostAnalysisPanel({
           canEditValue={isManager}
           needsEditReason={!editing.needs_analysis}
           onClose={() => setEditing(null)}
-          onDone={() => router.refresh()}
+          // من المهمة: الحفظ أنجزها، فالعودة إلى المهام لتاليتها
+          onDone={() => (editing.id === autoAnalyse ? router.push("/dashboard/tasks") : router.refresh())}
         />
       )}
       {reactivating && (

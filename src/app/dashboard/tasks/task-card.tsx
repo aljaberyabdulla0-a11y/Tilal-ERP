@@ -70,6 +70,14 @@ export default function TaskCard({
 
   const done = task.status === "منجزة";
 
+  // مهمة «استمارة فشل البيع» (175): إنجازها هو ملء الاستمارة لا الزرّ —
+  // القاعدة ترفض «تمّت» قبلها، فلا نعرضه ونقود إلى الاستمارة نفسها.
+  const lostForm =
+    task.analysis_lost_sale_id && task.opportunity_id
+      ? `/dashboard/crm/opportunities/${task.opportunity_id}?tab=lost&analyse=${task.analysis_lost_sale_id}`
+      : null;
+  const formPending = lostForm !== null && isOpenTask(task.status);
+
   return (
     <div
       className={`rounded-2xl border border-gray-200 border-s-4 bg-white p-4 shadow-sm transition ${
@@ -80,9 +88,9 @@ export default function TaskCard({
         {/* زر الإنجاز السريع */}
         <button
           onClick={() => setStatus(done ? "جديدة" : "منجزة")}
-          disabled={busy}
-          title={done ? "إرجاعها غير منجزة" : "تعليمها منجزة"}
-          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition ${
+          disabled={busy || formPending}
+          title={formPending ? "تُنجَز وحدها عند حفظ استمارة فشل البيع" : done ? "إرجاعها غير منجزة" : "تعليمها منجزة"}
+          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition disabled:cursor-not-allowed ${
             done
               ? "border-emerald-500 bg-emerald-500 text-white"
               : "border-gray-300 text-transparent hover:border-brand-500 hover:text-brand-500"
@@ -184,6 +192,17 @@ export default function TaskCard({
             </p>
           )}
 
+          {/* الاستمارة — في النسخة المختصرة أيضاً: هي المهمة كلها */}
+          {formPending && lostForm && (
+            <Link
+              href={lostForm}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-800"
+            >
+              <span className="material-symbols-outlined text-[16px]">heart_broken</span>
+              املأ الاستمارة
+            </Link>
+          )}
+
           {/* الأزرار */}
           {!compact && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -196,7 +215,7 @@ export default function TaskCard({
                   بدء التنفيذ
                 </button>
               )}
-              {isOpenTask(task.status) && (
+              {isOpenTask(task.status) && !formPending && (
                 <button
                   onClick={() => setStatus("منجزة")}
                   disabled={busy}

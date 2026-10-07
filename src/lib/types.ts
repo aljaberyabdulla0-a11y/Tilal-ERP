@@ -1665,6 +1665,10 @@ export type Task = {
   follow_up_date: string | null; // موعد المتابعة
 
   client_id: string | null;
+  opportunity_id?: string | null;
+  // مهمة «استمارة فشل البيع» (175): الخسارة التي تنتظر تحليلها.
+  // تُنجَز وحدها عند حفظ الاستمارة، والقاعدة ترفض إنجازها باليد.
+  analysis_lost_sale_id?: string | null;
 
   completed_at: string | null;
   updated_at: string;

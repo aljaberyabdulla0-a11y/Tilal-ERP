@@ -140,6 +140,7 @@ export default async function MyPortalHome() {
         </div>
         <div className="flex items-center gap-4 text-sm">
           <Link href="/dashboard/me/requests" className="text-brand-700 hover:underline">طلباتي</Link>
+          <Link href="/dashboard/me/performance" className="text-brand-700 hover:underline">أدائي</Link>
           <Link href="/dashboard/me/profile" className="text-brand-700 hover:underline">
             {emp.full_name} — ملفي ←
           </Link>

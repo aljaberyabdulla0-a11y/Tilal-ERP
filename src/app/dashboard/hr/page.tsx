@@ -31,6 +31,9 @@ export default async function HrHome() {
     { href: "/dashboard/hr/recruitment", title: "التوظيف", desc: "طلبات التوظيف، الوظائف، المرشحون والمقابلات والعروض", icon: "🧲" },
     { href: "/dashboard/hr/onboarding", title: "التهيئة", desc: "مهام الموظفين الجدد — تُنجز تلقائياً ما تحقّقت منه القاعدة", icon: "🧭" },
     { href: "/dashboard/hr/probation", title: "فترة التجربة", desc: "تقييم المدير وHR، ثم التثبيت أو التمديد أو الإنهاء", icon: "⏳" },
+    { href: "/dashboard/hr/performance", title: "الأداء والأهداف", desc: "مؤشرات لكل قسم، أهداف بفعليٍّ محسوب، ومراجعات ذاتي ← مدير ← HR", icon: "🎯" },
+    { href: "/dashboard/hr/expenses", title: "مصروفات الموظفين", desc: "المطالبات المعتمدة ودفعها بقيدها", icon: "🧾" },
+    { href: "/dashboard/hr/offboarding", title: "إنهاء الخدمة", desc: "الطلبات، إخلاء الطرف، التسوية النهائية", icon: "🚪" },
     { href: "/dashboard/hr/costs", title: "كلفة الموارد البشرية", desc: "الكلفة حسب القسم والمشروع، وربط الحسابات المحاسبية", icon: "📊" },
     { href: "/dashboard/hr/settings", title: "إعدادات HR", desc: "سياسات الإجازات، سلاسل الموافقة، الورديات، العمل الإضافي", icon: "⚙️" },
     ...((await isAdmin())

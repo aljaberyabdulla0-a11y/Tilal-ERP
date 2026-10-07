@@ -5,6 +5,8 @@ import { getMyEmployee } from "@/lib/hr";
 import { formatPrice } from "@/lib/types";
 import RequestForms from "./request-forms";
 import CancelRequest from "./cancel-request";
+import ExpenseForm from "./expense-form";
+import ResignForm from "./resign-form";
 
 type AttReq = {
   id: string; request_type: string; start_date: string; end_date: string;
@@ -21,6 +23,7 @@ const STATUS_STYLE: Record<string, string> = {
   "معتمد": "bg-green-100 text-green-700",
   "مرفوض": "bg-red-100 text-red-700",
   "ملغى": "bg-gray-200 text-gray-600",
+  "مدفوع": "bg-emerald-100 text-emerald-700",
 };
 
 // طلباتي (sql/154): تعديل بصمة، مهمة، عمل ميداني أو عن بُعد، رحلة عمل،
@@ -38,6 +41,18 @@ export default async function MyRequestsPage() {
       .eq("subject_employee", emp.id),
     supabase.from("approval_steps").select("workflow_code, step_no, label"),
   ]);
+  // المصروفات والإنهاء (sql/162–163)
+  const [{ data: exps }, { data: cats }, { data: terms }] = await Promise.all([
+    supabase.from("employee_expenses").select("*").eq("employee_id", emp.id).order("expense_date", { ascending: false }).limit(50),
+    supabase.from("expense_categories").select("code, name_ar, requires_receipt").eq("active", true).order("sort_order"),
+    supabase.from("termination_requests").select("id, term_type, last_working_day, status, approval_id").eq("employee_id", emp.id)
+      .order("created_at", { ascending: false }),
+  ]);
+  const expenses = (exps ?? []) as { id: string; category_code: string; expense_date: string; amount: number;
+    description: string; status: string; approval_id: string | null }[];
+  const catName = (c: string) => ((cats ?? []) as { code: string; name_ar: string }[]).find((x) => x.code === c)?.name_ar ?? c;
+  const liveTerm = ((terms ?? []) as { id: string; term_type: string; last_working_day: string; status: string; approval_id: string | null }[])
+    .find((t) => ["قيد الموافقة", "معتمد"].includes(t.status));
 
   const stage = (approvalId: string | null) => {
     const r = (reqs ?? []).find((x: { id: string }) => x.id === approvalId) as
@@ -67,6 +82,32 @@ export default async function MyRequestsPage() {
 
       <section className="space-y-6 p-6">
         <RequestForms projects={(projects ?? []) as { id: string; name: string }[]} />
+        <ExpenseForm
+          employeeId={emp.id}
+          categories={(cats ?? []) as { code: string; name_ar: string; requires_receipt: boolean }[]}
+          projects={(projects ?? []) as { id: string; name: string }[]}
+        />
+
+        <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
+          <div className="border-b px-5 py-3 font-semibold text-gray-800">مصروفاتي</div>
+          {expenses.length === 0 ? (
+            <p className="p-5 text-sm text-gray-400">لا مصروفات.</p>
+          ) : (
+            <table className="w-full min-w-[600px] text-sm">
+              <tbody>
+                {expenses.map((x) => (
+                  <tr key={x.id} className="border-b last:border-0">
+                    <td className="px-4 py-2.5 text-gray-800">{catName(x.category_code)}</td>
+                    <td className="px-4 py-2.5 text-gray-600" dir="ltr">{x.expense_date}</td>
+                    <td className="px-4 py-2.5 font-medium" dir="ltr">{formatPrice(x.amount)}</td>
+                    <td className="px-4 py-2.5 text-gray-600">{x.description}</td>
+                    <td className="px-4 py-2.5">{statusCell(x.status, x.approval_id)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
         <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
           <div className="border-b px-5 py-3 font-semibold text-gray-800">طلبات الدوام</div>
@@ -114,6 +155,15 @@ export default async function MyRequestsPage() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+        <div className="rounded-2xl border bg-white p-5 shadow-sm">
+          {liveTerm ? (
+            <p className="text-sm text-gray-600">
+              طلب {liveTerm.term_type} — آخر يوم <span dir="ltr">{liveTerm.last_working_day}</span> · {statusCell(liveTerm.status, liveTerm.approval_id)}
+            </p>
+          ) : (
+            <ResignForm employeeId={emp.id} />
           )}
         </div>
       </section>

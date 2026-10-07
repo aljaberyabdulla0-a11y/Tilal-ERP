@@ -32,6 +32,7 @@ import SalaryPanel from "./salary-panel";
 import EmploymentStatus from "./employment-status";
 import OnboardingPanel from "./onboarding-panel";
 import CompensationPanel from "./compensation-panel";
+import AssetsPanel from "./assets-panel";
 import type { OnboardingTask } from "@/lib/recruitment";
 import EmployeeDocumentsPanel from "@/components/employee-documents-panel";
 import EmployeeTimeline from "@/components/employee-timeline";
@@ -105,6 +106,7 @@ export default async function EmployeeDetailsPage({
     { data: bonuses },
     { data: allocations },
     { data: projectList },
+    { data: assetRows },
   ] = await Promise.all([
     supabase.from("employee_salary_history").select("*").eq("employee_id", id).order("effective_from", { ascending: false }),
     supabase.from("employee_documents").select("*").eq("employee_id", id).order("created_at", { ascending: false }),
@@ -117,6 +119,7 @@ export default async function EmployeeDetailsPage({
     supabase.from("employee_bonuses").select("*").eq("employee_id", id).order("created_at", { ascending: false }),
     supabase.from("employee_project_allocations").select("*").eq("employee_id", id).order("start_date", { ascending: false }),
     supabase.from("projects").select("id, name").order("name"),
+    supabase.from("employee_assets").select("*").eq("employee_id", id).order("assigned_date", { ascending: false }),
   ]);
   const exitStates = ["غير نشط", "مستقيل", "منتهية خدمته"];
   const transitions = ((trans ?? []) as { to_status: string }[])
@@ -298,6 +301,12 @@ export default async function EmployeeDetailsPage({
           bonuses={(bonuses ?? []) as Parameters<typeof CompensationPanel>[0]["bonuses"]}
           allocations={(allocations ?? []) as Parameters<typeof CompensationPanel>[0]["allocations"]}
           projects={(projectList ?? []) as { id: string; name: string }[]}
+          canEdit={hrCan}
+        />
+
+        <AssetsPanel
+          employeeId={emp.id}
+          assets={(assetRows ?? []) as Parameters<typeof AssetsPanel>[0]["assets"]}
           canEdit={hrCan}
         />
 

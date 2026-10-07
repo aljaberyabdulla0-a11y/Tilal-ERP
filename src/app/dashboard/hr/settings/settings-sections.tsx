@@ -302,3 +302,36 @@ export function OvertimeFactors({ workday, offday, canEdit }: { workday: number 
     </div>
   );
 }
+
+// ========== مكافأة نهاية الخدمة ==========
+// القاعدة يضعها المالك: أيام راتب لكل سنة خدمة، وحدٌّ أدنى للخدمة. فارغ = لا مكافأة (sql/163).
+export function EndOfService({ days, minYears }: { days: number | null; minYears: number | null }) {
+  const { run, err, busy } = useSave();
+  const [d, setD] = useState(days?.toString() ?? "");
+  const [m, setM] = useState(minYears?.toString() ?? "");
+  return (
+    <div className={card}>
+      <h3 className="mb-1 font-semibold text-gray-800">مكافأة نهاية الخدمة</h3>
+      <p className="mb-3 text-xs text-gray-500">
+        المكافأة = (الراتب ÷ 30) × الأيام لكل سنة × سنوات الخدمة. فارغٌ = لا تُحسب مكافأة في التسوية حتى تُحدَّد.
+      </p>
+      {err && <p className="mb-2 rounded bg-red-50 p-2 text-xs text-red-700">{err}</p>}
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-gray-600">
+          أيام لكل سنة خدمة
+          <input className={input} type="number" min="0" step="0.5" dir="ltr" value={d} onChange={(e) => setD(e.target.value)} />
+        </label>
+        <label className="text-xs text-gray-600">
+          الحدّ الأدنى للخدمة (سنوات)
+          <input className={input} type="number" min="0" step="0.5" dir="ltr" value={m} onChange={(e) => setM(e.target.value)} />
+        </label>
+        <button disabled={busy} className="rounded bg-brand-600 px-4 py-1.5 text-xs text-white disabled:opacity-40"
+          onClick={() => run((s) => s.from("company_settings").update({
+            eos_days_per_year: d ? Number(d) : null, eos_min_years: m ? Number(m) : null,
+          }).eq("id", 1))}>
+          حفظ
+        </button>
+      </div>
+    </div>
+  );
+}

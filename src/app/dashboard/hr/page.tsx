@@ -27,7 +27,8 @@ export default async function HrHome() {
     { href: "/dashboard/hr/integrations", title: "فحص التكامل", desc: "ما تركه خروج أو نقل أو تغيير منصب معلّقاً في العملاء والمهام والحسابات والأدوار", icon: "🔗" },
     { href: "/dashboard/hr/settings", title: "إعدادات HR", desc: "سياسات الإجازات، سلاسل الموافقة، الورديات، العمل الإضافي", icon: "⚙️" },
     ...((await isAdmin())
-      ? [{ href: "/dashboard/settings/roles", title: "الأدوار والصلاحيات", desc: "أدوار قابلة للإدارة ومصفوفة الصلاحيات لكل وحدة", icon: "🔐" }]
+      ? [{ href: "/dashboard/settings/roles", title: "الأدوار والصلاحيات", desc: "أدوار قابلة للإدارة ومصفوفة الصلاحيات لكل وحدة", icon: "🔐" },
+         { href: "/dashboard/settings/security", title: "الفحص الأمني", desc: "RLS، صلاحيات الزائر، دوال definer، السياسات المفتوحة — من القاعدة مباشرة", icon: "🛡️" }]
       : []),
     { href: "/dashboard/attendance", title: "الدوام", desc: "بصمات اليوم وساعات العمل والتقرير الشهري", icon: "⏱️" },
     { href: "/dashboard/hr/month-close", title: "إغلاق الشهر", desc: "ابنِ كشوف الجميع، راجع الشاذّ، ثم اعتمد دفعة واحدة", icon: "📆" },

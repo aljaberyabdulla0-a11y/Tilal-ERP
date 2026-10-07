@@ -24,7 +24,7 @@ const SEVERITY_STYLE: Record<Issue["severity"], string> = {
 };
 const SEVERITY_ORDER: Issue["severity"][] = ["حرجة", "عالية", "متوسطة", "منخفضة"];
 
-// فحص التكامل (sql/167) — ما تركه حدث HR معلّقاً في وحدة أخرى ويحتاج قراراً
+// فحص التكامل (sql/170) — ما تركه حدث HR معلّقاً في وحدة أخرى ويحتاج قراراً
 export default async function IntegrationsPage() {
   if (!(await canManageHr())) redirect("/dashboard/me");
   const supabase = await createClient();

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-// أداتا المدير العام في فحص التكامل (sql/167) — القرار في القاعدة
+// أداتا المدير العام في فحص التكامل (sql/170) — القرار في القاعدة
 export default function IssueAction({ kind, employeeId }: { kind: string; employeeId: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

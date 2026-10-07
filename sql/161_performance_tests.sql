@@ -107,8 +107,8 @@ begin
 
     -- ================= الفعلي =================
     perform tests.act_as(admin_u);
-    insert into public.tasks (title, assigned_to, status, completed_at, created_by)
-    values ('مهمة اختبار الأداء', emp_u, 'منجزة', now(), admin_u);
+    insert into public.tasks (title, assigned_to, status, priority, completed_at, created_by)
+    values ('مهمة اختبار الأداء', emp_u, 'منجزة', 'عادية', now(), admin_u);
     v := public.refresh_target_actual(t1);
     log := log || extensions.ok(v >= 1 and (select actual_value = v from public.employee_targets where id = t1),
                                 'فعليّ «مهام منجزة» يُحسب من المهام');

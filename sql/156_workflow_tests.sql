@@ -76,7 +76,7 @@ begin
     log := log || extensions.is(public.decide_leave(lv, true), 'معتمد', 'المدير يعتمد في نهاية السلسلة');
     log := log || extensions.is((select status from public.leaves where id = lv), 'موافق عليها', 'الاعتماد يُطبَّق على الإجازة');
 
-    perform public.assign_user_role(hr_u, 'hr_officer');
+    perform public.assign_user_role(hr_u, 'hr_manager');   -- (180) موظف HR لا يعتمد ولا يرى الرواتب منذ 171
 
     -- ================= الإجازة: المدير ثم HR =================
     perform tests.act_as(a_u);
@@ -284,6 +284,22 @@ begin
      where employee_id = a_emp and leave_type_id = v_type and kind = 'ترحيل'
        and entry_date = make_date(extract(year from v_today)::int, 1, 1);
     log := log || extensions.ok(n = 1 and v <= 5, 'الترحيل بحدّه ومرةً واحدة');
+
+    -- ================= (180) تصعيد بعد المدير: لا اعتماد تلقائي =================
+    perform tests.act_as(admin_u);
+    perform public.assign_user_role(hr_u, 'employee');
+    perform tests.act_as(a_u);
+    set local role authenticated;
+    insert into public.leaves (employee_id, leave_type, start_date, end_date, reason)
+    values (a_emp, 'طارئة', v_today + 9, v_today + 9, 'تصعيد بعد المدير') returning id into lv2;
+    reset role;
+    perform tests.act_as(mgr_u);
+    perform public.decide_leave(lv2, true);
+    select * into rec from public.approval_requests where entity_type = 'leave' and entity_id = lv2;
+    log := log || extensions.ok(rec.status = 'قيد الموافقة' and rec.current_step is null
+      and (select status from public.leaves where id = lv2) = 'معلقة'
+      and exists (select 1 from public.approval_current_approvers(rec.id) x where x.user_id = admin_u),
+      'بعد المدير ولا أحد في HR ⇒ يصعد للمدير العام ولا يُعتمد تلقائياً');
 
     raise exception using errcode = 'RLBCK', message = 'تم';
   exception

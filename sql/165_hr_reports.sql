@@ -437,13 +437,15 @@ begin
                    and (v_hr or o.department_id in (select m.id from public.my_managed_department_ids() m))),
     'terminations_open', (select count(*) from public.termination_requests t2 where t2.employee_id = any (v_emps)
                            and t2.status in ('قيد الموافقة', 'معتمد')),
-    'payroll_month', (select jsonb_build_object(
+    -- (179) الشرط خارج الاستعلام: التجميع بلا صفوف يُرجع صفّاً بأصفار لا null
+    'payroll_month', case when public.can_see_payroll() or public.can_manage_finance() then
+                      (select jsonb_build_object(
                         'period', to_char(v_today, 'YYYY-MM'),
                         'draft', count(*) filter (where p.state = 'مسودة'),
                         'approved', count(*) filter (where p.state = 'معتمد'),
                         'locked', count(*) filter (where p.state = 'مقفل'))
-                       from public.payrolls p where p.employee_id = any (v_emps) and p.period = to_char(v_today, 'YYYY-MM')
-                         and (public.can_see_payroll() or public.can_manage_finance())),
+                       from public.payrolls p where p.employee_id = any (v_emps) and p.period = to_char(v_today, 'YYYY-MM'))
+                     end,
     'departments', (select coalesce(jsonb_agg(jsonb_build_object('name', y.name, 'count', y.n) order by y.n desc), '[]'::jsonb)
                       from (select coalesce(d.name_ar, 'بلا قسم') name, count(*) n
                               from public.employees e left join public.departments d on d.id = e.department_id

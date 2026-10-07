@@ -63,8 +63,8 @@ begin
     insert into public.clients (name, phone, owner_id, created_by)
     values ('عميل اختبار التكامل', '0770' || lpad((floor(random() * 9999999))::int::text, 7, '0'), emp, admin_u)
     returning id into v_client;
-    insert into public.tasks (title, assigned_to, assigned_to_name, status, created_by)
-    values ('مهمة اختبار التكامل', emp_u, v_name, 'جديدة', admin_u) returning id into v_task;
+    insert into public.tasks (title, assigned_to, assigned_to_name, status, priority, created_by)
+    values ('مهمة اختبار التكامل', emp_u, v_name, 'جديدة', 'عادية', admin_u) returning id into v_task;
 
     update public.employees set full_name = v_name || ' (معدَّل)' where id = emp;
     log := log || extensions.ok(
@@ -121,8 +121,14 @@ begin
     update public.departments set manager_id = emp where id = v_dept;
     insert into public.employee_project_allocations (employee_id, project_id, allocation_pct, start_date)
     values (emp, v_proj, 50, date '2026-01-01') returning id into v_alloc;
+    -- وردية موجودة، أو وردية اختبار تُلغى مع المعاملة
+    select id into v_shift from public.work_shifts order by created_at limit 1;
+    if v_shift is null then
+      insert into public.work_shifts (name_ar, start_time, end_time) values ('وردية اختبار التكامل', '09:00', '17:00')
+      returning id into v_shift;
+    end if;
     insert into public.employee_shifts (employee_id, shift_id, start_date)
-    values (emp, (select id from public.work_shifts order by created_at limit 1), date '2026-01-01') returning id into v_shift;
+    values (emp, v_shift, date '2026-01-01') returning id into v_shift;
     insert into public.mkt_team (employee_id, mkt_role, is_active) values (emp, 'أخصائي تسويق', true)
       on conflict (employee_id) do update set is_active = true;
 

@@ -55,7 +55,7 @@ begin
     update public.employees set hire_date = date '2019-01-01', end_date = null where id = emp;
     update public.profiles set role_code = 'employee' where role = 'hr' and role_code <> 'employee';
     perform tests.act_as(admin_u);
-    perform public.assign_user_role(hr_u, 'hr_officer');
+    perform public.assign_user_role(hr_u, 'hr_manager');   -- (180) موظف HR لا يعتمد ولا يرى الرواتب منذ 171
 
     -- ================= المصادر =================
     perform tests.act_as(hr_u);

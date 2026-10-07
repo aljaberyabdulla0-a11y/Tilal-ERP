@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import type { Client } from "@/lib/types";
 
 // ⚠️ ثوابت العرض في ملف مستقل (crm-style) بلا استيراد من الخادم:
 //    مكوّن عميل يستورد قيمةً من هنا يسحب next/headers معها فيفشل
@@ -526,7 +527,9 @@ export const getDuplicates = cache(async () =>
 // ===== «هذا الشخص موجود» (104) =====
 //
 // صفٌّ لبطاقة قد تكون للشخص نفسه. can_view: تراها فتفتحها؛
-// can_merge: تملكها فتدمجها. والرقم لا يعود إلا لمن يراها.
+// can_merge: يحقّ لك دمجها الآن (client_merge_mode = direct، sql/169):
+// تطابق رقم أو اسم حرفي ولو كانت عند زميل، أو مشرف فريقها.
+// والرقم لا يعود إلا لمن يراها.
 export type ClientMatch = {
   id: string;
   name: string;
@@ -544,6 +547,18 @@ export type ClientMatch = {
 export const getClientMatchCandidates = cache(async (clientId: string) =>
   rpc<ClientMatch>("client_match_candidates", { p_client_id: clientId })
 );
+
+// الطرف الآخر في شاشة الدمج — client_merge_peer (169). يعود حتى لبطاقة
+// زميل لا تمرّ من RLS حين يحقّ الدمج المباشر.
+//   owner_locked: الدامج لا يملك البطاقتين ⇒ العميل لمالك الأقدم
+export type MergePeer = {
+  client: Client;
+  owner_name: string | null;
+  counts: { activities: number; opportunities: number; reservations: number; tasks: number; documents: number };
+  mode: "direct" | "request" | "none";
+  owner_locked: boolean;
+  match_on: "هاتف" | "هاتف بديل" | "الاسم نفسه" | null;
+};
 
 export const getLeadScore = cache(async (clientId: string): Promise<LeadScore | null> => {
   const m = await getLeadScores([clientId]);

@@ -20,10 +20,31 @@ import QualityActions from "./quality-actions";
 // ============================================================
 export default async function DataQualityPage() {
   const role = await getUserRole();
-  if (role !== "admin" && role !== "followup_manager") {
+  if (role !== "admin" && role !== "followup_manager" && role !== "supervisor") {
     redirect("/dashboard/crm/today");
   }
   const admin = role === "admin";
+
+  // المشرف: طلبات دمج فريقه وحدها (169). RLS تحصرها فيما إحدى بطاقتيه
+  // في فريقه، والقرار — ادمج أو ليسا واحداً — له بموافقته على الطلب.
+  if (role === "supervisor") {
+    const requests = (await getDuplicates()).filter((d) => d.requested_at);
+    return (
+      <div>
+        <CrmTabs active="data-quality" />
+        <div className="space-y-4 p-6">
+          <header>
+            <h1 className="text-xl font-bold text-brand-600">طلبات دمج البطاقات</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              بطاقتان لا يجمعهما رقمٌ ولا اسم، يراهما موظفٌ في فريقك للشخص نفسه. قارن ثم ادمج، أو «ليسا واحداً». ما
+              تطابق بالرقم أو بالاسم يدمجه الموظف بنفسه ولا يصل هنا.
+            </p>
+          </header>
+          <DuplicatesPanel title="طلبات دمج من الموظفين" pairs={requests} canMerge />
+        </div>
+      </div>
+    );
+  }
 
   const [issues, duplicates] = await Promise.all([getDataQuality(), getDuplicates()]);
 
@@ -91,7 +112,8 @@ export default async function DataQualityPage() {
             <p className="text-sm text-gray-500">
               «مؤكّد» = الرقم نفسه. «محتمل» = رقم أحدهما هو الرقم البديل للآخر. «مرشّح» = تشابه اسم فقط، للعين البشرية.
               الدمج ينقل كل شيء — الأنشطة والفرص والحجوزات والمهامّ والمستندات والفواتير — إلى الباقية ولا يمحو شيئاً.
-              والموظف يدمج بطاقاته بنفسه؛ ما يصل هنا طلباتُه لبطاقاتٍ عند زملائه، وما رصده النظام ولم يُقرَّر.
+              والموظف يدمج بنفسه ما تطابق بالرقم أو بالاسم ولو كان عند زميل (169)؛ ما يصل هنا طلباتُه لبطاقاتٍ لا
+              تتطابق — ويراها مشرف فريقه أيضاً — وما رصده النظام ولم يُقرَّر.
             </p>
           </div>
           {requested.length > 0 && <DuplicatesPanel title="طلبات دمج من الموظفين" pairs={requested} canMerge />}

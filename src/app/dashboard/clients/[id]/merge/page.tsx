@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canWriteCrm } from "@/lib/auth";
 import type { Client } from "@/lib/types";
-import { getClientMatchCandidates, getOwnerName, getProjectsLite, getStages } from "@/lib/crm";
+import { getClientMatchCandidates, getOwnerName, getProjectsLite, getStages, type MergePeer } from "@/lib/crm";
 import ClientMatchList from "@/components/client-match-list";
 import MergeWizard, { type MergeSide } from "./merge-wizard";
 import MergeSearch from "./merge-search";
@@ -15,8 +15,9 @@ import MergeSearch from "./merge-search";
 // مع with: البطاقتان جنباً إلى جنب، والموظف يختار أيهما تبقى وما
 // يبقى من كل حقل مختلف — والفراغ يُملأ بلا سؤال.
 //
-// الصلاحية تُقرَّر في القاعدة (client_merge_scope): الصفحة تسألها
-// لتعرض «ادمج» أو «اطلب الدمج»، ولا تعتمد على ما تخفيه.
+// الصلاحية تُقرَّر في القاعدة (client_merge_mode، sql/169): تطابق
+// الرقم أو الاسم ⇒ «ادمج» ولو كانت الأخرى عند زميل، وإلا «اطلب الدمج»
+// من مشرف الفريق. الصفحة تسألها ولا تعتمد على ما تخفيه.
 // ============================================================
 export default async function MergeClientsPage({
   params,
@@ -75,27 +76,36 @@ export default async function MergeClientsPage({
   }
 
   // ===== البطاقتان =====
-  const { data: other } = await supabase.from("clients").select("*").eq("id", searchParams.with).maybeSingle();
-  if (!other) {
+  // بطاقة الزميل لا تمرّ من RLS؛ حين يحقّ الدمج (تطابق أو طلبٌ ينتظر
+  // المشرف) تقرؤها القاعدة لشاشة المقارنة (169).
+  const [{ data: visible }, { data: peerData }] = await Promise.all([
+    supabase.from("clients").select("*").eq("id", searchParams.with).maybeSingle(),
+    supabase.rpc("client_merge_peer", { p_client_id: a.id, p_other: searchParams.with }),
+  ]);
+  const peer = peerData as MergePeer | null;
+  const other = (visible as Client | null) ?? peer?.client ?? null;
+  if (!other || !peer) {
     return (
       <main className="min-h-screen bg-gray-50">
         {header}
         <p className="m-6 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          البطاقة الأخرى غير متاحة لك — قد تكون دُمجت أو حُذفت، أو ليست ضمن عملائك. إن كانت عند زميل فاطلب الدمج من
-          صفحة بطاقتك.
+          البطاقة الأخرى غير متاحة لك — قد تكون دُمجت أو حُذفت، أو هي عند زميل ولا تتطابق مع بطاقتك بالرقم أو
+          بالاسم. فاطلب الدمج من مشرف الفريق من صفحة بطاقتك.
         </p>
       </main>
     );
   }
-  const b = other as Client;
+  const b = other;
 
-  const [sides, stages, projects, scopeA, scopeB] = await Promise.all([
-    Promise.all([a, b].map((c) => loadSide(supabase, c))),
+  const [sideA, sideB, stages, projects] = await Promise.all([
+    loadSide(supabase, a),
+    visible
+      ? loadSide(supabase, b)
+      : Promise.resolve<MergeSide>({ client: b, ownerName: peer.owner_name, counts: peer.counts }),
     getStages(),
     getProjectsLite(),
-    supabase.rpc("client_merge_scope", { p_client_id: a.id }),
-    supabase.rpc("client_merge_scope", { p_client_id: b.id }),
   ]);
+  const sides = [sideA, sideB];
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -106,7 +116,9 @@ export default async function MergeClientsPage({
           b={sides[1]}
           stages={stages.map((s) => ({ name: s.name, sort_order: s.sort_order, stage_type: s.stage_type }))}
           projects={projects}
-          canMerge={scopeA.data === true && scopeB.data === true}
+          canMerge={peer.mode === "direct"}
+          ownerLocked={peer.owner_locked}
+          matchOn={peer.match_on}
         />
       </section>
     </main>

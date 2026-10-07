@@ -42,10 +42,12 @@ export default function DuplicatesPanel({
     );
   }
 
-  // الأقدم أولاً في الرابط: شاشة الدمج تقترحه باقياً افتراضياً
+  // الأقدم أولاً في الرابط: شاشة الدمج تقترحه باقياً افتراضياً.
+  // والمشرف قد لا يرى بطاقة الفريق الآخر (169): الرابط يبدأ من التي
+  // يراها، وشاشة الدمج تقرأ الأخرى بموافقته على الطلب.
   function mergeHref(p: DuplicatePair): string {
     const [first, second] =
-      p.a && p.b && p.b.created_at < p.a.created_at ? [p.client_b, p.client_a] : [p.client_a, p.client_b];
+      !p.a || (p.b && p.b.created_at < p.a.created_at) ? [p.client_b, p.client_a] : [p.client_a, p.client_b];
     return `/dashboard/clients/${first}/merge?with=${second}`;
   }
 
@@ -88,7 +90,7 @@ export default function DuplicatesPanel({
               <Side c={p.b} />
               {canMerge && (
                 <div className="flex flex-row items-center gap-2 md:flex-col md:items-stretch">
-                  {p.a && p.b && (
+                  {(p.a || p.b) && (
                     <Link
                       href={mergeHref(p)}
                       className="rounded bg-brand-600 px-3 py-1.5 text-center text-xs font-semibold text-white hover:bg-brand-700"

@@ -66,6 +66,9 @@ export default async function CrmTabs({ active }: { active: string }) {
       : []),
     ...(admin || followup
       ? [{ key: "data-quality", label: "الجودة", href: "/dashboard/crm/data-quality" }]
+      : supervisor
+      ? // المشرف يوافق على طلبات دمج فريقه (169) — الصفحة نفسها بطلباته وحدها
+        [{ key: "data-quality", label: "طلبات الدمج", href: "/dashboard/crm/data-quality" }]
       : []),
     ...(followup
       ? []

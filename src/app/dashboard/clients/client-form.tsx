@@ -188,12 +188,14 @@ export default function ClientForm({
     // يُنقل الموظف إلى بطاقته ويُقال له ما لم يتمّ.
     let next = "/dashboard/clients";
     if (after.kind === "merge") {
-      next = `/dashboard/clients/${after.into}/merge?with=${newId}`;
+      // من البطاقة الجديدة: بطاقة الزميل لا تُفتح لكاتبها، وشاشة الدمج
+      // تقرؤها عبر client_merge_peer (169). الباقية الافتراضية = الأقدم.
+      next = `/dashboard/clients/${newId}/merge?with=${after.into}`;
     } else if (after.kind === "request") {
       const { error: e2 } = await supabase.rpc("request_client_merge", {
         p_a: newId,
         p_b: after.with,
-        p_note: "أُنشئت البطاقة رغم وجود بطاقة سابقة للشخص نفسه عند زميل.",
+        p_note: "أُنشئت البطاقة رغم وجود بطاقة سابقة قد تكون للشخص نفسه.",
       });
       next = `/dashboard/clients/${newId}`;
       if (e2) alert("حُفظت البطاقة، لكن تعذّر إرسال طلب الدمج: " + e2.message);
@@ -506,22 +508,23 @@ export default function ClientForm({
                 >
                   ادمج معلوماتي في هذه البطاقة
                 </button>
-              ) : m.match_type !== "مرشّح" ? (
+              ) : (
                 <button
                   type="button"
                   disabled={saving}
                   onClick={() => save({ kind: "request", with: m.id })}
                   className="rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
                 >
-                  احفظ واطلب الدمج من الإدارة
+                  احفظ واطلب الدمج من المشرف
                 </button>
-              ) : null
+              )
             }
           />
 
           <p className="text-xs text-amber-800">
-            «ادمج» يحفظ ما كتبته ثم يفتح شاشة المقارنة لتختار حقلاً حقلاً ما يبقى. وإن كانت البطاقة عند زميل،
-            تُحفظ بطاقتك ويصل طلب الدمج إلى الإدارة ومدير المتابعة.
+            «ادمج» يحفظ ما كتبته ثم يفتح شاشة المقارنة لتختار حقلاً حقلاً ما يبقى — ولو كانت البطاقة عند زميل، ما
+            دام الرقم أو الاسم نفسه. وحينها يبقى العميل لصاحب البطاقة الأقدم، وتبقى أنت ترى البطاقة. وإن لم يتطابقا،
+            تُحفظ بطاقتك ويصل طلب الدمج إلى مشرف الفريق.
           </p>
 
           <div className="flex flex-wrap gap-2 border-t border-amber-200 pt-3">

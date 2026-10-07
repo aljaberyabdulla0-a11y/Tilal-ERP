@@ -17,6 +17,10 @@ import type { Client } from "@/lib/types";
 // ما يُرسَل إلى merge_clients(): أيّ البطاقتين تبقى، وقائمة الحقول
 // التي اختار الموظف فيها قيمة الأخرى (p_take). كل ما عداها تقرّره
 // القاعدة: التواريخ الأقدم، والملاحظات مجموعة، والعدّادات من الأنشطة.
+//
+// (169) ownerLocked: الدامج لا يملك البطاقتين (دمجٌ بالتطابق مع بطاقة
+// زميل) ⇒ المالك لا يُسأل عنه: العميل لمالك البطاقة الأقدم، ومن خسر
+// الملكية يبقى يرى البطاقة. القاعدة تفرضه ولو أُرسل «owner».
 // ============================================================
 
 export type MergeSide = {
@@ -99,12 +103,16 @@ export default function MergeWizard({
   stages,
   projects,
   canMerge,
+  ownerLocked,
+  matchOn,
 }: {
   a: MergeSide;
   b: MergeSide;
   stages: StageLite[];
   projects: { id: string; name: string }[];
   canMerge: boolean;
+  ownerLocked: boolean;
+  matchOn: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -135,7 +143,19 @@ export default function MergeWizard({
     return s.stage_type === "won" ? 1000 : s.stage_type === "lost" ? -1 : s.sort_order;
   };
 
-  const rows = FIELDS.map((f) => {
+  // العميل للأقدم (169) — نفس ترتيب القاعدة: التاريخ ثم المعرّف،
+  // وإن كانت الأقدم بلا مالك فالمالك من الأخرى
+  const older: Side =
+    a.client.created_at < b.client.created_at ||
+    (a.client.created_at === b.client.created_at && a.client.id < b.client.id)
+      ? "a"
+      : "b";
+  const younger: Side = older === "a" ? "b" : "a";
+  const ownerSide: Side = sides[older].client.owner_id || sides[older].client.sales_employee ? older : younger;
+  const ownerOwnerName = sides[ownerSide].ownerName;
+  const loserOwnerName = sides[ownerSide === "a" ? "b" : "a"].ownerName;
+
+  const rows = FIELDS.filter((f) => !(ownerLocked && f.key === "owner")).map((f) => {
     const vk = f.value(sides[keep], projectNames);
     const vg = f.value(sides[gone], projectNames);
     const equal = f.same ? f.same(sides[keep], sides[gone]) : vk === vg;
@@ -236,6 +256,17 @@ export default function MergeWizard({
           </p>
         </div>
 
+        {ownerLocked && canMerge && (
+          <p className="border-b bg-sky-50 px-4 py-3 text-sm text-sky-900">
+            {matchOn && <>البطاقتان متطابقتان ({matchOn}). </>}
+            العميل يبقى عند <b>{ownerOwnerName ?? "صاحب البطاقة الأقدم"}</b> — صاحب البطاقة الأقدم تسجيلاً
+            {loserOwnerName && loserOwnerName !== ownerOwnerName && (
+              <>، و«{loserOwnerName}» يبقى يرى البطاقة وتاريخها كاملاً</>
+            )}
+            .
+          </p>
+        )}
+
         {conflicts.length > 0 && (
           <ul className="divide-y divide-gray-100">
             {conflicts.map((r) => (
@@ -335,13 +366,13 @@ export default function MergeWizard({
         </div>
       ) : requested ? (
         <p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">
-          وصل طلب الدمج إلى الإدارة ومدير المتابعة، ويظهر لهم في «جودة البيانات». لا تعمل على البطاقتين معاً حتى
+          وصل طلب الدمج إلى مشرف الفريق (والإدارة)، ويظهر لهم في «الجودة». لا تعمل على البطاقتين معاً حتى
           يُقرَّر.
         </p>
       ) : (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-sm text-amber-900">
-            لا تملك البطاقتين معاً (إحداهما عند زميل)، فالدمج للإدارة أو مدير المتابعة. أرسل لهم طلباً:
+            البطاقتان لا تتطابقان بالرقم ولا بالاسم، فالدمج بموافقة مشرف الفريق. أرسل له طلباً:
           </p>
           <textarea
             rows={2}

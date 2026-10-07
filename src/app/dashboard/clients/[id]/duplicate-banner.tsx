@@ -45,7 +45,7 @@ export default function DuplicateBanner({ clientId, matches }: { clientId: strin
     setMsg(null);
     const { error } = await supabase.rpc("request_client_merge", { p_a: clientId, p_b: m.id, p_note: null });
     setBusy(null);
-    setMsg(error ? error.message : `وصل طلب دمج «${m.name}» إلى الإدارة ومدير المتابعة.`);
+    setMsg(error ? error.message : `وصل طلب دمج «${m.name}» إلى مشرف الفريق.`);
   }
 
   const actions = (m: ClientMatch) =>

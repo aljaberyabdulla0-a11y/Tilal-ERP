@@ -2,8 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* الخط والاتجاه الافتراضي للنظام */
-html {
+/* الاتجاه الافتراضي للنظام — حين لا يحمل <html> سمة dir.
+   ⚠️ كانت `html { direction: rtl }` مطلقة، وقاعدة CSS تغلب سمة dir التي
+   يضعها التخطيط الجذري حسب اللغة — فبقي النظام كلّه معكوساً (الشريط
+   الجانبي يميناً والنصّ إلى اليمين) حتى بالإنجليزية. */
+html:not([dir]) {
   direction: rtl;
 }
 
@@ -19,6 +22,59 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 16px;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================================
+   رموز الرسوم البيانية (viz) — مُتحقَّق منها بمدقّق عمى الألوان:
+   الدخل/السلسلة الأولى #047857 والصرف/الثانية #c2410c، والفترة
+   السابقة رمادي خافت (تقليل تأكيد لا لون هوية).
+   ============================================================ */
+:root {
+  --viz-1: #047857;
+  --viz-1-wash: rgba(4, 120, 87, 0.1);
+  --viz-2: #c2410c;
+  --viz-prev: #a3b1ac;
+  --viz-grid: #e4ebe8;
+}
+
+@layer components {
+  /* البطاقة الموحّدة للّوحات: سطح أبيض وحدٌّ شعري وظلّ ناعم */
+  .dash-card {
+    @apply relative rounded-card border border-line bg-surface shadow-card;
+  }
+  /* بطاقة قابلة للنقر: تستجيب للمرور والضغط والتركيز بلوحة المفاتيح */
+  .dash-card-link {
+    @apply relative rounded-card border border-line bg-surface shadow-card transition duration-150
+      hover:border-brand-200 hover:shadow-card-hover active:scale-[0.995]
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2;
+  }
+  .dash-focus {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1;
+  }
+  /* الأرقام في الأعمدة تصطفّ، والأرقام الكبيرة المنفردة تبقى طبيعية */
+  .num-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* نصّ لقارئ الشاشة وحده */
+.sr-only-focusable:not(:focus):not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* احترام من يطلب حركة أقل */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
 
 /* إخفاء شريط التمرير مع إبقاء التمرير عاملاً.

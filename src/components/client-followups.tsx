@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Client, toIntlPhone } from "@/lib/types";
 import { getMyFollowUps, FollowUpRow } from "@/lib/client-followups";
+import { getI18n } from "@/lib/i18n/server";
+import { tValue } from "@/lib/i18n/values";
+import { fill, fmtNumber } from "@/lib/dashboard/format";
 
 // ============================================================
 // «متابعات العملاء» — العملاء الذين حان أو فات موعد متابعتهم.
@@ -26,6 +29,8 @@ function FollowUpRowView({
   projectName?: string;
 }) {
   const intl = c.phone ? toIntlPhone(c.phone) : "";
+  const { locale, t } = getI18n();
+  const w = t.dash.work;
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-0 hover:bg-gray-50">
@@ -37,7 +42,7 @@ function FollowUpRowView({
           {c.name}
         </Link>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
-          <span>{c.stage ?? "ليد"}</span>
+          <span>{tValue(c.stage ?? "ليد", locale)}</span>
           {projectName && (
             <span className="rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700">
               {projectName}
@@ -51,7 +56,7 @@ function FollowUpRowView({
           )}
           {stalled && (
             <span className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700">
-              بلا تحديث
+              {w.stalled}
             </span>
           )}
         </div>
@@ -66,26 +71,28 @@ function FollowUpRowView({
             : "bg-red-50 text-red-700"
         }`}
       >
-        {daysLate === 0 ? "موعده اليوم" : `متأخر ${daysLate} يوم`}
+        {daysLate === 0 ? w.dueToday : fill(w.lateDays, { n: fmtNumber(daysLate, locale) })}
       </span>
 
       {c.phone && (
         <div className="flex gap-1.5">
           <a
             href={`tel:${intl}`}
-            title="اتصال"
+            title={w.call}
+            aria-label={`${w.call} — ${c.name}`}
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white transition hover:bg-brand-700"
           >
-            <span className="material-symbols-outlined text-[18px]">call</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">call</span>
           </a>
           <a
             href={`https://wa.me/${intl.replace("+", "")}`}
             target="_blank"
             rel="noopener noreferrer"
-            title="واتساب"
+            title={w.whatsapp}
+            aria-label={`${w.whatsapp} — ${c.name}`}
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white transition hover:bg-green-700"
           >
-            <span className="material-symbols-outlined text-[18px]">chat</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chat</span>
           </a>
         </div>
       )}
@@ -129,32 +136,31 @@ export default async function ClientFollowUps({
     if (total === 0) return null; // لا نزحم اللوحة بلا داعٍ
 
     const rows = [...overdue, ...dueToday].slice(0, 5);
+    const { locale, t } = getI18n();
+    const w = t.dash.work;
 
     return (
-      <div className="glass-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4">
-          <h4 className="flex items-center gap-2 text-lg font-bold text-brand-900">
-            <span className="material-symbols-outlined text-amber-600">event_repeat</span>
-            متابعات عملائي
-            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
-              {total}
+      <section aria-labelledby="followups-title" className="dash-card overflow-hidden">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+          <h2 id="followups-title" className="flex items-center gap-2 text-sm font-bold text-ink">
+            <span aria-hidden="true" className="material-symbols-outlined text-[20px] text-warning-600">event_repeat</span>
+            {w.followupsTitle}
+            <span className="rounded-full bg-warning-600 px-2 py-0.5 text-xs font-bold text-white">
+              {fmtNumber(total, locale)}
             </span>
-          </h4>
-          <Link
-            href="/dashboard/tasks"
-            className="text-sm font-bold text-brand-700 hover:underline"
-          >
-            عرض الكل
+          </h2>
+          <Link href="/dashboard/tasks" className="dash-focus rounded text-xs font-bold text-brand-700 hover:underline">
+            {t.dash.common.viewAll}
           </Link>
         </div>
 
         {overdue.length > 0 && (
-          <p className="mx-5 mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-            {overdue.length} متابعة متأخرة — اتصل بهم أولاً.
+          <p className="mx-4 mb-3 rounded-lg bg-danger-50 px-3 py-2 text-sm font-medium text-danger-700 sm:mx-5">
+            {fill(w.followupsLate, { n: fmtNumber(overdue.length, locale) })}
           </p>
         )}
 
-        <div className="border-t border-gray-100">
+        <div className="border-t border-line">
           {rows.map((r) => (
             <FollowUpRowView
               key={r.client.id}
@@ -168,12 +174,12 @@ export default async function ClientFollowUps({
         {total > rows.length && (
           <Link
             href="/dashboard/tasks"
-            className="block border-t border-gray-100 py-2.5 text-center text-sm font-medium text-brand-700 hover:bg-gray-50"
+            className="dash-focus block border-t border-line py-2.5 text-center text-sm font-medium text-brand-700 hover:bg-surface-subtle"
           >
-            وعندك {total - rows.length} متابعة أخرى…
+            {fill(w.moreFollowups, { n: fmtNumber(total - rows.length, locale) })}
           </Link>
         )}
-      </div>
+      </section>
     );
   }
 

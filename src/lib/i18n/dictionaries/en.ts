@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { Dictionary } from "./ar";
+import dashEn from "./dashboard-en";
 
 const en: Dictionary = {
   common: {
@@ -115,6 +116,9 @@ const en: Dictionary = {
     salesFunnel: "Sales funnel",
     noActivity: "No activity yet.",
   },
+
+  // Dashboards — in their own file (dashboard-en.ts)
+  dash: dashEn,
 };
 
 export default en;

@@ -9,6 +9,7 @@ import NotificationBell from "@/components/notification-bell";
 import ChatUnreadBadge from "@/components/chat-unread-badge";
 import LanguageSwitcher from "@/components/language-switcher";
 import { useI18n } from "@/lib/i18n/client";
+import CommandPalette, { type PaletteAction } from "@/components/dashboard/command-palette";
 
 export type NavItem = {
   href: string;
@@ -34,11 +35,14 @@ export default function AppShell({
   nav,
   userEmail,
   roleLabel,
+  actions = [],
   children,
 }: {
   nav: NavItem[];
   userEmail: string;
   roleLabel: string;
+  /** إجراءات مركز الأوامر (Ctrl+K) — يقرّرها التخطيط على الخادم حسب الدور */
+  actions?: PaletteAction[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -140,8 +144,9 @@ export default function AppShell({
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
-          <span className="font-bold text-brand-600">{t.common.appName}</span>
+          <span className="hidden font-bold text-brand-600 sm:inline">{t.common.appName}</span>
           <div className="ms-auto flex items-center gap-2">
+            <CommandPalette actions={actions} />
             <LanguageSwitcher compact />
             <NotificationBell pin="end" />
           </div>

@@ -18,7 +18,7 @@ export type MoneyOverview = {
   monthExpense: number;
   byCategory: Bucket[]; // الصرف حسب نوع المصروف (الأكبر أولاً)
   byArm: Bucket[]; // الصرف حسب الذراع
-  months: { label: string; income: number; expense: number }[]; // آخر 6 أشهر
+  months: { key: string; label: string; income: number; expense: number }[]; // آخر 6 أشهر (key = YYYY-MM)
 };
 
 const MONTH_NAMES = [
@@ -55,6 +55,7 @@ export function toMoneyOverview(raw: RawOverview): MoneyOverview {
     byCategory: buckets(raw.byCategory),
     byArm: buckets(raw.byArm),
     months: (raw.months ?? []).map((m) => ({
+      key: m.key,
       label: MONTH_NAMES[Number(m.key.slice(5, 7)) - 1] ?? m.key,
       income: n(m.income),
       expense: n(m.expense),

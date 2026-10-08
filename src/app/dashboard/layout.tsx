@@ -1,6 +1,33 @@
 import { canSeeBrokers, getCurrentUser, getMyMktRole, getUserRole, isAccountActive } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import AppShell, { NavItem } from "./app-shell";
+import type { PaletteAction } from "@/components/dashboard/command-palette";
+import type { Dictionary } from "@/lib/i18n/dictionaries/ar";
+
+// ============================================================
+// إجراءات مركز الأوامر (Ctrl+K) لكل دور — بنفس منطق القائمة: لا يُعرض
+// إجراءٌ يفتح شاشةً ليست للدور. والصلاحية الفعلية تبقى في القاعدة:
+// زرّ «فاتورة جديدة» لغير من يدير المال يصل إلى شاشةٍ ترفضه.
+// ============================================================
+function paletteActions(role: string, t: Dictionary, finance: boolean): PaletteAction[] {
+  const a = t.dash.actions;
+  const crmWriter = ["admin", "supervisor", "employee", "relationship_manager"].includes(role);
+  const list: (PaletteAction | false)[] = [
+    crmWriter && { href: "/dashboard/clients/new", label: a.newLead, icon: "person_add" },
+    ["admin", "supervisor", "employee"].includes(role) && { href: "/dashboard/reservations/new", label: a.newReservation, icon: "key" },
+    !["broker", "viewer", "marketing"].includes(role) && { href: "/dashboard/tasks/new", label: a.newTask, icon: "add_task" },
+    finance && { href: "/dashboard/invoices/new", label: a.newInvoice, icon: "receipt_long" },
+    finance && { href: "/dashboard/invoices", label: a.recordPayment, icon: "point_of_sale" },
+    finance && { href: `/dashboard/accounting/moves/new?dir=${encodeURIComponent("صرف")}`, label: a.recordExpense, icon: "payments" },
+    ["admin", "supervisor", "relationship_manager"].includes(role) && { href: "/dashboard/brokers/requests", label: a.brokerRequests, icon: "real_estate_agent" },
+    role === "broker" && { href: "/dashboard/broker/leads/new", label: a.newBrokerLead, icon: "person_add" },
+    role === "broker" && { href: "/dashboard/broker/units", label: a.brokerUnits, icon: "apartment" },
+    role === "marketing" && { href: "/dashboard/marketing/campaigns/new", label: a.newCampaign, icon: "add_circle" },
+    !["broker", "viewer"].includes(role) && { href: "/dashboard/me/leaves", label: a.myLeaves, icon: "beach_access" },
+    !["broker", "viewer"].includes(role) && { href: "/dashboard/chat", label: a.chat, icon: "chat" },
+  ];
+  return list.filter((x): x is PaletteAction => !!x);
+}
 import ChatWidget from "@/components/chat-widget";
 import LogoutButton from "./logout-button";
 import { BROKER_LOGIN_DOMAIN } from "@/lib/types";
@@ -129,6 +156,7 @@ export default async function DashboardLayout({
         nav={brokerNav}
         userEmail={(user?.email ?? "").replace(`@${BROKER_LOGIN_DOMAIN}`, "")}
         roleLabel={t.nav.roleBroker}
+        actions={paletteActions(role, t, false)}
       >
         {children}
         {/* لا نافذة محادثات: المحادثات الداخلية بين موظفي تلال */}
@@ -188,7 +216,7 @@ export default async function DashboardLayout({
     ];
 
     return (
-      <AppShell nav={readOnlyNav} userEmail={user?.email ?? ""} roleLabel={roleLabel}>
+      <AppShell nav={readOnlyNav} userEmail={user?.email ?? ""} roleLabel={roleLabel} actions={paletteActions(role, t, finance)}>
         {children}
         {marketing && <div className="print:hidden"><ChatWidget myUserId={user?.id ?? ""} isAdmin={false} /></div>}
       </AppShell>
@@ -329,7 +357,7 @@ export default async function DashboardLayout({
 
 
   return (
-    <AppShell nav={nav} userEmail={user?.email ?? ""} roleLabel={roleLabel}>
+    <AppShell nav={nav} userEmail={user?.email ?? ""} roleLabel={roleLabel} actions={paletteActions(role, t, finance)}>
       {children}
       {/* نافذة المحادثة المنبثقة — متاحة في كل صفحات النظام */}
       <div className="print:hidden"><ChatWidget myUserId={user?.id ?? ""} isAdmin={admin} /></div>

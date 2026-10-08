@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/lib/i18n/client";
 
 // زر تسجيل الخروج — ينهي الجلسة ويعيد المستخدم لصفحة الدخول
 export default function LogoutButton({ className }: { className?: string }) {
   const router = useRouter();
+  const { t } = useI18n();
   const supabase = createClient();
 
   async function handleLogout() {
@@ -16,13 +18,14 @@ export default function LogoutButton({ className }: { className?: string }) {
 
   return (
     <button
+      type="button"
       onClick={handleLogout}
       className={
         className ??
         "rounded-lg border border-gray-300 px-4 py-1.5 text-sm text-gray-700 transition hover:bg-gray-100"
       }
     >
-      تسجيل الخروج
+      {t.nav.logout}
     </button>
   );
 }

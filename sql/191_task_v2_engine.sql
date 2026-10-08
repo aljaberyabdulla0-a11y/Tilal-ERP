@@ -1636,7 +1636,8 @@ begin
              'project_name', (select pr.name from public.projects pr where pr.id = pg.project_id),
              'campaign_id', pg.campaign_id,
              'campaign_name', (select cc.name from public.crm_campaigns cc where cc.id = pg.campaign_id),
-             'parent_task_id', pg.parent_task_id,
+             'parent_task_id', pg.parent_task_id
+           ) || jsonb_build_object(
              'workflow_id', pg.workflow_id, 'workflow_step_id', pg.workflow_step_id,
              'step_name', (select s.name_ar from public.task_workflow_steps s where s.id = pg.workflow_step_id),
              'step_color', (select s.color from public.task_workflow_steps s where s.id = pg.workflow_step_id),
@@ -1648,7 +1649,8 @@ begin
              'completed_at', pg.completed_at, 'cancelled_at', pg.cancelled_at,
              'cancellation_reason', pg.cancellation_reason,
              'created_at', pg.created_at, 'updated_at', pg.updated_at, 'archived_at', pg.archived_at,
-             'version', pg.version,
+             'version', pg.version
+           ) || jsonb_build_object(
              'is_late', pg.is_late, 'is_waiting', pg.is_waiting, 'is_due_soon', pg.is_due_soon,
              'sla_breached', pg.sla_breached, 'has_blocker', pg.has_blocker,
              'subtasks_total', (select count(*) from public.tasks s where s.parent_task_id = pg.id),

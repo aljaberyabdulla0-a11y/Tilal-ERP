@@ -75,7 +75,11 @@ export default async function ClientsPage({
   // count: "exact" يُرجع الإجمالي مع الصفحة في رحلة واحدة — فيُعرض
   // العدد الحقيقي لا عدد المعروض.
   const query = applyClientListFilters(
-    supabase.from("clients").select("*", { count: "exact" }).order("created_at", { ascending: false }),
+    // اسم الشركة الوسيطة صاحبة الليد — بتسمية العلاقة (للعميل علاقتان بها)
+    supabase
+      .from("clients")
+      .select("*, broker_companies!clients_broker_company_id_fkey(name)", { count: "exact" })
+      .order("created_at", { ascending: false }),
     f,
     { today, now: new Date(), tagClientIds }
   );

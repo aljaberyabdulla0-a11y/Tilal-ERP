@@ -89,7 +89,9 @@ export async function getBrokerLeads(companyId?: string): Promise<Client[]> {
   const supabase = await createClient();
   let query = supabase
     .from("clients")
-    .select("*, broker_companies(name), projects(name)")
+    // ⚠️ للعميل علاقتان بـ broker_companies (broker_company_id و returned_from):
+    //    بلا تسمية العلاقة يرفض PostgREST الاستعلام (PGRST201) فتعود القائمة فارغة.
+    .select("*, broker_companies!clients_broker_company_id_fkey(name), projects(name)")
     .not("broker_company_id", "is", null)
     .order("broker_deadline", { ascending: true, nullsFirst: false });
 

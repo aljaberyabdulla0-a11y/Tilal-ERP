@@ -58,7 +58,11 @@ export default async function ClientDetailsPage({
 
   const supabase = await createClient();
   const [{ data }, { data: acts }, { data: resv }, admin] = await Promise.all([
-    supabase.from("clients").select("*").eq("id", params.id).single(),
+    supabase
+      .from("clients")
+      .select("*, broker_companies!clients_broker_company_id_fkey(name)")
+      .eq("id", params.id)
+      .single(),
     supabase
       .from("client_activities")
       .select("*")
@@ -185,10 +189,19 @@ export default async function ClientDetailsPage({
             </span>
           )}
           {/* رأس الـCRM: المالك بالمفتاح، والحرارة، والدرجة — إن وُجدت */}
-          {(ownerName ?? c.sales_employee) && (
+          {/* ليد الوسيط: الشركة صاحبته، والـRM متابعه في تلال (188) */}
+          {c.broker_company_id ? (
             <span className="text-sm text-gray-500">
-              المالك: <b className="text-gray-800">{ownerName ?? c.sales_employee}</b>
+              المالك: <b className="text-gray-800">{c.broker_companies?.name ?? "شركة وسيطة"}</b>
+              <span className="ms-1 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">وسيط</span>
+              {" · "}المتابعة (RM): <b className="text-gray-800">{ownerName ?? c.sales_employee ?? "—"}</b>
             </span>
+          ) : (
+            (ownerName ?? c.sales_employee) && (
+              <span className="text-sm text-gray-500">
+                المالك: <b className="text-gray-800">{ownerName ?? c.sales_employee}</b>
+              </span>
+            )
           )}
           {c.lead_temperature && (
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${TEMPERATURE_STYLE[c.lead_temperature] ?? "bg-gray-100 text-gray-500"}`}>
@@ -395,7 +408,10 @@ function buildTabs(a: TabArgs): ClientTab[] {
             <Field label="الغرض من الشراء" value={c.purchase_purpose} />
             <Field label="طريقة الدفع" value={c.payment_method} />
             <Field label="مصدر العميل" value={c.source} />
-            <Field label="موظف المبيعات" value={c.sales_employee} />
+            {c.broker_company_id && (
+              <Field label="الشركة الوسيطة" value={c.broker_companies?.name ?? "شركة وسيطة"} />
+            )}
+            <Field label={c.broker_company_id ? "مسؤول المتابعة (RM)" : "موظف المبيعات"} value={c.sales_employee} />
             <Field
               label="التاريخ"
               value={

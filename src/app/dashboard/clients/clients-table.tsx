@@ -178,7 +178,22 @@ export default function ClientsTable({
                     )}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{c.source || "—"}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.sales_employee || "—"}</td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {/* ليد الوسيط: الشركة صاحبته، والـRM متابعه في تلال (188) */}
+                    {c.broker_company_id ? (
+                      <>
+                        <span className="block font-medium text-gray-800">
+                          {c.broker_companies?.name ?? "شركة وسيطة"}
+                          <span className="ms-1 rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700">وسيط</span>
+                        </span>
+                        <span className="block text-xs text-gray-500">
+                          المتابعة: {c.sales_employee || "بلا RM"}
+                        </span>
+                      </>
+                    ) : (
+                      c.sales_employee || "—"
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`font-medium ${sinceColor(c.last_contact_at, silence)}`}>
                       {sinceLabel(c.last_contact_at)}

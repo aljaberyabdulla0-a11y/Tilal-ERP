@@ -68,6 +68,13 @@ export default function RedistributePanel({
   const listOwnerName = owners.find((o) => o.owner_id === listOwner)?.owner_name;
   const batch = listOwner ? batchShape(listed) : null;
 
+  // اختيار «من» يُسقطه من المستلمين: شريحته تختفي من القائمة، فلو بقي
+  // مختاراً لما رآه المستخدم ولا استطاع إلغاءه.
+  const pickFrom = (id: string) => {
+    setFromOwner(id);
+    setToOwners((prev) => prev.filter((x) => x !== id));
+  };
+
   const toggleTarget = (id: string) =>
     setToOwners((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -79,8 +86,6 @@ export default function RedistributePanel({
 
     if (!fromOwner) return setError("اختر الموظف المنقول منه.");
     if (toOwners.length === 0) return setError("اختر موظفاً واحداً على الأقل للاستلام.");
-    if (toOwners.includes(fromOwner))
-      return setError("لا يُنقل الموظف إلى نفسه — اختر مستلمين آخرين.");
     if (!reason.trim())
       return setError("اذكر سبب النقل — نقلٌ بلا سبب لا يُراجَع لاحقاً.");
 
@@ -129,7 +134,7 @@ export default function RedistributePanel({
           <label className="mb-1 block text-sm font-medium text-gray-700">النقل من</label>
           <select
             value={fromOwner}
-            onChange={(e) => setFromOwner(e.target.value)}
+            onChange={(e) => pickFrom(e.target.value)}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">— اختر الموظف —</option>
@@ -295,7 +300,7 @@ export default function RedistributePanel({
               <button
                 type="button"
                 onClick={() => {
-                  setFromOwner(listOwner as string);
+                  pickFrom(listOwner as string);
                   setOnlyUnworked(true);
                   setLimit(String(listed.length));
                   document.getElementById("redistribute")?.scrollIntoView({ behavior: "smooth" });

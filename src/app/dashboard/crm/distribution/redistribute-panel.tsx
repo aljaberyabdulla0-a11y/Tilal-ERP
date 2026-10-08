@@ -24,17 +24,33 @@ import type { OwnerLoad, UnworkedLead } from "@/lib/crm";
 export default function RedistributePanel({
   owners,
   unworked,
+  focusOwner,
+  focusAct,
+  canMove,
 }: {
   owners: OwnerLoad[];
   unworked: UnworkedLead[];
+  // من أزرار التنبيهات (page.tsx): الحالة الأولى تُقرأ منها مرّة
+  focusOwner: string | null;
+  focusAct: "unworked" | "move" | "handover" | null;
+  canMove: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [fromOwner, setFromOwner] = useState("");
+  const focused = owners.find((o) => o.owner_id === focusOwner);
+  const moving = focusAct === "move" || focusAct === "handover";
+
+  const [fromOwner, setFromOwner] = useState(moving && focused ? focused.owner_id : "");
   const [toOwners, setToOwners] = useState<string[]>([]);
-  const [limit, setLimit] = useState("25");
-  const [onlyUnworked, setOnlyUnworked] = useState(true);
+  // العدد المقترح = كل ما يُنقل بهذا الإعداد، لا رقم ثابت يُنسى تعديله
+  const [limit, setLimit] = useState(
+    moving && focused
+      ? String(focusAct === "handover" ? focused.open_leads : focused.never_contacted)
+      : "25"
+  );
+  const [onlyUnworked, setOnlyUnworked] = useState(focusAct !== "handover");
+  const [listOwner, setListOwner] = useState<string | null>(focused ? focused.owner_id : null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -47,6 +63,10 @@ export default function RedistributePanel({
       ? Number(source.never_contacted)
       : Number(source.open_leads)
     : 0;
+
+  const listed = listOwner ? unworked.filter((u) => u.owner_id === listOwner) : unworked;
+  const listOwnerName = owners.find((o) => o.owner_id === listOwner)?.owner_name;
+  const batch = listOwner ? batchShape(listed) : null;
 
   const toggleTarget = (id: string) =>
     setToOwners((prev) =>
@@ -85,10 +105,23 @@ export default function RedistributePanel({
 
   return (
     <section className="rounded-lg border border-gray-200 bg-white p-5">
+      {/* المشرف يرى القائمة ولا ينقل: النموذج يُخفى بدل أن يرفضه الخادم */}
+      {canMove && (
+      <div
+        id="redistribute"
+        className={`scroll-mt-4 ${moving ? "-m-2 rounded-lg p-2 ring-2 ring-brand-500" : ""}`}
+      >
       <h2 className="font-bold text-gray-800">إعادة توزيع</h2>
       <p className="mt-1 text-sm text-gray-500">
         كل نقل يُسجَّل باسمك وسببه في تاريخ ملكية الليد.
       </p>
+      {moving && focused && (
+        <p className="mt-2 rounded-lg bg-brand-50 p-3 text-sm text-brand-700">
+          {focusAct === "handover"
+            ? `تسليم عهدة «${focused.owner_name}»: كل ليداته المفتوحة (${focused.open_leads}). اختر المستلمين واذكر السبب.`
+            : `نقل ما لم يُشتغَل عليه من ليدات «${focused.owner_name}» (${focused.never_contacted}). اختر المستلمين واذكر السبب.`}
+        </p>
+      )}
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         {/* من */}
@@ -211,16 +244,71 @@ export default function RedistributePanel({
       >
         {busy ? "جارٍ النقل…" : "نفّذ إعادة التوزيع"}
       </button>
+      </div>
+      )}
 
       {/* ===== الليدات غير المُشتغَل عليها ===== */}
-      <div className="mt-8">
-        <h3 className="font-bold text-gray-800">
-          لم يُشتغَل عليها
-          <span className="ms-2 text-sm font-normal text-gray-500">
-            ({unworked.length})
-          </span>
-        </h3>
-        {unworked.length === 0 ? (
+      <div id="unworked" className={`scroll-mt-4 ${canMove ? "mt-8" : ""}`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-bold text-gray-800">
+            لم يُشتغَل عليها
+            <span className="ms-2 text-sm font-normal text-gray-500">({listed.length})</span>
+          </h3>
+          {listOwner && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-700">
+              ليدات «{listOwnerName}» فقط
+              <button
+                type="button"
+                onClick={() => setListOwner(null)}
+                className="ms-1 font-bold hover:text-brand-900"
+                aria-label="عرض الكل"
+              >
+                ×
+              </button>
+            </span>
+          )}
+        </div>
+
+        {/* «افحص إن كانت دفعة مستوردة» — الفحص نفسه هنا لا في ذهن القارئ:
+            متى أُسندت ومن أي مصدر؟ يومٌ واحد يجمع أغلبها = خلل توزيع. */}
+        {batch && batch.groups.length > 0 && (
+          <div
+            className={`mt-3 rounded-lg border p-3 text-sm ${
+              batch.isBatch
+                ? "border-amber-300 bg-amber-50 text-amber-900"
+                : "border-red-200 bg-red-50 text-red-800"
+            }`}
+          >
+            <p className="font-bold">
+              {batch.isBatch
+                ? `دفعة واحدة: ${batch.topCount} من ${listed.length} أُسندت يوم ${batch.topDay} — خلل توزيع قبل أن يكون تقصيراً.`
+                : `أُسندت متفرّقة على ${batch.days} يوماً — ليست دفعة مستوردة؛ هذا عملٌ لم يُنجز.`}
+            </p>
+            <ul className="mt-2 space-y-0.5 text-xs">
+              {batch.groups.slice(0, 5).map((g) => (
+                <li key={`${g.day}-${g.source}`}>
+                  {g.day} · {g.source} · <span className="font-semibold">{g.count}</span> ليداً
+                </li>
+              ))}
+            </ul>
+            {canMove && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFromOwner(listOwner as string);
+                  setOnlyUnworked(true);
+                  setLimit(String(listed.length));
+                  document.getElementById("redistribute")?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="mt-3 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+              >
+                أعد توزيعها ↑
+              </button>
+            )}
+          </div>
+        )}
+
+        {listed.length === 0 ? (
           <p className="mt-3 rounded-lg border border-gray-200 px-4 py-6 text-center text-sm text-gray-400">
             لا ليدات مهمَلة منذ الإسناد.
           </p>
@@ -230,14 +318,16 @@ export default function RedistributePanel({
               <thead className="sticky top-0 bg-gray-50 text-xs text-gray-500">
                 <tr>
                   <th className="px-4 py-2 font-medium">العميل</th>
+                  <th className="px-4 py-2 font-medium">الهاتف</th>
                   <th className="px-4 py-2 font-medium">المرحلة</th>
                   <th className="px-4 py-2 font-medium">المصدر</th>
                   <th className="px-4 py-2 font-medium">المالك</th>
+                  <th className="px-4 py-2 font-medium">أُسند في</th>
                   <th className="px-4 py-2 font-medium">منذ الإسناد</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {unworked.slice(0, 200).map((u) => (
+                {listed.slice(0, 200).map((u) => (
                   <tr key={u.client_id}>
                     <td className="px-4 py-2">
                       <a
@@ -247,9 +337,19 @@ export default function RedistributePanel({
                         {u.client_name}
                       </a>
                     </td>
+                    <td className="px-4 py-2 text-gray-600" dir="ltr">
+                      {u.phone ? (
+                        <a href={`tel:${u.phone}`} className="hover:text-brand-600 hover:underline">
+                          {u.phone}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-gray-600">{u.stage}</td>
                     <td className="px-4 py-2 text-gray-500">{u.source ?? "—"}</td>
                     <td className="px-4 py-2 text-gray-600">{u.owner_name ?? "بلا مالك"}</td>
+                    <td className="px-4 py-2 text-xs text-gray-500">{baghdadDay(u.assigned_at)}</td>
                     <td className="px-4 py-2 font-semibold text-red-700">
                       {u.days_since_assignment} يوماً
                     </td>
@@ -257,9 +357,9 @@ export default function RedistributePanel({
                 ))}
               </tbody>
             </table>
-            {unworked.length > 200 && (
+            {listed.length > 200 && (
               <p className="border-t border-gray-200 px-4 py-2 text-xs text-gray-500">
-                تُعرض ٢٠٠ من {unworked.length} — أعد التوزيع على دفعات.
+                تُعرض ٢٠٠ من {listed.length} — أعد التوزيع على دفعات.
               </p>
             )}
           </div>
@@ -267,4 +367,29 @@ export default function RedistributePanel({
       </div>
     </section>
   );
+}
+
+const baghdadDay = (ts: string) =>
+  new Date(ts).toLocaleDateString("en-CA", { timeZone: "Asia/Baghdad" });
+
+// شكل الدفعة: كم ليداً أُسند في كل يوم ومن أي مصدر. يومٌ واحد يحمل
+// النصف فأكثر = دفعة أُسندت جملةً (نفس عتبة تنبيه unworked_batch).
+function batchShape(leads: UnworkedLead[]) {
+  const map = new Map<string, { day: string; source: string; count: number }>();
+  const perDay = new Map<string, number>();
+  for (const u of leads) {
+    const day = baghdadDay(u.assigned_at);
+    const source = u.source ?? "بلا مصدر";
+    perDay.set(day, (perDay.get(day) ?? 0) + 1);
+    const k = `${day}|${source}`;
+    const g = map.get(k) ?? { day, source, count: 0 };
+    g.count += 1;
+    map.set(k, g);
+  }
+  const groups = Array.from(map.values()).sort((a, b) => b.count - a.count);
+  // الحكم باليوم وحده: يومٌ واحد بمصدرين ما زال دفعة واحدة
+  const [topDay, topCount] =
+    Array.from(perDay.entries()).sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
+  const isBatch = topCount * 2 >= leads.length && leads.length > 0;
+  return { groups, days: perDay.size, topDay, topCount, isBatch };
 }

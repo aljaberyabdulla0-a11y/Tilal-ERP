@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/auth";
 import {
@@ -9,6 +10,7 @@ import {
   getProjectsLite,
   getSources,
   SEVERITY_STYLE,
+  type DistributionAlert,
 } from "@/lib/crm";
 import CrmTabs from "../crm-tabs";
 import RedistributePanel from "./redistribute-panel";
@@ -36,7 +38,72 @@ import { createClient } from "@/lib/supabase/server";
 //     ٣) ثم إعادة التوزيع — الفعل نفسه.
 // لا يُعرض رقم أداء قبل أن يُعرض حجم ما أُسنِد.
 // ============================================================
-export default async function DistributionPage() {
+// ============================================================
+// من التنبيه إلى الحلّ
+//
+// تنبيهٌ يُقرأ ثم يُنسى لا يُصلح شيئاً. فكل تنبيه يحمل أزراره: زرٌّ
+// يُريك الليدات نفسها، وزرٌّ يفتح إعادة التوزيع مملوءةً بصاحبها.
+// والحالة في العنوان (?owner=…&act=…) لا في ذاكرة المتصفّح — فالرابط
+// يُنسخ ويُرسل، و«رجوع» يعيدك إلى ما كنت فيه.
+//
+//     act=unworked    اعرض ليداته التي لم يُشتغَل عليها
+//     act=move        افتح إعادة التوزيع: غير المُشتغَل فقط
+//     act=handover    افتح إعادة التوزيع: كل المفتوح (تسليم عهدة)
+// ============================================================
+type FocusAct = "unworked" | "move" | "handover";
+const ACTS: FocusAct[] = ["unworked", "move", "handover"];
+
+type AlertAction = { label: string; href: string; primary?: boolean };
+
+function alertActions(a: DistributionAlert, canMove: boolean, isAdminRole: boolean): AlertAction[] {
+  const o = a.subject_id;
+  const focus = (act: FocusAct, hash: string) =>
+    `/dashboard/crm/distribution?owner=${o}&act=${act}#${hash}`;
+  const clients = (extra = "") => `/dashboard/clients?owner=${o}${extra}`;
+
+  switch (a.code) {
+    case "unworked_batch":
+      if (!o) return [];
+      return [
+        { label: "اعرض الليدات وتاريخ إسنادها", href: focus("unworked", "unworked"), primary: true },
+        ...(canMove ? [{ label: "أعد توزيعها", href: focus("move", "redistribute") }] : []),
+        { label: "في قائمة العملاء", href: clients("&contact=never") },
+      ];
+    case "over_capacity":
+    case "owner_concentration":
+      if (!o) return [];
+      return [
+        ...(canMove
+          ? [{ label: "وزّع الفائض", href: focus("move", "redistribute"), primary: true }]
+          : []),
+        { label: "ليداته بلا تواصل", href: focus("unworked", "unworked") },
+        { label: "كل عملائه", href: clients() },
+      ];
+    case "inactive_owner":
+      if (!o) return [];
+      return [
+        // الإجازة والعهدة في HR — والملفّ للإدارة وحدها هنا
+        ...(isAdminRole
+          ? [{ label: "ملفّه في الموارد البشرية", href: `/dashboard/hr/employees/${o}`, primary: true }]
+          : []),
+        { label: "عملاؤه", href: clients() },
+        ...(canMove ? [{ label: "تسليم عهدته", href: focus("handover", "redistribute") }] : []),
+      ];
+    case "ownerless_leads":
+      return [
+        { label: "اعرض الليدات بلا مالك", href: "/dashboard/clients?owner=none", primary: true },
+        ...(canMove ? [{ label: "وزّعها بالقواعد", href: "/dashboard/crm/distribution#rules" }] : []),
+      ];
+    default:
+      return [];
+  }
+}
+
+export default async function DistributionPage({
+  searchParams,
+}: {
+  searchParams: { owner?: string; act?: string };
+}) {
   const role = await getUserRole();
   // ⚠️ التوزيع فعلٌ لا تقرير: التسويق والمُطالِع خارجه عمداً
   if (role !== "admin" && role !== "followup_manager" && role !== "supervisor") {
@@ -63,6 +130,18 @@ export default async function DistributionPage() {
   const ownerless = ownerlessRes.count ?? 0;
 
   const totalOpen = load.reduce((s, r) => s + Number(r.open_leads), 0);
+
+  // إعادة التوزيع والقواعد من صلاحية الإدارة ومدير المتابعة وحدهما
+  // (redistribute_leads وسياسة crm_assignment_rules) — المشرف يرى ولا ينقل
+  const canMove = role === "admin" || role === "followup_manager";
+  // معرّفٌ مُلفَّق أو لموظف خرج من الحِمل يُتجاهل بصمت
+  const focusOwner = load.some((r) => r.owner_id === searchParams.owner)
+    ? (searchParams.owner as string)
+    : null;
+  const focusAct =
+    focusOwner && ACTS.includes(searchParams.act as FocusAct)
+      ? (searchParams.act as FocusAct)
+      : null;
 
   return (
     <div>
@@ -103,6 +182,7 @@ export default async function DistributionPage() {
                   <p className="mt-2 border-t border-current/20 pt-2 text-sm font-medium">
                     ↳ {a.recommendation}
                   </p>
+                  <AlertActions actions={alertActions(a, canMove, role === "admin")} />
                 </li>
               ))}
             </ul>
@@ -195,22 +275,53 @@ export default async function DistributionPage() {
         </section>
 
         {/* ===== ٣) الفعل ===== */}
-        <RedistributePanel owners={load} unworked={unworked} />
+        {/* المفتاح يعيد بناء اللوحة حين يتغيّر التركيز: حالتها الأولى تُقرأ مرّة */}
+        <RedistributePanel
+          key={`${focusOwner ?? ""}-${focusAct ?? ""}`}
+          owners={load}
+          unworked={unworked}
+          focusOwner={focusOwner}
+          focusAct={focusAct}
+          canMove={canMove}
+        />
 
         {/* ===== ٤) القواعد — التوزيع قبل أن يحتاج إعادة توزيع =====
             إعادة التوزيع علاج، والقاعدة وقاية: ليدٌ يُسنَد بالأقلّ حِملاً
             لا يصنع تركّزاً يُعالَج لاحقاً. للإدارة ومدير المتابعة وحدهما
             (القاعدة تفرض ذلك في سياسة crm_assignment_rules). */}
-        {(role === "admin" || role === "followup_manager") && (
-          <RulesPanel
-            rules={rules}
-            employees={employees}
-            projects={projects}
-            sources={sources}
-            ownerless={ownerless}
-          />
+        {canMove && (
+          <div id="rules" className="scroll-mt-4">
+            <RulesPanel
+              rules={rules}
+              employees={employees}
+              projects={projects}
+              sources={sources}
+              ownerless={ownerless}
+            />
+          </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function AlertActions({ actions }: { actions: AlertAction[] }) {
+  if (actions.length === 0) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {actions.map((x) => (
+        <Link
+          key={x.href}
+          href={x.href}
+          className={
+            x.primary
+              ? "rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-700"
+              : "rounded-lg border border-current/30 bg-white/70 px-3 py-1.5 text-xs font-semibold transition hover:bg-white"
+          }
+        >
+          {x.label} ←
+        </Link>
+      ))}
     </div>
   );
 }

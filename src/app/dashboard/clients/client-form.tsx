@@ -37,9 +37,13 @@ export default function ClientForm({
   clientId,
   employeeNames = [],
   sources,
+  campaigns = [],
 }: {
   initial?: Partial<Client>;
   clientId?: string;
+  // Running marketing campaigns — the employee picks the one the client came from, so the campaign
+  // knows its leads and its sales (marketing's attribution is built on it). Optional.
+  campaigns?: { id: string; name: string }[];
   // أسماء الموظفين المتاحة — الاسم هنا يحدّد من يشوف هذا العميل،
   // فلازم يطابق ملف الموظفين حرفياً (لذلك قائمة وليس كتابة حرة)
   employeeNames?: string[];
@@ -57,6 +61,7 @@ export default function ClientForm({
     area: initial?.area ?? "",
     purchase_purpose: initial?.purchase_purpose ?? "سكن",
     source: initial?.source ?? "",
+    campaign_id: initial?.campaign_id ?? "",
     payment_method: initial?.payment_method ?? "",
     sales_employee: initial?.sales_employee ?? "",
     entry_date: initial?.entry_date ?? today(),
@@ -160,6 +165,8 @@ export default function ClientForm({
       area: form.area.trim() || null,
       purchase_purpose: form.purchase_purpose || null,
       source: form.source || null,
+      // Only when there's a campaign list: an edit page without one doesn't erase a campaign set earlier
+      ...(campaigns.length > 0 || form.campaign_id ? { campaign_id: form.campaign_id || null } : {}),
       payment_method: form.payment_method || null,
       sales_employee: form.sales_employee.trim() || null,
       entry_date: form.entry_date || null,
@@ -403,6 +410,29 @@ export default function ClientForm({
             ))}
           </select>
         </div>
+
+        {/* The marketing campaign — when the client came from an ad or a campaign activity */}
+        {(campaigns.length > 0 || form.campaign_id) && (
+          <div>
+            <label className={labelClass}>الحملة التسويقية</label>
+            <select
+              value={form.campaign_id}
+              onChange={(e) => update("campaign_id", e.target.value)}
+              className={inputClass}
+            >
+              <option value="">— لا حملة / لا أعرف —</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+              {form.campaign_id && !campaigns.some((c) => c.id === form.campaign_id) && (
+                <option value={form.campaign_id}>الحملة المسجّلة سابقاً</option>
+              )}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">إن قال العميل إنه رأى إعلاناً — اختر حملته، فيُحسب الليد لها.</p>
+          </div>
+        )}
 
         {/* طريقة الدفع */}
         <div>

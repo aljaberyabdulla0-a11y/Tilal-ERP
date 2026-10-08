@@ -6,6 +6,7 @@ import { getSalesEmployeeNames } from "@/lib/hr";
 import { Client } from "@/lib/types";
 import ClientForm from "../../client-form";
 import { getPipelineConfig } from "@/lib/crm-config";
+import { getRunningCampaigns } from "@/lib/crm-campaigns";
 
 // صفحة تعديل عميل — تجلب بياناته الحالية ثم تعرضها في النموذج المشترك
 export default async function EditClientPage({
@@ -19,10 +20,11 @@ export default async function EditClientPage({
   }
 
   const supabase = await createClient();
-  const [{ data }, employeeNames, cfg] = await Promise.all([
+  const [{ data }, employeeNames, cfg, campaigns] = await Promise.all([
     supabase.from("clients").select("*").eq("id", params.id).single(),
     getSalesEmployeeNames(),
     getPipelineConfig(),
+    getRunningCampaigns(),
   ]);
 
   if (!data) notFound();
@@ -46,6 +48,7 @@ export default async function EditClientPage({
           clientId={client.id}
           employeeNames={employeeNames}
           sources={cfg.sources}
+          campaigns={campaigns}
         />
       </section>
     </main>

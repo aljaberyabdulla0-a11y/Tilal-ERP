@@ -52,6 +52,7 @@ const GROUPS: Group[] = [
   ] },
   { key: "analytics", label: "التحليل", icon: "monitoring", items: [
     { href: `${B}/analytics`, label: "التقارير والإسناد" },
+    { href: `${B}/followup`, label: "متابعة الليدات" },
     { href: `${B}/quality`, label: "جودة البيانات" },
   ] },
   { key: "ops", label: "الأتمتة", icon: "bolt", items: [

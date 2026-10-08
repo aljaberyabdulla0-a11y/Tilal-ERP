@@ -120,3 +120,5 @@ jobs:
           run_suite "tests.run_privacy()"     "اختبارات التقنيع والوسوم"
           run_suite "tests.run_write_paths()" "اختبارات مسار الكتابة (بدور authenticated)"
           run_suite "tests.run_reporting()"   "اختبارات محرّك التقارير (لقطات، تكرار، بغداد، RLS)"
+          run_suite "tests.run_marketing()"   "اختبارات التسويق (الحملة، المال حتى الدفتر، التتبّع، الإسناد، RLS)"
+          run_suite "tests.run_marketing_hardening()" "اختبارات سدّ نواقص التسويق (195)"

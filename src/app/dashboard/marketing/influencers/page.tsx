@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireMktRead } from "@/lib/marketing-guard";
-import { canWriteMarketing, isMarketingManager } from "@/lib/auth";
+import { canWriteMarketing, isAdmin, isMarketingManager } from "@/lib/auth";
 import { baghdadDate } from "@/lib/time";
 import { parseMktFilters } from "@/lib/marketing-filters";
-import { getBreakdown, getCampaignsLite, getChannels, getMarketingVendors } from "@/lib/marketing";
+import { canDecideApproval, getBreakdown, getCampaignsLite, getChannels, getMarketingVendors } from "@/lib/marketing";
 import { DEAL_STAGES, fmt, fmtPct } from "@/lib/marketing-style";
 import { Badge, Card, PageHead } from "@/components/marketing/ui";
 import { SimpleTable } from "@/components/marketing/table";
@@ -30,12 +30,13 @@ export default async function InfluencersPage() {
     canWriteMarketing(), isMarketingManager(), getCampaignsLite(), getChannels(), getMarketingVendors(), getBreakdown("influencer", f),
     supabase.from("mkt_influencers").select("*").order("name"),
     supabase.from("mkt_influencer_deals").select("*, mkt_influencers(name, username)").order("created_at", { ascending: false }),
-    supabase.from("mkt_approvals").select("id, entity_id").eq("entity_type", "مؤثر").eq("status", "معلّق"),
+    supabase.from("mkt_approvals").select("id, entity_id, approver").eq("entity_type", "مؤثر").eq("status", "معلّق"),
   ]);
+  const admin = await isAdmin();
   const camp = new Map(campaigns.map((c) => [c.id, c.name]));
   const ch = new Map(channels.map((c) => [c.id, c.name]));
   const perfBy = new Map(perf.data.map((p) => [p.dim_key, p]));
-  const pendingBy = new Map((approvals ?? []).map((a) => [a.entity_id, a.id]));
+  const pendingBy = new Map((approvals ?? []).map((a) => [a.entity_id, a as { id: string; approver: string }]));
 
   return (
     <>
@@ -71,8 +72,14 @@ export default async function InfluencersPage() {
                 {write && !pending && !d.approved_at && ["تفاوض", "تواصل", "قائمة مختصرة"].includes(d.stage) && (
                   <RpcButton small fn="mkt_request_approval" args={{ p_type: "مؤثر", p_id: d.id }} label="اطلب الاعتماد" />
                 )}
-                {pending && manager && <RpcButton small fn="mkt_decide_approval" args={{ p_id: pending, p_approve: true }} label="اعتمد" />}
-                {pending && !manager && <span className="text-xs text-amber-700">بانتظار الاعتماد</span>}
+                {pending && canDecideApproval(pending, { admin, manager }) && (
+                  <>
+                    <RpcButton small fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: true }} label="اعتمد" />
+                    <RpcButton small tone="danger" fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: false }} label="ارفض"
+                      prompt="سبب الرفض — يصل إلى من طلب" promptKey="p_reason" promptRequired />
+                  </>
+                )}
+                {pending && !canDecideApproval(pending, { admin, manager }) && <span className="text-xs text-amber-700">بانتظار اعتماد {pending.approver}</span>}
                 <Link href={`/dashboard/marketing/tracking?deal=${d.id}${d.campaign_id ? `&campaign=${d.campaign_id}` : ""}`} className="text-xs text-brand-600">رابط تتبّع</Link>
                 {write && <MetricEntry entityType="مؤثر" entityId={d.id} social />}
               </span>,

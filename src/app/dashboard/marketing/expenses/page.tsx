@@ -6,9 +6,10 @@ import { getCampaignsLite, getChannels, getMarketingVendors, getMktProjects } fr
 import { ARMS, EXPENSE_CATEGORIES, EXPENSE_STATUSES, fmt } from "@/lib/marketing-style";
 import { Badge, Card, PageHead, Tile } from "@/components/marketing/ui";
 import { SimpleTable } from "@/components/marketing/table";
-import RecordForm from "@/components/marketing/record-form";
+import RecordForm, { type FieldSpec } from "@/components/marketing/record-form";
 import { RpcButton } from "@/components/marketing/actions";
 import PayExpense from "./pay-expense";
+import ExpenseInvoice from "./invoice";
 import LinkMove from "./link-move";
 import Pager from "@/components/pager";
 
@@ -29,7 +30,28 @@ type Row = {
   amount: number; currency: string; amount_iqd: number; status: string; campaign_id: string | null;
   vendor_id: string | null; project_id: string | null; invoice_ref: string | null; paid_at: string | null;
   cash_move_id: string | null; void_reason: string | null;
+  fx_rate: number; channel_id: string | null; invoice_asset_id: string | null;
+  invoice: { storage_path: string } | null;
 };
+
+// Fields of editing the expense before approval — the same as creation minus the creation; the guard (122, 195)
+// sends the approved one back to draft if its amount or campaign changes
+function expenseFields(campaigns: { id: string; name: string }[], channels: { id: string; name: string }[],
+  projects: { id: string; name: string }[], vendors: { id: string; name: string }[]): FieldSpec[] {
+  return [
+    { name: "description", label: "البيان", required: true, span: 2 },
+    { name: "category", label: "التصنيف", type: "select", options: EXPENSE_CATEGORIES, required: true },
+    { name: "amount", label: "المبلغ", type: "number", required: true },
+    { name: "currency", label: "العملة", type: "select", options: ["IQD", "USD"], required: true },
+    { name: "fx_rate", label: "سعر الصرف", type: "number", hint: "١ للدينار؛ للدولار: كم ديناراً للدولار" },
+    { name: "expense_date", label: "التاريخ", type: "date" },
+    { name: "campaign_id", label: "الحملة", type: "select", options: campaigns.map((c) => ({ value: c.id, label: c.name })) },
+    { name: "channel_id", label: "القناة", type: "select", options: channels.map((c) => ({ value: c.id, label: c.name })) },
+    { name: "project_id", label: "المشروع", type: "select", options: projects.map((p) => ({ value: p.id, label: p.name })) },
+    { name: "vendor_id", label: "المورّد", type: "select", options: vendors.map((v) => ({ value: v.id, label: v.name })) },
+    { name: "invoice_ref", label: "رقم فاتورة المورّد" },
+  ];
+}
 
 export default async function ExpensesPage({ searchParams }: { searchParams: Record<string, string> }) {
   await requireMktMoney();
@@ -37,7 +59,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Rec
   const page = Math.max(1, Number(sp.page) || 1);
   const supabase = await createClient();
 
-  let q = supabase.from("mkt_expenses").select("*", { count: "exact" });
+  let q = supabase.from("mkt_expenses").select("*, invoice:mkt_assets(storage_path)", { count: "exact" });
   if (sp.status) q = q.eq("status", sp.status);
   if (sp.category) q = q.eq("category", sp.category);
   if (sp.campaign) q = q.eq("campaign_id", sp.campaign);
@@ -79,19 +101,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Rec
       {write && (
         <RecordForm table="mkt_expenses" openLabel="مصروف جديد" title="مصروف تسويق جديد"
           initial={{ currency: "IQD", fx_rate: "1" }}
-          fields={[
-            { name: "description", label: "البيان", required: true, span: 2 },
-            { name: "category", label: "التصنيف", type: "select", options: EXPENSE_CATEGORIES, required: true },
-            { name: "amount", label: "المبلغ", type: "number", required: true },
-            { name: "currency", label: "العملة", type: "select", options: ["IQD", "USD"], required: true },
-            { name: "fx_rate", label: "سعر الصرف", type: "number", hint: "١ للدينار؛ للدولار: كم ديناراً للدولار" },
-            { name: "expense_date", label: "التاريخ", type: "date" },
-            { name: "campaign_id", label: "الحملة", type: "select", options: campaigns.map((c) => ({ value: c.id, label: c.name })) },
-            { name: "channel_id", label: "القناة", type: "select", options: channels.map((c) => ({ value: c.id, label: c.name })) },
-            { name: "project_id", label: "المشروع", type: "select", options: projects.map((p) => ({ value: p.id, label: p.name })) },
-            { name: "vendor_id", label: "المورّد", type: "select", options: vendors.map((v) => ({ value: v.id, label: v.name })) },
-            { name: "invoice_ref", label: "رقم فاتورة المورّد" },
-          ]} />
+          fields={expenseFields(campaigns, channels, projects, vendors)} />
       )}
 
       {(finance || manager) && freeMoves.length > 0 && (
@@ -143,6 +153,12 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Rec
                   promptKey="p_reason" promptRequired />
               )}
               {e.cash_move_id && <Link href="/dashboard/accounting/moves" className="text-xs text-gray-500 hover:underline">حركته</Link>}
+              <ExpenseInvoice expenseId={e.id} code={e.code} path={e.invoice?.storage_path ?? null}
+                canAttach={write && e.status !== "ملغى"} campaignId={e.campaign_id} projectId={e.project_id} />
+              {write && ["مسودة", "مرفوض"].includes(e.status) && (
+                <RecordForm table="mkt_expenses" id={e.id} openLabel="عدّل" openIcon="edit" submitLabel="احفظ التعديل"
+                  initial={e as unknown as Record<string, unknown>} fields={expenseFields(campaigns, channels, projects, vendors)} />
+              )}
             </span>,
           ])}
         />

@@ -50,9 +50,14 @@ export type Kpis = {
   platform_spend: number; recon_gap: number;
   impressions: number; reach: number; clicks: number; link_clicks: number; platform_leads: number;
   video_views: number; engagements: number; visitors: number; scans: number;
+  // leads = marketing leads (195); all_leads = every client in the period
   leads: number; qualified: number; contacted: number; visited: number; offered: number;
   reservations: number; cohort_sales: number;
+  all_leads?: number; non_marketing_leads?: number;
   sales: number; commission: number; sale_value: number;
+  unattributed_sales?: number; all_sales?: number;
+  // marketing-services revenue (4400) and the net: commission + revenue − cost (195)
+  service_income?: number; net_result?: number;
   cpl: number | null; cpql: number | null; cpa: number | null; cac: number | null;
   ctr: number | null; cpc: number | null;
   lead_to_qualified: number | null; lead_to_reservation: number | null; lead_to_sale: number | null;
@@ -227,6 +232,21 @@ export const getEntityApprovals = cache(async (entityType: string, entityId: str
   table<Approval>("mkt_approvals", (q) =>
     q.select("*").eq("entity_type", entityType).eq("entity_id", entityId).order("requested_at", { ascending: false }))
 );
+
+// Following up marketing leads per sales employee (195) — staff names, not clients
+export type FollowupRow = {
+  employee_id: string | null; employee_name: string; leads: number; contacted: number; stale: number;
+  qualified: number; reserved: number; sold: number; contact_rate: number | null;
+};
+export const getLeadFollowup = cache(async (from: string | null, to: string | null, campaign: string | null = null) =>
+  rpcRows<FollowupRow>("mkt_lead_followup", { p_from: from, p_to: to, p_campaign: campaign, p_stale_days: 2 })
+);
+
+/** Does the current user decide this request? Mirrors mkt_decide_approval: the admin always, and the
+ *  marketing manager on what's assigned to «مدير التسويق» only (the request escalated to the admin isn't for her). */
+export function canDecideApproval(a: Pick<Approval, "approver">, who: { admin: boolean; manager: boolean; finance?: boolean }): boolean {
+  return who.admin || (a.approver === "مدير التسويق" && who.manager) || (a.approver === "المالية" && Boolean(who.finance));
+}
 
 export const getOpenAlerts = cache(async (limit = 50) =>
   table<Alert>("mkt_alerts", (q) => q.select("*").is("resolved_at", null).order("created_at", { ascending: false }).limit(limit))

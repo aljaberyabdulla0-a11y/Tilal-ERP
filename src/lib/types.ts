@@ -43,6 +43,8 @@ export type Client = {
   financing_required?: boolean | null;
   urgency?: string | null;
   preferred_project_id?: string | null;
+  // The marketing campaign the client came from (079) — its attribution in marketing (124–125, 195)
+  campaign_id?: string | null;
   preferred_area?: string | null;
   preferred_unit_type?: string | null;
   lead_score?: number | null;

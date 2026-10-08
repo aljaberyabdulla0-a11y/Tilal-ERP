@@ -36,6 +36,7 @@ export default async function IntegrationsPage() {
   }));
   const hasSecret = new Map(secrets);
   const name = new Map((integrations ?? []).map((i) => [i.id, i.name]));
+  const supabaseFunctions = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://<project>.supabase.co"}/functions/v1`;
 
   return (
     <>
@@ -46,6 +47,8 @@ export default async function IntegrationsPage() {
             { name: "name", label: "الاسم", required: true },
             { name: "provider", label: "المنصّة", type: "select", required: true, options: Object.entries(INTEGRATION_PROVIDERS).map(([v, p]) => ({ value: v, label: p.label + (p.ready ? "" : " (إطار — بلا موصّل بعد)") })) },
             { name: "account_ref", label: "معرّف الحساب", ltr: true, placeholder: "act_1234567890" },
+            { name: "page_ref", label: "معرّف صفحة فيسبوك (ليدات النماذج)", ltr: true, placeholder: "1234567890",
+              hint: "لاستقبال ليدات النماذج الفورية فوراً — والمفتاح عندها رمز صفحة بصلاحية leads_retrieval" },
             { name: "account_id", label: "حساب الإعلانات في تلال", type: "select", options: (accounts ?? []).map((a) => ({ value: a.id, label: a.name })) },
             { name: "auth_type", label: "المصادقة", type: "select", options: [{ value: "token", label: "رمز وصول (System User)" }, { value: "oauth", label: "OAuth" }, { value: "api_key", label: "مفتاح API" }], required: true },
             { name: "sync_frequency", label: "المزامنة", type: "select", options: ["يدوي", "كل ساعة", "يومي"], required: true },
@@ -93,6 +96,15 @@ export default async function IntegrationsPage() {
           <li>«زامن الآن»: تُنشأ الحملات الإعلانية ومجموعاتها وإعلاناتها تلقائياً وتدخل مقاييس آخر ٧ أيام يومياً.</li>
           <li>اربط كل «حملة إعلانية» بحملة تلال من صفحة الإعلانات — أو سمِّ الحملة عند ميتا برمز حملة تلال (<span dir="ltr">cmp-0001</span>) فتُربط تلقائياً.</li>
           <li>المزامنة المجدولة تحتاج تفعيل <span dir="ltr">pg_net</span> — الأمر معلَّق في آخر <span dir="ltr">sql/126</span>.</li>
+        </ol>
+      </Card>
+
+      <Card title="ليدات النماذج الفورية (Lead Ads) — تصل لحظتها">
+        <ol className="list-decimal space-y-1 pe-5 text-sm text-gray-700">
+          <li>«تكامل جديد» بمنصّة Meta ومعرّف <b>صفحة</b> فيسبوك، ثم «اضبط المفتاح» برمز صفحة طويل الأمد بصلاحية <span dir="ltr">leads_retrieval</span> و<span dir="ltr">pages_manage_metadata</span>.</li>
+          <li>في تطبيق Meta للمطوّرين ← Webhooks ← Page: الرابط <span dir="ltr" className="font-mono text-xs">{supabaseFunctions}/meta-leads</span> وحقل <span dir="ltr">leadgen</span>، ورمز التحقّق نفسه المضبوط في <span dir="ltr">META_VERIFY_TOKEN</span>.</li>
+          <li>كل ليد يدخل بوّابة الليدات فيُطبَّع رقمه ويُكشف تكراره ويُوزَّع — ولمسته «نموذج» على إعلانه وحملته. اسم حملة ميتا برمز حملة تلال (<span dir="ltr">cmp-0001</span>) يربطه بها.</li>
+          <li>أخطاء الاستقبال (رمز منتهٍ، صلاحية ناقصة) تظهر في «جودة البيانات».</li>
         </ol>
       </Card>
     </>

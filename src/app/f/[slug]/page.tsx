@@ -17,6 +17,8 @@ export const dynamic = "force-dynamic";
 type Landing = {
   slug: string; title: string; headline: string | null; body: string | null; cta: string; thank_you: string;
   ask_budget: boolean; ask_timeline: boolean;
+  // 195: a public cover image (https) and WhatsApp in international format (9647XXXXXXXXX)
+  hero_image_url?: string | null; whatsapp?: string | null;
   project: { name: string; governorate: string | null; area: string | null; available: number; types: string[] | null;
     min_space: number | null; max_space: number | null; min_price: number | null } | null;
 };
@@ -53,6 +55,12 @@ export default async function LandingPage({ params, searchParams }: { params: { 
     <main className="min-h-screen bg-gradient-to-b from-brand-50 to-white" dir="rtl">
       <div className="mx-auto max-w-xl px-4 py-8">
         <Logo />
+        {page.hero_image_url && (
+          // An image from an external domain chosen by marketing — <img> not next/image (no remotePatterns for an unknown domain)
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={page.hero_image_url} alt={page.headline ?? page.title}
+            className="mt-6 aspect-[16/9] w-full rounded-xl object-cover shadow-sm" loading="eager" />
+        )}
         <h1 className="mt-6 text-2xl font-bold leading-snug text-brand-700">{page.headline ?? page.title}</h1>
         {page.body && <p className="mt-3 whitespace-pre-line text-gray-700">{page.body}</p>}
 
@@ -68,6 +76,13 @@ export default async function LandingPage({ params, searchParams }: { params: { 
 
         <LeadForm slug={page.slug} cta={page.cta} thankYou={page.thank_you} askBudget={page.ask_budget} askTimeline={page.ask_timeline}
           visitor={visitor} utm={utm} linkCode={searchParams.mkt_l ?? null} />
+        {page.whatsapp && /^\d{10,15}$/.test(page.whatsapp) && (
+          <a href={`https://wa.me/${page.whatsapp}?text=${encodeURIComponent(`مرحباً، أستفسر عن ${p?.name ?? page.headline ?? page.title}`)}`}
+            target="_blank" rel="noopener noreferrer"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-green-600 bg-white py-3 text-base font-semibold text-green-700 hover:bg-green-50">
+            راسلنا على واتساب
+          </a>
+        )}
         <p className="mt-6 text-center text-xs text-gray-400">بإرسالك النموذج توافق على أن يتصل بك فريق تلال بخصوص هذا المشروع فقط.</p>
       </div>
     </main>

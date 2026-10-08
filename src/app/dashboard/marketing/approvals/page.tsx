@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireMktRead } from "@/lib/marketing-guard";
-import { getUserRole, isMarketingManager } from "@/lib/auth";
-import { getApprovals } from "@/lib/marketing";
+import { canManageFinance, getUserRole, isMarketingManager } from "@/lib/auth";
+import { canDecideApproval, getApprovals } from "@/lib/marketing";
 import { fmt } from "@/lib/marketing-style";
 import { Badge, Card, PageHead } from "@/components/marketing/ui";
 import { SimpleTable } from "@/components/marketing/table";
@@ -23,9 +23,9 @@ const LINK: Record<string, (id: string) => string> = {
 export default async function ApprovalsPage({ searchParams }: { searchParams: Record<string, string> }) {
   await requireMktRead();
   const history = searchParams.view === "history";
-  const [rows, manager, role] = await Promise.all([getApprovals(history ? null : "معلّق"), isMarketingManager(), getUserRole()]);
+  const [rows, manager, role, finance] = await Promise.all([getApprovals(history ? null : "معلّق"), isMarketingManager(), getUserRole(), canManageFinance()]);
   const admin = role === "admin";
-  const canDecide = (approver: string) => admin || (approver === "مدير التسويق" && manager);
+  const canDecide = (approver: string) => canDecideApproval({ approver }, { admin, manager, finance });
 
   return (
     <>

@@ -3,11 +3,11 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { baghdadDate } from "@/lib/time";
 import { requireMktRead } from "@/lib/marketing-guard";
-import { canWriteMarketing, isMarketingManager } from "@/lib/auth";
+import { canWriteMarketing, isAdmin, isMarketingManager } from "@/lib/auth";
 import { parseMktFilters, type MktFilters } from "@/lib/marketing-filters";
 import {
-  getAudiences, getCampaign, getChannels, getEntityApprovals, getFunnel, getKpis, getMktProjects,
-  getPeople, getTrend, peopleMap, type Campaign, type Channel, type Person, type ProjectLite,
+  canDecideApproval, getAudiences, getCampaign, getChannels, getEntityApprovals, getFunnel, getKpis, getLeadFollowup,
+  getMktProjects, getPeople, getTrend, peopleMap, type Campaign, type Channel, type Person, type ProjectLite,
 } from "@/lib/marketing";
 import {
   CONTENT_TYPES, EXPENSE_CATEGORIES, TASK_PRIORITIES, TASK_STATUSES, fmt, fmtPct,
@@ -18,13 +18,14 @@ import { Columns, FunnelBars } from "@/components/marketing/charts";
 import RecordForm from "@/components/marketing/record-form";
 import { FieldSelect, RpcButton } from "@/components/marketing/actions";
 import { campaignFields } from "../fields";
+import FollowupTable from "@/components/marketing/followup-table";
 
 // ============================================================
 // مساحة الحملة — كل ما يخصّها في مكان واحد بتبويبات في الرابط.
 // ============================================================
 
 const TABS = [
-  ["overview", "نظرة"], ["channels", "القنوات"], ["content", "المحتوى"], ["ads", "الإعلانات"],
+  ["overview", "نظرة"], ["followup", "المتابعة"], ["channels", "القنوات"], ["content", "المحتوى"], ["ads", "الإعلانات"],
   ["offline", "الميداني"], ["influencers", "المؤثرون"], ["links", "الروابط"], ["expenses", "المصروفات"],
   ["tasks", "المهامّ"], ["approvals", "الموافقات"], ["edit", "تعديل"],
 ] as const;
@@ -78,6 +79,7 @@ export default async function CampaignPage({ params, searchParams }: { params: {
       </nav>
 
       {tab === "overview" && <Overview c={c} f={f} />}
+      {tab === "followup" && <FollowupTab c={c} />}
       {tab === "channels" && <ChannelsTab {...ctx} />}
       {tab === "content" && <ContentTab {...ctx} />}
       {tab === "ads" && <AdsTab {...ctx} />}
@@ -129,6 +131,18 @@ async function Overview({ c, f }: { c: Campaign; f: MktFilters }) {
       </div>
       {c.objective && <Card title="الهدف"><p className="text-sm text-gray-700">{c.objective}</p></Card>}
     </>
+  );
+}
+
+// Did the campaign's leads reach anyone in sales? — totals per responsible employee, not client names (092)
+async function FollowupTab({ c }: { c: Campaign }) {
+  const { data, error } = await getLeadFollowup(null, null, c.id);
+  return (
+    <Card title="متابعة ليدات الحملة عند المبيعات">
+      <Unavailable error={error} />
+      <FollowupTable rows={data} />
+      <p className="mt-2 text-xs text-gray-500">«متروك» = ليدٌ مفتوح لم يُتصل به بعد مرور يومين على دخوله — المصروف يضيع هنا. إعادة توزيعه من شاشة التوزيع في الـCRM.</p>
+    </Card>
   );
 }
 
@@ -291,8 +305,9 @@ async function TasksTab({ c, write, people }: Ctx) {
 }
 
 async function ApprovalsTab({ c, manager }: Ctx) {
-  const rows = await getEntityApprovals("حملة", c.id);
+  const [rows, admin] = await Promise.all([getEntityApprovals("حملة", c.id), isAdmin()]);
   const open = rows.find((a) => a.status === "معلّق");
+  const decide = open ? canDecideApproval(open, { admin, manager }) : false;
   return (
     <Card title="سجلّ الموافقات">
       <SimpleTable head={["الطلب", "طلبه", "يعتمده", "الحالة", "القرار", "السبب"]}
@@ -300,9 +315,10 @@ async function ApprovalsTab({ c, manager }: Ctx) {
           <Badge key="s">{a.status}</Badge>, a.decided_by_name ? `${a.decided_by_name} · ${a.decided_at?.slice(0, 10)}` : "—", a.reason ?? a.escalated_reason ?? "—"])} />
       {open && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {manager && <RpcButton fn="mkt_decide_approval" args={{ p_id: open.id, p_approve: true }} label="اعتمد" icon="check" />}
-          {manager && <RpcButton fn="mkt_decide_approval" args={{ p_id: open.id, p_approve: false }} label="ارفض" tone="danger"
+          {decide && <RpcButton fn="mkt_decide_approval" args={{ p_id: open.id, p_approve: true }} label="اعتمد" icon="check" />}
+          {decide && <RpcButton fn="mkt_decide_approval" args={{ p_id: open.id, p_approve: false }} label="ارفض" tone="danger"
             prompt="سبب الرفض — يصل إلى من طلب" promptKey="p_reason" promptRequired />}
+          {!decide && <span className="self-center text-xs text-amber-700">بانتظار اعتماد {open.approver}{open.escalated_reason ? ` — ${open.escalated_reason}` : ""}</span>}
           <RpcButton fn="mkt_cancel_approval" args={{ p_id: open.id }} label="اسحب الطلب" tone="plain" confirm="سحب طلب الموافقة؟" />
         </div>
       )}

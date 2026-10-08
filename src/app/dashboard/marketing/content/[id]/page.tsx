@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireMktRead } from "@/lib/marketing-guard";
-import { canWriteMarketing, isMarketingManager } from "@/lib/auth";
-import { getCampaignsLite, getChannels, getEntityApprovals, getMktProjects, getPeople, getAudiences, peopleMap } from "@/lib/marketing";
+import { canManageFinance, canWriteMarketing, isAdmin, isMarketingManager } from "@/lib/auth";
+import { canDecideApproval, getCampaignsLite, getChannels, getEntityApprovals, getMktProjects, getPeople, getAudiences, peopleMap } from "@/lib/marketing";
 import { CONTENT_FREE_STATUSES, CONTENT_TYPES, fmt } from "@/lib/marketing-style";
 import { Badge, Card, PageHead } from "@/components/marketing/ui";
 import { SimpleTable } from "@/components/marketing/table";
@@ -28,6 +28,8 @@ export default async function ContentItem({ params }: { params: { id: string } }
   ]);
   const names = peopleMap(people);
   const pending = approvals.find((a) => a.status === "معلّق");
+  const [admin, finance] = await Promise.all([isAdmin(), canManageFinance()]);
+  const decide = pending ? canDecideApproval(pending, { admin, manager, finance }) : false;
   const totals = (metrics ?? []).reduce((a, m) => ({
     impressions: a.impressions + Number(m.impressions), reach: a.reach + Number(m.reach), engagements: a.engagements + Number(m.engagements),
     likes: a.likes + Number(m.likes), comments: a.comments + Number(m.comments), shares: a.shares + Number(m.shares),
@@ -48,8 +50,8 @@ export default async function ContentItem({ params }: { params: { id: string } }
           {write && !pending && !["معتمد", "مجدول", "منشور"].includes(c.status) && (
             <RpcButton fn="mkt_request_approval" args={{ p_type: "محتوى", p_id: c.id }} label="اطلب الاعتماد" icon="approval" />
           )}
-          {manager && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: true }} label="اعتمد" icon="check" />}
-          {manager && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: false }} label="ارفض" tone="danger"
+          {decide && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: true }} label="اعتمد" icon="check" />}
+          {decide && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: false }} label="ارفض" tone="danger"
             prompt="سبب الرفض" promptKey="p_reason" promptRequired />}
           <Link href={`/dashboard/marketing/copilot?q=${copilotQ}`} className="rounded-lg border px-3 py-1.5 text-sm">✨ اقترح نصّاً</Link>
         </>} />

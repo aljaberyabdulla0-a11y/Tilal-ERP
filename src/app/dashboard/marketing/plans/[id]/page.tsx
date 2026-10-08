@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireMktRead } from "@/lib/marketing-guard";
-import { canWriteMarketing, isAdmin } from "@/lib/auth";
-import { getCampaignsLite, getChannels, getMktProjects, getObjectiveProgress, getPeople, getEntityApprovals } from "@/lib/marketing";
+import { canWriteMarketing, isAdmin, isMarketingManager } from "@/lib/auth";
+import { canDecideApproval, getCampaignsLite, getChannels, getMktProjects, getObjectiveProgress, getPeople, getEntityApprovals } from "@/lib/marketing";
 import { METRIC_LABELS, OBJECTIVE_KINDS, fmt, fmtPct } from "@/lib/marketing-style";
 import { Badge, Card, PageHead, Unavailable } from "@/components/marketing/ui";
 import { SimpleTable } from "@/components/marketing/table";
@@ -24,6 +24,8 @@ export default async function PlanPage({ params }: { params: { id: string } }) {
     supabase.from("crm_campaigns").select("id, name, status, budget, spent").eq("plan_id", plan.id),
   ]);
   const pending = approvals.find((a) => a.status === "معلّق");
+  const manager = await isMarketingManager();
+  const decide = pending ? canDecideApproval(pending, { admin, manager }) : false;
 
   return (
     <>
@@ -32,7 +34,10 @@ export default async function PlanPage({ params }: { params: { id: string } }) {
         actions={<>
           <Badge>{plan.status}</Badge>
           {write && plan.status === "مسودة" && <RpcButton fn="mkt_request_approval" args={{ p_type: "خطة", p_id: plan.id }} label="اطلب الاعتماد" icon="approval" />}
-          {admin && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: true }} label="اعتمد" icon="check" />}
+          {decide && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: true }} label="اعتمد" icon="check" />}
+          {decide && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: false }} label="ارفض" tone="danger"
+            prompt="سبب الرفض — يصل إلى من طلب" promptKey="p_reason" promptRequired />}
+          {pending && !decide && <span className="text-xs text-amber-700">بانتظار اعتماد {pending.approver}</span>}
         </>} />
 
       {(plan.positioning || plan.value_proposition || plan.hypotheses) && (

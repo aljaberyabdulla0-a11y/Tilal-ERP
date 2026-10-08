@@ -7,7 +7,7 @@ import { MKT_ROLES, fmt } from "@/lib/marketing-style";
 import { Card, PageHead } from "@/components/marketing/ui";
 import { SimpleTable } from "@/components/marketing/table";
 import RecordForm from "@/components/marketing/record-form";
-import { FieldSelect, ToggleField } from "@/components/marketing/actions";
+import { DeleteRow, FieldSelect, ToggleField } from "@/components/marketing/actions";
 // mkt_team مفتاحه employee_id لا id — مكوّنان صغيران بدل التعميم
 import TeamRole from "./team-role";
 import TeamActive from "./team-active";
@@ -53,13 +53,17 @@ export default async function TeamPage() {
         <SimpleTable empty="لا أعضاء — المدير يعتمد كل شيء حتى يُعيَّن «مدير التسويق»."
           head={["الموظف", "الدور", "مهامّ مفتوحة", "متأخّرة", "الحالة"]}
           rows={(team ?? []).map((t) => [
-            names.get(t.employee_id) ?? "—",
+            <span key="n">{names.get(t.employee_id) ?? "—"}
+              {t.source === "الموارد البشرية" && <span className="block text-xs text-gray-400">من منصبه في الموارد البشرية</span>}</span>,
             manager ? <TeamRole key="r" employeeId={t.employee_id} value={t.mkt_role} /> : t.mkt_role,
             fmt(load.get(t.employee_id)?.open ?? 0),
             <span key="l" className={(load.get(t.employee_id)?.late ?? 0) ? "text-red-600" : ""}>{fmt(load.get(t.employee_id)?.late ?? 0)}</span>,
             manager ? <TeamActive key="a" employeeId={t.employee_id} value={t.is_active} /> : (t.is_active ? "فعّال" : "موقوف"),
           ])} />
-        <p className="mt-2 text-xs text-gray-500">مسؤول الدخول بدور «تسويق» (marketing) في النظام يدخل القسم أصلاً؛ الفريق لمن دوره «موظف» ويعمل في التسويق.</p>
+        <p className="mt-2 text-xs text-gray-500">
+          من مناصبه في الموارد البشرية تسويقية (MKT-…) يُضمّ تلقائياً بدوره ويُوقف حين يغادرها؛ والضمّ اليدوي لمن يعمل في التسويق من قسمٍ آخر.
+          مسؤول الدخول بدور «تسويق» (marketing) يدخل القسم أصلاً.
+        </p>
       </Card>
 
       <Card title="القنوات">
@@ -83,11 +87,19 @@ export default async function TeamPage() {
       </Card>
 
       <Card title="قواعد الموافقة — من يعتمد، بأيّ مبلغ">
+        {admin && <div className="mb-4"><RecordForm table="mkt_approval_rules" openLabel="عتبة جديدة" initial={{ approver: "المدير", is_active: true }}
+          fields={[
+            { name: "entity_type", label: "النوع", type: "select", required: true, options: ["حملة", "خطة", "محتوى", "مؤثر", "نشاط", "ميزانية", "مصروف", "شراء"] },
+            { name: "min_amount", label: "من مبلغ (د.ع)", type: "number", required: true, hint: "صفر = كل المبالغ" },
+            { name: "approver", label: "يعتمده", type: "select", required: true, options: ["مدير التسويق", "المدير", "المالية"] },
+            { name: "is_active", label: "فعّالة", type: "checkbox" },
+          ]} /></div>}
         <SimpleTable
-          head={["النوع", "من مبلغ", "يعتمده", "الحالة"]}
+          head={["النوع", "من مبلغ", "يعتمده", "الحالة", ""]}
           rows={(rules ?? []).map((r) => [r.entity_type, fmt(r.min_amount),
             admin ? <FieldSelect key="a" table="mkt_approval_rules" id={r.id} column="approver" value={r.approver} options={["مدير التسويق", "المدير", "المالية"]} /> : r.approver,
-            admin ? <ToggleField key="s" table="mkt_approval_rules" id={r.id} column="is_active" value={r.is_active} on="فعّالة" off="موقوفة" /> : (r.is_active ? "فعّالة" : "موقوفة")])} />
+            admin ? <ToggleField key="s" table="mkt_approval_rules" id={r.id} column="is_active" value={r.is_active} on="فعّالة" off="موقوفة" /> : (r.is_active ? "فعّالة" : "موقوفة"),
+            admin && Number(r.min_amount) > 0 ? <DeleteRow key="d" table="mkt_approval_rules" id={r.id} confirm="حذف هذه العتبة؟ الطلبات المعلّقة لا تتغيّر." /> : null])} />
         <p className="mt-2 text-xs text-gray-500">أعلى عتبةٍ لا تتجاوز المبلغ هي التي تحكم. والمصروف الذي يتجاوز ميزانية حملته يرتفع إلى المدير مهما صغر.</p>
       </Card>
     </>

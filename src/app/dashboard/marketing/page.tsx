@@ -66,7 +66,8 @@ export default async function MarketingHome({ searchParams }: { searchParams: Re
       {k && (
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
           <Tile label="كلفة التسويق" value={fmt(k.cost)} sub={`مدفوع ${fmt(k.spend)} · مواد ${fmt(k.materials)}`} />
-          <Tile label="ليدات" value={fmt(k.leads)} sub={`مؤهَّلون ${fmt(k.qualified)}`} />
+          <Tile label="ليدات تسويقية" value={fmt(k.leads)}
+            sub={`مؤهَّلون ${fmt(k.qualified)}${k.non_marketing_leads ? ` · غيرها ${fmt(k.non_marketing_leads)} (وسيط/معارف)` : ""}`} />
           <Tile label="حجوزات" value={fmt(k.reservations)} sub={`من فوج الليدات`} />
           <Tile label="بيعات منسوبة" value={fmt(k.sales)} tone="brand" sub={`قيمتها ${fmt(k.sale_value)}`} />
           <Tile label="عمولة تلال المنسوبة" value={fmt(k.commission)} tone="brand" sub="الإيراد الحقيقي" />
@@ -78,6 +79,17 @@ export default async function MarketingHome({ searchParams }: { searchParams: Re
           <Tile label="كلفة الاستحواذ CAC" value={fmt(k.cac)} />
           <Tile label="عائد الإعلان ROAS" value={k.roas == null ? "—" : `${fmt(k.roas)}×`} sub={`مصروف إعلان ${fmt(k.ad_spend)}`} />
           <Tile label="ليد ← بيع" value={fmtPct(k.lead_to_sale)} sub={`ليد ← حجز ${fmtPct(k.lead_to_reservation)}`} />
+          {k.service_income != null && (
+            <Tile label="إيراد خدمات التسويق" value={fmt(k.service_income)} sub="ما يدفعه المطوّر للتسويق (4400)" />
+          )}
+          {k.net_result != null && (
+            <Tile label="صافي التسويق" value={fmt(k.net_result)} tone={k.net_result >= 0 ? "brand" : "bad"}
+              sub="العمولة المنسوبة + إيراد الخدمات − الكلفة" />
+          )}
+          {k.unattributed_sales != null && k.unattributed_sales > 0 && (
+            <Tile label="بيعات تسويقية بلا لمسة" value={fmt(k.unattributed_sales)} tone="warn" sub="من مصدر تسويقي ولا قناة معروفة"
+              href={`${base}/quality`} />
+          )}
         </section>
       )}
 

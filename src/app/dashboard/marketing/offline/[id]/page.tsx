@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireMktRead } from "@/lib/marketing-guard";
-import { canWriteMarketing, isMarketingManager } from "@/lib/auth";
+import { canManageFinance, canWriteMarketing, isAdmin, isMarketingManager } from "@/lib/auth";
 import { baghdadDate } from "@/lib/time";
 import { parseMktFilters } from "@/lib/marketing-filters";
-import { getBreakdown, getCampaignsLite, getChannels, getEntityApprovals, getMarketingVendors, getMktProjects, getPeople, peopleMap } from "@/lib/marketing";
+import { canDecideApproval, getBreakdown, getCampaignsLite, getChannels, getEntityApprovals, getMarketingVendors, getMktProjects, getPeople, peopleMap } from "@/lib/marketing";
 import { ACTIVITY_KINDS, TASK_PRIORITIES, TASK_STATUSES, fmt, fmtPct } from "@/lib/marketing-style";
 import { Badge, Card, PageHead, Tile } from "@/components/marketing/ui";
 import { SimpleTable } from "@/components/marketing/table";
@@ -39,6 +39,8 @@ export default async function ActivityPage({ params }: { params: { id: string } 
   const names = peopleMap(people);
   const p = perf.data.find((r) => r.dim_key === a.id);
   const pending = approvals.find((x) => x.status === "معلّق");
+  const [admin, finance] = await Promise.all([isAdmin(), canManageFinance()]);
+  const decide = pending ? canDecideApproval(pending, { admin, manager, finance }) : false;
   const isEvent = a.category === "فعالية";
 
   return (
@@ -48,7 +50,10 @@ export default async function ActivityPage({ params }: { params: { id: string } 
         actions={<>
           <Badge>{a.status}</Badge>
           {write && !pending && a.status === "مخطط" && <RpcButton fn="mkt_request_approval" args={{ p_type: "نشاط", p_id: a.id }} label="اطلب الاعتماد" icon="approval" />}
-          {manager && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: true }} label="اعتمد" icon="check" />}
+          {decide && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: true }} label="اعتمد" icon="check" />}
+          {decide && pending && <RpcButton fn="mkt_decide_approval" args={{ p_id: pending.id, p_approve: false }} label="ارفض" tone="danger"
+            prompt="سبب الرفض — يصل إلى من طلب" promptKey="p_reason" promptRequired />}
+          {pending && !decide && <span className="text-xs text-amber-700">بانتظار اعتماد {pending.approver}</span>}
           {write && !pending && <FieldSelect table="mkt_activities" id={a.id} column="status" value={a.status} options={STATUS_FLOW} small={false} />}
         </>} />
 

@@ -1660,7 +1660,9 @@ export type Task = {
   priority: string; // عاجلة | متوسطة | عادية
   status: string;   // جديدة | قيد التنفيذ | منجزة | ملغاة
 
-  due_date: string;        // يوم التنفيذ YYYY-MM-DD
+  // يوم التنفيذ YYYY-MM-DD — فارغ = «بدون موعد» (189). المهام القديمة
+  // كلها لها يوم.
+  due_date: string | null;
   due_time: string | null; // وقت اختياري HH:MM:SS
 
   next_step: string | null;      // الخطوة القادمة
@@ -1674,6 +1676,395 @@ export type Task = {
 
   completed_at: string | null;
   updated_at: string;
+
+  // ===== V2 (189) — كلها اختيارية كي تبقى الصفوف القديمة صالحة =====
+  department_id?: string | null;
+  task_type?: string;
+  task_source?: string;
+  created_source?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  project_id?: string | null;
+  campaign_id?: string | null;
+  parent_task_id?: string | null;
+  template_id?: string | null;
+  workflow_id?: string | null;
+  workflow_step_id?: string | null;
+  recurrence_id?: string | null;
+  estimated_minutes?: number | null;
+  actual_minutes?: number | null;
+  start_date?: string | null;
+  started_at?: string | null;
+  deadline_at?: string | null;
+  completed_by?: string | null;
+  cancelled_by?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  blocked_reason?: string | null;
+  requires_approval?: boolean;
+  approval_status?: TaskApprovalStatus | null;
+  approver_id?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  rejection_reason?: string | null;
+  archived_at?: string | null;
+  version?: number;
+};
+
+export type TaskApprovalStatus = "بانتظار الموافقة" | "معتمدة" | "مرفوضة";
+
+// صفّ في task_list (191): المهمة + الأسماء المرتبطة + المشتقّات
+export type TaskRow = Task & {
+  department_name: string | null;
+  type_name: string | null;
+  type_icon: string | null;
+  entity_label: string | null;
+  client_name: string | null;
+  client_phone: string | null;
+  opportunity_title: string | null;
+  project_name: string | null;
+  campaign_name: string | null;
+  step_name: string | null;
+  step_color: string | null;
+  is_late: boolean;
+  is_waiting: boolean;
+  is_due_soon: boolean;
+  sla_breached: boolean;
+  has_blocker: boolean;
+  subtasks_total: number;
+  subtasks_done: number;
+  checklist_total: number;
+  checklist_done: number;
+  comments_count: number;
+  attachments_count: number;
+  labels: TaskLabelChip[];
+};
+
+export type TaskListResult = { rows: TaskRow[]; total: number };
+
+export type TaskLabelChip = { id: string; name: string; color: TaskLabelColor };
+export type TaskLabelColor =
+  | "gray" | "red" | "orange" | "amber" | "green" | "teal" | "blue" | "indigo" | "purple" | "pink";
+
+export type TaskLabel = TaskLabelChip & { department_id: string | null; is_active: boolean };
+
+export type TaskTypeDef = {
+  code: string;
+  name_ar: string;
+  workspace: string | null;
+  icon: string;
+  default_priority: string;
+  default_minutes: number | null;
+  sla_hours: number | null;
+  requires_cancel_reason: boolean;
+  requires_approval: boolean;
+  is_system: boolean;
+  is_active: boolean;
+  sort_order: number;
+};
+
+export type TaskSourceDef = { code: string; name_ar: string; sort_order: number };
+
+export type TaskWorkspaceLayout = "sales" | "marketing" | "hr" | "accounting" | "projects" | "generic";
+export type TaskWorkspace = {
+  code: string;
+  name_ar: string;
+  icon: string;
+  layout: TaskWorkspaceLayout;
+  is_active: boolean;
+  sort_order: number;
+};
+
+export type TaskEntityTypeDef = {
+  code: string;
+  name_ar: string;
+  table_name: string;
+  url_template: string | null;
+  sort_order: number;
+};
+
+export type TaskDepartment = {
+  id: string;
+  code: string | null;
+  name_ar: string;
+  parent_id: string | null;
+  workspace: string | null;       // من department_task_settings (يرث من الأب)
+  due_soon_hours: number | null;
+  requires_cancel_reason: boolean;
+  default_workflow_id: string | null;
+};
+
+export type TaskWorkflowStep = {
+  id: string;
+  workflow_id: string;
+  code: string;
+  name_ar: string;
+  position: number;
+  status_map: string;
+  is_approval: boolean;
+  color: string;
+};
+
+export type TaskWorkflow = {
+  id: string;
+  code: string | null;
+  name_ar: string;
+  workspace: string | null;
+  department_id: string | null;
+  description: string | null;
+  is_active: boolean;
+  is_system: boolean;
+  steps: TaskWorkflowStep[];
+};
+
+export type TaskChecklistItem = {
+  id: string;
+  body: string;
+  is_done: boolean;
+  position: number;
+  done_by_name: string | null;
+  done_at: string | null;
+};
+
+export type TaskComment = {
+  id: string;
+  author_id: string;
+  author_name: string | null;
+  body: string;
+  created_at: string;
+  edited_at: string | null;
+  mine: boolean;
+};
+
+export type TaskAttachment = {
+  id: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  storage_path: string;
+  uploaded_by_name: string | null;
+  created_at: string;
+  mine: boolean;
+};
+
+export type TaskActivityAction =
+  | "created" | "assigned" | "reassigned" | "status_changed" | "started" | "completed" | "cancelled"
+  | "restored" | "priority_changed" | "due_date_changed" | "department_changed" | "edited"
+  | "comment_added" | "attachment_added" | "attachment_removed" | "checklist_changed"
+  | "approval_requested" | "approved" | "rejected" | "workflow_step_changed"
+  | "dependency_added" | "dependency_removed" | "watcher_added" | "watcher_removed"
+  | "subtask_added" | "archived" | "unarchived" | "label_changed";
+
+export type TaskActivity = {
+  id: number;
+  action: TaskActivityAction;
+  field: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  note: string | null;
+  actor_name: string | null;
+  at: string;
+};
+
+export type TaskLinkSummary = {
+  id: string;
+  title: string;
+  status: string;
+  is_blocking?: boolean;
+  assigned_to_name?: string | null;
+  priority?: string;
+  due_date?: string | null;
+  version?: number;
+};
+
+export type TaskPermissions = {
+  can_edit: boolean;
+  can_delete: boolean;
+  can_approve: boolean;
+  is_watching: boolean;
+  is_assignee: boolean;
+  cancel_reason_required: boolean;
+};
+
+// task_detail (191)
+export type TaskDetail = {
+  task: TaskRow & {
+    started_at: string | null;
+    completed_by_name: string | null;
+    cancelled_by_name: string | null;
+    approver_name: string | null;
+    approved_by_name: string | null;
+    approval_requested_at: string | null;
+    source_name: string | null;
+    entity_url: string | null;
+    entity_type_name: string | null;
+  };
+  parent: { id: string; title: string; status: string } | null;
+  subtasks: TaskLinkSummary[];
+  checklist: TaskChecklistItem[];
+  comments: TaskComment[];
+  attachments: TaskAttachment[];
+  activity: TaskActivity[];
+  depends_on: TaskLinkSummary[];
+  dependents: TaskLinkSummary[];
+  watchers: { user_id: string; name: string }[];
+  workflow_steps: { id: string; name: string; position: number; status_map: string; is_approval: boolean; color: string }[];
+  permissions: TaskPermissions;
+};
+
+export type TaskScope = "all" | "department" | "team" | "own";
+
+// task_counts (191)
+export type TaskCounts = {
+  scope: TaskScope;
+  mine: {
+    open: number; late: number; today: number; upcoming: number; nodate: number;
+    in_progress: number; waiting: number; due_soon: number; done_today: number;
+    followups: number; my_approvals: number; delegated_open: number;
+  };
+  team: {
+    open: number; late: number; today: number; in_progress: number; done_today: number;
+    pending_approvals: number; people: number; due_30: number; done_due_30: number; sla_breached: number;
+  } | null;
+};
+
+export type AssignablePerson = {
+  user_id: string;
+  name: string;
+  department_id: string | null;
+  department_name: string | null;
+  is_me: boolean;
+};
+
+export type TaskTemplateItem = {
+  id?: string;
+  position: number;
+  title: string;
+  description: string | null;
+  task_type: string | null;
+  priority: string | null;
+  offset_days: number;
+  estimated_minutes: number | null;
+  assign_rule: TaskAssignRule | null;
+  checklist: string[];
+  depends_on_position: number | null;
+  requires_approval: boolean;
+  workflow_step_code: string | null;
+};
+
+export type TaskTemplate = {
+  id: string;
+  code: string | null;
+  name_ar: string;
+  description: string | null;
+  workspace: string | null;
+  department_id: string | null;
+  task_type: string;
+  default_priority: string;
+  estimated_minutes: number | null;
+  due_offset_days: number;
+  workflow_id: string | null;
+  checklist: string[];
+  assign_rule: TaskAssignRule;
+  requires_approval: boolean;
+  is_active: boolean;
+  is_system: boolean;
+  created_by: string | null;
+  items?: TaskTemplateItem[];
+};
+
+// قاعدة إسناد (192) — تُخزَّن JSON
+export type TaskAssignRule = {
+  kind: "user" | "creator" | "role" | "department_manager" | "entity_owner" | "manager"
+      | "mkt_role" | "round_robin" | "least_loaded";
+  user_id?: string;
+  role_code?: string;
+  department_code?: string;
+  department_id?: string;
+  mkt_role?: string;
+  user_ids?: string[];
+  key?: string;
+  fallback?: TaskAssignRule;
+};
+
+export type TaskRecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly" | "custom_days";
+export type TaskRecurrence = {
+  id: string;
+  title: string;
+  description: string | null;
+  template_id: string | null;
+  department_id: string | null;
+  task_type: string;
+  priority: string;
+  assigned_to: string | null;
+  assign_rule: TaskAssignRule | null;
+  frequency: TaskRecurrenceFrequency;
+  interval_n: number;
+  weekdays: number[] | null;
+  month_day: number | null;
+  start_on: string;
+  end_on: string | null;
+  due_offset_days: number;
+  next_run_on: string | null;
+  last_run_on: string | null;
+  is_active: boolean;
+  created_by: string | null;
+};
+
+export type TaskAutomationRule = {
+  id: string;
+  code: string | null;
+  name_ar: string;
+  event: string;
+  conditions: Record<string, unknown>;
+  template_id: string;
+  assign_rule: TaskAssignRule | null;
+  is_active: boolean;
+  description: string | null;
+};
+
+// task_overview (193)
+export type TaskOverview = {
+  from: string;
+  to: string;
+  totals: {
+    created: number; completed: number; cancelled: number; open_now: number; overdue_now: number;
+    on_time: number; late_done: number; avg_completion_hours: number | null; avg_delay_days: number | null;
+    sla_breaches: number;
+  };
+  by_department: { id: string | null; name: string; created: number; completed: number; open: number; overdue: number; sla_breaches: number }[];
+  by_employee: { user_id: string; name: string; assigned: number; completed: number; open: number; overdue: number; completion_rate: number | null; avg_completion_hours: number | null }[];
+  by_source: { code: string; name: string | null; created: number; completed: number; open: number }[];
+  by_priority: { priority: string; open: number; overdue: number; completed: number }[];
+  by_type: { code: string; name: string | null; open: number; completed: number }[];
+  by_project: { id: string; name: string; open: number; overdue: number; completed: number }[];
+};
+
+export type TaskWorkloadRow = {
+  user_id: string;
+  name: string | null;
+  department_name: string | null;
+  open_count: number;
+  late_count: number;
+  today_count: number;
+  week_count: number;
+  in_progress_count: number;
+  waiting_count: number;
+  pending_approval_count: number;
+  done_7d: number;
+};
+
+export type TaskDepartmentOverviewRow = {
+  department_id: string;
+  code: string | null;
+  name: string;
+  workspace: string | null;
+  open_count: number;
+  late_count: number;
+  today_count: number;
+  done_today: number;
+  pending_approval_count: number;
+  completion_rate_30d: number | null;
 };
 
 export const TASK_STATUSES = ["جديدة", "قيد التنفيذ", "منجزة", "ملغاة"] as const;
@@ -1721,11 +2112,12 @@ export function taskOrigin(task: Task, myUserId: string | null): string {
 
 // متأخرة = يوم التنفيذ مضى ولم تُنجز (todayISO بتوقيت بغداد)
 export function isTaskLate(task: Task, todayISO: string): boolean {
-  return isOpenTask(task.status) && task.due_date < todayISO;
+  return isOpenTask(task.status) && task.due_date != null && task.due_date < todayISO;
 }
 
 // وصف مقروء ليوم المهمة: اليوم / أمس / غداً / التاريخ
-export function dayLabel(dateISO: string, todayISO: string): string {
+export function dayLabel(dateISO: string | null | undefined, todayISO: string): string {
+  if (!dateISO) return "بدون موعد";
   if (dateISO === todayISO) return "اليوم";
   const diff = Math.round(
     (new Date(dateISO + "T00:00:00Z").getTime() -

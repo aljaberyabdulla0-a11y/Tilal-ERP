@@ -19,6 +19,7 @@ import {
 } from "@/lib/types";
 import InventoryBrowser from "./inventory-browser";
 import ProjectDeals from "./project-deals";
+import RelatedTasks from "@/components/tasks/related-tasks";
 
 // ============================================================
 // مخزون المشروع — الشاشة التي تُدار منها الوحدات.
@@ -182,6 +183,8 @@ export default async function ProjectInventoryPage({
             لتُمضيه.
           </div>
         )}
+
+        <RelatedTasks entityType="project" entityId={project.id} title="مهام المشروع" />
 
         <div id="units">
           <InventoryBrowser

@@ -213,7 +213,7 @@ export default async function CrmTodayPage() {
                   </div>
                   <span
                     className={
-                      t.due_date < today
+                      t.due_date != null && t.due_date < today
                         ? "whitespace-nowrap text-sm font-semibold text-red-700"
                         : "whitespace-nowrap text-sm text-gray-500"
                     }

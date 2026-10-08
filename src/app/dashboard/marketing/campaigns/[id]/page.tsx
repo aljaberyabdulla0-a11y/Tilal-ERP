@@ -19,6 +19,7 @@ import RecordForm from "@/components/marketing/record-form";
 import { FieldSelect, RpcButton } from "@/components/marketing/actions";
 import { campaignFields } from "../fields";
 import FollowupTable from "@/components/marketing/followup-table";
+import RelatedTasks from "@/components/tasks/related-tasks";
 
 // ============================================================
 // مساحة الحملة — كل ما يخصّها في مكان واحد بتبويبات في الرابط.
@@ -287,20 +288,19 @@ async function TasksTab({ c, write, people }: Ctx) {
   const names = peopleMap(people);
   const { data } = await supabase.from("mkt_tasks").select("id, title, assignee_id, priority, due_date, status")
     .eq("campaign_id", c.id).order("due_date", { nullsFirst: false });
+  // مهامّ الحملة على المحرّك الموحّد (V2). جدول mkt_tasks القديم يُعرض
+  // إن كان فيه شيء — ولا يُنشأ فيه جديد.
   return (
-    <Card title="مهامّ الحملة">
-      {write && <div className="mb-4"><RecordForm table="mkt_tasks" openLabel="مهمّة جديدة" fixed={{ campaign_id: c.id, project_id: c.project_id }}
-        fields={[
-          { name: "title", label: "المهمّة", required: true, span: 2 },
-          { name: "assignee_id", label: "المكلَّف", type: "select", options: people.map((p) => ({ value: p.id, label: p.full_name })) },
-          { name: "priority", label: "الأولوية", type: "select", options: TASK_PRIORITIES, required: true },
-          { name: "due_date", label: "الموعد", type: "date" },
-          { name: "description", label: "التفاصيل", type: "textarea", span: 3 },
-        ]} initial={{ priority: "عادية" }} /></div>}
-      <SimpleTable head={["المهمّة", "المكلَّف", "الأولوية", "الموعد", "الحالة"]}
-        rows={(data ?? []).map((t) => [t.title, names.get(t.assignee_id ?? "") ?? "—", t.priority, <span key="d" dir="ltr">{t.due_date ?? "—"}</span>,
-          write ? <FieldSelect key="s" table="mkt_tasks" id={t.id} column="status" value={t.status} options={TASK_STATUSES} /> : t.status])} />
-    </Card>
+    <div className="space-y-4">
+      <RelatedTasks entityType="campaign" entityId={c.id} title="مهامّ الحملة" limit={12} />
+      {(data ?? []).length > 0 && (
+        <Card title="مهامّ سابقة (النظام القديم)">
+          <SimpleTable head={["المهمّة", "المكلَّف", "الأولوية", "الموعد", "الحالة"]}
+            rows={(data ?? []).map((t) => [t.title, names.get(t.assignee_id ?? "") ?? "—", t.priority, <span key="d" dir="ltr">{t.due_date ?? "—"}</span>,
+              write ? <FieldSelect key="s" table="mkt_tasks" id={t.id} column="status" value={t.status} options={TASK_STATUSES} /> : t.status])} />
+        </Card>
+      )}
+    </div>
   );
 }
 

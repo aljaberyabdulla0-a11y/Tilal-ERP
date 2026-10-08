@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getTaskLookups } from "@/lib/tasks-server";
 import { requireMktRead } from "@/lib/marketing-guard";
 import { canWriteMarketing } from "@/lib/auth";
 import { baghdadDate } from "@/lib/time";
@@ -25,6 +27,15 @@ type Task = {
 export default async function TasksPage({ searchParams }: { searchParams: Record<string, string> }) {
   await requireMktRead();
   const supabase = await createClient();
+
+  // V2 (189–194): مهامّ التسويق انتقلت إلى المحرّك الموحّد — متتبّع التسويق
+  // في مساحة القسم الذي إعداده «تسويق». هذه الصفحة تبقى لعرض ما في
+  // mkt_tasks القديم إن وُجد، وإلا تحوّل مباشرة.
+  const { count: legacy } = await supabase.from("mkt_tasks").select("id", { count: "exact", head: true });
+  const lookups = await getTaskLookups();
+  const mktDept = lookups.departments.find((d) => !d.parent_id && d.workspace === "marketing" && d.code);
+  const tracker = mktDept ? `/dashboard/tasks/dept/${mktDept.code}` : "/dashboard/tasks?view=list&workspace=marketing";
+  if (lookups.ready && !legacy) redirect(tracker);
   let q = supabase.from("mkt_tasks").select("*").order("due_date", { nullsFirst: false }).limit(500);
   if (searchParams.assignee) q = q.eq("assignee_id", searchParams.assignee);
   if (searchParams.campaign) q = q.eq("campaign_id", searchParams.campaign);
@@ -48,6 +59,13 @@ export default async function TasksPage({ searchParams }: { searchParams: Record
   return (
     <>
       <PageHead title="مهامّ التسويق" sub="كاتب المحتوى ← المصمّم ← المصوّر ← المونتير ← المراجعة: كل خطوة مهمّة لها مكلَّفها وموعدها وما تعتمد عليه." />
+
+      {lookups.ready && (
+        <p className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
+          انتقلت مهامّ التسويق إلى <Link href={tracker} className="font-semibold underline">متتبّع التسويق</Link> (لوحة بخطوات المحتوى،
+          حملات، تقويم، موافقات، عبء الفريق). هنا ما بقي في النظام القديم فقط.
+        </p>
+      )}
 
       <section className="flex flex-wrap gap-2 text-xs">
         <Link href="/dashboard/marketing/tasks" className="rounded-full border px-3 py-1">الكل</Link>

@@ -11,6 +11,7 @@ import { lostDict, money, outcomeLabel, type Lang } from "@/lib/lost-sales-i18n"
 import ClientTabs, { type ClientTab } from "@/app/dashboard/clients/[id]/client-tabs";
 import OpportunityStage from "../opportunity-stage";
 import LostAnalysisPanel from "@/components/lost-sale/lost-analysis-panel";
+import RelatedTasks from "@/components/tasks/related-tasks";
 
 // ============================================================
 // صفحة الفرصة — الصفقة ككيان (072)، وتحليل خسارتها جزءٌ أصيل منها.
@@ -128,6 +129,13 @@ export default async function OpportunityPage({
       ),
     },
   ];
+
+  tabs.push({
+    key: "tasks",
+    label: lang === "en" ? "Tasks" : "المهام",
+    icon: "task_alt",
+    content: <div className="mx-auto max-w-3xl"><RelatedTasks entityType="opportunity" entityId={params.id} variant="sales" /></div>,
+  });
 
   if (losses.length > 0 || opp.stage_type === "lost") {
     tabs.push({

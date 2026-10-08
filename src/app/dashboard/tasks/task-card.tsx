@@ -14,6 +14,7 @@ import {
   shortTime,
   taskOrigin,
 } from "@/lib/types";
+import { friendlyTaskError } from "@/lib/tasks";
 
 // ============================================================
 // بطاقة مهمة واحدة.
@@ -41,17 +42,25 @@ export default function TaskCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const late = isOpenTask(task.status) && task.due_date < todayISO;
-  const canDelete = task.created_by === myUserId || canDeleteAny;
+  const late = isOpenTask(task.status) && task.due_date != null && task.due_date < todayISO;
+  const canDelete = (task.created_by === myUserId && (task.task_source ?? "manual") === "manual") || canDeleteAny;
 
+  // عبر task_set_status (191): الموافقة والتبعية والصلاحية تُفحص في القاعدة
   async function setStatus(status: string) {
+    if (busy) return;
     setBusy(true);
     setError(null);
-    const { error } = await supabase.from("tasks").update({ status }).eq("id", task.id);
+    const { data, error } = await supabase.rpc("task_set_status", {
+      p_id: task.id, p_status: status, p_reason: null, p_version: task.version ?? null,
+    });
     setBusy(false);
     if (error) {
-      setError("تعذّر التحديث: " + error.message);
+      console.error(error);
+      setError(friendlyTaskError(error));
       return;
+    }
+    if ((data as { result?: string } | null)?.result === "approval_requested") {
+      setError("أُرسلت للموافقة.");
     }
     router.refresh();
   }
@@ -62,7 +71,8 @@ export default function TaskCard({
     const { error } = await supabase.from("tasks").delete().eq("id", task.id);
     setBusy(false);
     if (error) {
-      setError("تعذّر الحذف: " + error.message);
+      console.error(error);
+      setError(friendlyTaskError(error));
       return;
     }
     router.refresh();
@@ -102,10 +112,8 @@ export default function TaskCard({
         <div className="min-w-0 flex-1">
           {/* العنوان */}
           <div className="flex flex-wrap items-center gap-2">
-            <h3
-              className={`font-semibold text-gray-800 ${done ? "line-through" : ""}`}
-            >
-              {task.title}
+            <h3 className={`font-semibold text-gray-800 ${done ? "line-through" : ""}`}>
+              <Link href={`/dashboard/tasks/${task.id}`} className="hover:text-brand-700">{task.title}</Link>
             </h3>
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${

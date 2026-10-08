@@ -108,7 +108,7 @@ export default async function FollowupEmployeesPage() {
       day,
       record,
       openTasks: myTasks.length,
-      lateTasks: myTasks.filter((t) => t.due_date < today).length,
+      lateTasks: myTasks.filter((t) => t.due_date != null && t.due_date < today).length,
       monthLeaves: myLeaves.filter((l) => l.status === "موافق عليها").length,
       monthDeductions: deductions
         .filter((d) => d.employee_id === m.id)

@@ -95,9 +95,22 @@ export async function GET(request: Request) {
       const { data } = await supabase.from("invoices").select("id, invoice_number, total_amount, issue_date").ilike("invoice_number", like).limit(LIMIT);
       return (data ?? []).map((i) => ({ id: i.id, title: i.invoice_number, sub: i.issue_date, href: `/dashboard/invoices/${i.id}` }));
     },
+    // المهام (V2): البحث في الخادم بالعنوان والوصف والمسؤول والعميل والمشروع
+    // والحملة ورقم المهمة (task_list)، والرابط إلى صفحة المهمة نفسها.
     tasks: async () => {
-      const { data } = await supabase.from("tasks").select("id, title, status, due_date").ilike("title", like).order("created_at", { ascending: false }).limit(LIMIT);
-      return (data ?? []).map((t) => ({ id: t.id, title: t.title, sub: [t.status, t.due_date].filter(Boolean).join(" · ") || null, href: `/dashboard/tasks/${t.id}/edit` }));
+      const { data, error } = await supabase.rpc("task_list", { p: { q, archived: "include", sort: "updated" }, p_limit: LIMIT, p_offset: 0 });
+      if (error) {
+        // قبل تطبيق 191: البحث القديم بالعنوان
+        const { data: legacy } = await supabase.from("tasks").select("id, title, status, due_date").ilike("title", like).order("created_at", { ascending: false }).limit(LIMIT);
+        return (legacy ?? []).map((t) => ({ id: t.id, title: t.title, sub: [t.status, t.due_date].filter(Boolean).join(" · ") || null, href: `/dashboard/tasks/${t.id}` }));
+      }
+      const rows = ((data as { rows?: { id: string; title: string; status: string; assigned_to_name: string | null; department_name: string | null; client_name: string | null; project_name: string | null }[] } | null)?.rows ?? []);
+      return rows.map((t) => ({
+        id: t.id,
+        title: t.title,
+        sub: [t.status, t.assigned_to_name, t.department_name, t.client_name ?? t.project_name].filter(Boolean).join(" · ") || null,
+        href: `/dashboard/tasks/${t.id}`,
+      }));
     },
   };
 

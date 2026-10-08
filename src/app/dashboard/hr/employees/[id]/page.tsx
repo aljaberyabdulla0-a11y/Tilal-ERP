@@ -40,6 +40,7 @@ import { baghdadDate } from "@/lib/time";
 import type { EmployeeDocument, EmployeeDocumentType, SalaryHistoryRow, TimelineEvent } from "@/lib/types";
 import LeaveDecision from "../../leave-decision";
 import AttendanceSummary from "@/components/attendance-summary";
+import RelatedTasks from "@/components/tasks/related-tasks";
 
 export default async function EmployeeDetailsPage({
   params,
@@ -288,6 +289,8 @@ export default async function EmployeeDetailsPage({
             <div><dt className="text-gray-500">IBAN / الحساب</dt><dd className="font-mono text-xs font-medium" dir="ltr">{emp.bank_iban || "—"}</dd></div>
           </dl>
         </div>
+
+        <RelatedTasks entityType="employee" entityId={emp.id} title="مهام الموظف" />
 
         <OnboardingPanel
           employeeId={emp.id}

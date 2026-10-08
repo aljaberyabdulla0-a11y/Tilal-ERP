@@ -41,6 +41,7 @@ import {
   TEMPERATURE_STYLE,
 } from "@/lib/crm";
 import DuplicateBanner from "./duplicate-banner";
+import RelatedTasks from "@/components/tasks/related-tasks";
 import type { Stage, ProjectLite, ClientInterest, ClientDocument } from "@/lib/crm";
 
 // صفحة تفاصيل عميل واحد — تعرض كل المعلومات المسجّلة
@@ -303,6 +304,7 @@ function buildTabs(a: TabArgs): ClientTab[] {
           {canWrite && (
             <LogActivity clientId={c.id} stage={c.stage} opportunities={openOpps} />
           )}
+          <RelatedTasks entityType="client" entityId={c.id} variant="sales" />
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="font-semibold text-gray-800">سجلّ التواصل</h3>

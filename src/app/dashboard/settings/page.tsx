@@ -7,6 +7,7 @@ import RoleSelect from "./role-select";
 import WorkLocations from "./work-locations";
 import WorkHours from "./work-hours";
 import Integrations from "./integrations";
+import { getT } from "@/lib/i18n/server";
 
 type Profile = {
   id: string;
@@ -17,6 +18,7 @@ type Profile = {
 
 // صفحة الإعدادات — إدارة المستخدمين وأدوارهم (للمدير فقط)
 export default async function SettingsPage() {
+  const t = getT();
   // حماية: غير المدير يُعاد للوحة التحكم
   if (!(await isAdmin())) {
     redirect("/dashboard");
@@ -72,6 +74,18 @@ export default async function SettingsPage() {
             </p>
           </div>
           <span className="material-symbols-outlined text-gray-400">chevron_left</span>
+        </Link>
+
+        {/* لوحة كل شخص: تلقائياً من المنصب والعلاقات، وتخصيص المدير (sql/184) */}
+        <Link
+          href="/dashboard/settings/dashboards"
+          className="flex items-center justify-between rounded-xl border bg-white p-5 shadow-sm transition hover:border-brand-300"
+        >
+          <div>
+            <h2 className="text-lg font-bold text-gray-800">{t.dash.people.title}</h2>
+            <p className="text-sm text-gray-500">{t.dash.people.cardDesc}</p>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 ltr:rotate-180">chevron_left</span>
         </Link>
 
         <h2 className="text-lg font-bold text-gray-800">المستخدمون والصلاحيات</h2>

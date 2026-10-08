@@ -1,4 +1,5 @@
 import { getI18n } from "@/lib/i18n/server";
+import { canReadMarketing } from "@/lib/auth";
 import { getBreakdown, getFunnel as getMktFunnel, getKpisFor, getTrend } from "@/lib/marketing";
 import { getDimLabels } from "@/lib/crm-reporting";
 import { engineBy, getProjectOptions } from "@/lib/dashboard/data";
@@ -9,7 +10,7 @@ import { DashboardHeader, type QuickAction } from "@/components/dashboard/page-h
 import FilterBar from "@/components/dashboard/filter-bar";
 import { Slot } from "@/components/dashboard/slot";
 import { GridSkeleton, KpiSkeleton, SectionSkeleton } from "@/components/dashboard/skeleton";
-import { Card, CardTitle, DashboardSection, EmptyState, KpiGrid } from "@/components/dashboard/ui";
+import { Card, CardTitle, DashboardSection, EmptyState, Icon, KpiGrid } from "@/components/dashboard/ui";
 import { BarList, Funnel, TrendChart } from "@/components/dashboard/charts";
 import DataTable, { type Column, type Row } from "@/components/dashboard/data-table";
 import { ErrorState } from "@/components/dashboard/states";
@@ -162,12 +163,14 @@ async function CrmSources({ f }: { f: DashFilters }) {
 export default async function MarketingDashboard({ searchParams }: { searchParams: RawParams }) {
   const { t } = getI18n();
   const a = t.dash.actions;
-  const [f, projects] = await Promise.all([readFilters(searchParams), getProjectOptions()]);
-  const actions: QuickAction[] = [
-    { href: "/dashboard/marketing/campaigns/new", label: a.newCampaign, icon: "add_circle" },
-    { href: "/dashboard/marketing/executive", label: a.marketingHub, icon: "monitoring" },
-    { href: "/dashboard/crm/overview", label: a.openCrm, icon: "groups" },
-  ];
+  const [f, projects, canRead] = await Promise.all([readFilters(searchParams), getProjectOptions(), canReadMarketing()]);
+  const actions: QuickAction[] = canRead
+    ? [
+        { href: "/dashboard/marketing/campaigns/new", label: a.newCampaign, icon: "add_circle" },
+        { href: "/dashboard/marketing/executive", label: a.marketingHub, icon: "monitoring" },
+        { href: "/dashboard/crm/overview", label: a.openCrm, icon: "groups" },
+      ]
+    : [];
   return (
     <DashMain>
       <DashboardHeader subtitle={fill(t.dash.subtitle.marketing, { range: rangeText(f) })} actions={actions} />
@@ -177,9 +180,19 @@ export default async function MarketingDashboard({ searchParams }: { searchParam
         projects={projects} compareLabel={compareText(f)}
         show={{ project: true }}
       />
-      <Slot fallback={<><KpiSkeleton size="lg" /><KpiSkeleton size="sm" /></>}><MarketingKpiRows f={f} /></Slot>
-      <Slot fallback={<GridSkeleton cols={2} height="h-80" />}><MarketingTrendAndFunnel f={f} /></Slot>
-      <Slot fallback={<SectionSkeleton height="h-80" />}><ChannelsAndCampaigns f={f} /></Slot>
+      {canRead ? (
+        <>
+          <Slot fallback={<><KpiSkeleton size="lg" /><KpiSkeleton size="sm" /></>}><MarketingKpiRows f={f} /></Slot>
+          <Slot fallback={<GridSkeleton cols={2} height="h-80" />}><MarketingTrendAndFunnel f={f} /></Slot>
+          <Slot fallback={<SectionSkeleton height="h-80" />}><ChannelsAndCampaigns f={f} /></Slot>
+        </>
+      ) : (
+        // بلا صلاحية التسويق: قلها صراحةً — لا أرقام فارغة كأنها أصفار
+        <p role="note" className="mb-6 flex items-start gap-2 rounded-card border border-warning-100 bg-warning-50 px-4 py-3 text-sm text-warning-700">
+          <Icon name="lock" />
+          {t.dash.persona.noAccessMarketing}
+        </p>
+      )}
       <Slot fallback={<SectionSkeleton height="h-64" />}><CrmSources f={f} /></Slot>
     </DashMain>
   );

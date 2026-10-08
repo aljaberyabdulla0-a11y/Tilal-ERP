@@ -5,6 +5,7 @@ import type { EngineRow } from "@/lib/report-engine";
 import { bucketKeys, type DateRange } from "@/lib/report-dates";
 import { toMoneyOverview, type MoneyOverview, type RawOverview } from "@/lib/money-overview";
 import type { Grain } from "./period";
+import { toViewsInfo, type ViewsInfo } from "./views";
 
 // ============================================================
 // طبقة بيانات اللوحات — نقلٌ لا حساب.
@@ -180,6 +181,34 @@ export type MySummary = {
 };
 
 export const getMySummary = cache(async (): Promise<Result<MySummary>> => rpc<MySummary>("dashboard_my_summary"));
+
+// ===== لوحات هذا الشخص (184) =====
+//
+// إن لم تكن 184 مطبّقة (أو فشل الاستدعاء) نعود إلى الدور وحده — كما
+// كانت اللوحة — فلا تتعطّل الصفحة الأولى للنظام بسبب هجرة.
+export const getMyViews = cache(async (role: string): Promise<ViewsInfo> => {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("my_dashboard_views");
+    if (error) {
+      console.error("[dashboard] my_dashboard_views:", error.message);
+      return toViewsInfo(null, role);
+    }
+    return toViewsInfo(data, role);
+  } catch {
+    return toViewsInfo(null, role);
+  }
+});
+
+export type PersonRow = {
+  user_id: string; name: string; email: string; role: string; role_name: string;
+  position_title: string | null; status: string | null;
+  auto_views: string[]; override_views: string[] | null; mismatch: boolean; position_role_name: string | null;
+};
+
+export async function getDashboardPeople(): Promise<Result<PersonRow[]>> {
+  return rpc<PersonRow[]>("dashboard_people");
+}
 
 // ===== قوائم المُرشِّحات (RLS تحدّد ما يُعرض) =====
 

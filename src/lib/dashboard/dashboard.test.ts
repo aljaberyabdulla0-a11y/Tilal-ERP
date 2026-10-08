@@ -175,3 +175,46 @@ describe("ترتيب المشاريع", () => {
     expect(r.top.size + r.attention.size).toBe(0);
   });
 });
+
+// ===== لوحة لكل شخص (184) =====
+import { fallbackViews, pickView, toViewsInfo, viewHref } from "./views";
+
+describe("لوحة لكل شخص", () => {
+  it("قبل 184 أو عند الفشل: اللوحة من الدور كما كانت", () => {
+    expect(toViewsInfo(null, "admin")).toMatchObject({ views: ["executive"], source: "fallback" });
+    expect(fallbackViews("employee")).toEqual(["sales"]);
+    expect(fallbackViews("accountant")).toEqual(["finance"]);
+  });
+
+  it("القيم الغريبة من القاعدة تُهمل، والأساسية يجب أن تكون من لوحاته", () => {
+    const info = toViewsInfo({ views: ["marketing", "hack", "sales"], primary: "executive", source: "override", mismatch: true }, "employee");
+    expect(info.views).toEqual(["marketing", "sales"]);
+    expect(info.primary).toBe("marketing");
+    expect(info.source).toBe("override");
+    expect(info.mismatch).toBe(true);
+  });
+
+  it("الرابط لا يفتح لوحة ليست له", () => {
+    const info = toViewsInfo({ views: ["sales", "rm"], primary: "sales" }, "employee");
+    expect(pickView(info, "rm")).toBe("rm");
+    expect(pickView(info, "executive")).toBe("sales");
+    expect(pickView(info, undefined)).toBe("sales");
+  });
+
+  it("المالية وHR بوابتان: لا تُعرضان هنا، ومن ليس له غيرهما ← null (يُحوَّل)", () => {
+    const admin = toViewsInfo({ views: ["executive", "finance", "hr"], primary: "executive" }, "admin");
+    expect(pickView(admin, "finance")).toBe("executive");
+    expect(viewHref("finance")).toBe("/dashboard/finance");
+    const acc = toViewsInfo({ views: ["finance"], primary: "finance" }, "accountant");
+    expect(pickView(acc, undefined)).toBeNull();
+  });
+
+  it("رابط اللسان يُبقي الفترة والمشروع فقط", () => {
+    const href = viewHref("team", { range: "last_month", project: "p1", grain: "week" } as Record<string, string>);
+    const q = new URLSearchParams(href.split("?")[1]);
+    expect(q.get("view")).toBe("team");
+    expect(q.get("range")).toBe("last_month");
+    expect(q.get("project")).toBe("p1");
+    expect(q.get("grain")).toBeNull();
+  });
+});

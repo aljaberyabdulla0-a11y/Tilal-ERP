@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getI18n } from "@/lib/i18n/server";
 import { createClient } from "@/lib/supabase/server";
+import { canManageInventory } from "@/lib/auth";
 import { getInventoryItems, getRecentMoves, lowStockItems, summarize } from "@/lib/inventory";
 import { getTeamMembers } from "@/lib/projects";
 import { getMyFollowUps } from "@/lib/client-followups";
@@ -30,13 +31,13 @@ import { DashMain } from "./shared";
 // وعدّها هنا؛ والتحية والتاريخ بساعة بغداد؛ والنصوص من القاموس.
 // ============================================================
 
-async function FollowupKpis() {
+async function FollowupKpis({ inventory }: { inventory: boolean }) {
   const { t } = getI18n();
   const k = t.dash.kpi;
   const supabase = await createClient();
   const today = baghdadDate();
   const [items, followUps, members, open, late, att] = await Promise.all([
-    getInventoryItems(),
+    inventory ? getInventoryItems() : Promise.resolve([]),
     getMyFollowUps(),
     getTeamMembers(),
     supabase.from("tasks").select("id", { count: "exact", head: true }).in("status", ["جديدة", "قيد التنفيذ"]),
@@ -49,14 +50,18 @@ async function FollowupKpis() {
   const present = active.filter((m) => presentIds.has(m.id)).length;
   const lateN = late.count ?? 0;
 
-  const kpis: Kpi[] = [
+  const stock: Kpi[] = [
     { key: "low", title: k.lowStock, value: summary.low, unit: "count", direction: "negative", icon: "warning", delta: null, href: "/dashboard/inventory?state=low", status: summary.low ? "warning" : "good" },
     { key: "items", title: k.stockItems, value: summary.items, unit: "count", direction: "neutral", icon: "inventory_2", delta: null, href: "/dashboard/inventory" },
+  ];
+  // المخزون لمن يديره (can_manage_inventory) — وإلا تُخفى بطاقتاه، لا تُعرضان صفراً
+  const kpis: Kpi[] = [
+    ...(inventory ? stock : []),
     { key: "late", title: k.lateTasks, value: lateN, unit: "count", direction: "negative", icon: "assignment_late", delta: null, href: "/dashboard/tasks", status: countStatus(lateN), subtitle: `${t.dash.followup.openTasks}: ${fmtNumber(open.count ?? 0, getI18n().locale)}` },
     { key: "calls", title: k.dueCalls, value: followUps.total, unit: "count", direction: "negative", icon: "call", delta: null, href: "/dashboard/clients/activities", status: followUps.total ? "warning" : "good" },
     { key: "present", title: k.present, value: present, unit: "count", direction: "neutral", icon: "groups", delta: null, href: "/dashboard/followup/employees", subtitle: `${t.dash.common.of} ${active.length}` },
   ];
-  return <div className="mb-6"><KpiGrid kpis={kpis} size="md" cols={5} label={t.dash.sections.primary} /></div>;
+  return <div className="mb-6"><KpiGrid kpis={kpis} size="md" cols={inventory ? 5 : 3} label={t.dash.sections.primary} /></div>;
 }
 
 async function LowStock() {
@@ -145,9 +150,11 @@ async function RecentMoves() {
 export default async function FollowupDashboard() {
   const { t } = getI18n();
   const a = t.dash.actions;
-  const name = await getEmployeeName();
+  const [name, inventory] = await Promise.all([getEmployeeName(), canManageInventory()]);
   const actions: QuickAction[] = [
-    { href: `/dashboard/inventory/moves/new?kind=${encodeURIComponent("شراء")}`, label: a.purchase, icon: "add_shopping_cart" },
+    ...(inventory
+      ? [{ href: `/dashboard/inventory/moves/new?kind=${encodeURIComponent("شراء")}`, label: a.purchase, icon: "add_shopping_cart" }]
+      : []),
     { href: "/dashboard/tasks/new", label: a.newTask, icon: "add_task" },
     { href: "/dashboard/clients/activities", label: t.nav.contacts, icon: "call" },
     { href: "/dashboard/followup/employees", label: t.nav.employees, icon: "supervisor_account" },
@@ -155,15 +162,22 @@ export default async function FollowupDashboard() {
   return (
     <DashMain>
       <DashboardHeader name={name} subtitle={t.dash.subtitle.followup} actions={actions} />
-      <Slot fallback={<KpiSkeleton count={5} />}><FollowupKpis /></Slot>
+      <Slot fallback={<KpiSkeleton count={5} />}><FollowupKpis inventory={inventory} /></Slot>
       {/* الـCRM قبل المخزون: الليد المهمل يُفقَد ولا يُعوَّض */}
       <Slot fallback={null}><AttentionSection projectId={null} include={ATTENTION_BY_ROLE.followup} /></Slot>
-      <Slot fallback={<SectionSkeleton height="h-64" />}><LowStock /></Slot>
+      {inventory ? (
+        <Slot fallback={<SectionSkeleton height="h-64" />}><LowStock /></Slot>
+      ) : (
+        <p role="note" className="mb-6 flex items-center gap-2 rounded-card border border-line bg-surface-subtle px-4 py-3 text-sm text-ink-secondary">
+          <Icon name="inventory_2" />
+          {t.dash.persona.noAccessInventory}
+        </p>
+      )}
       <section aria-label={t.dash.sections.myWork} className="mb-6 grid gap-4 lg:grid-cols-2">
         <Slot fallback={<SectionSkeleton height="h-48" title={false} />}><TodayTasks /></Slot>
         <Slot fallback={null}><ClientFollowUps compact /></Slot>
       </section>
-      <section className="mb-6"><Slot fallback={<SectionSkeleton height="h-56" title={false} />}><RecentMoves /></Slot></section>
+      {inventory && <section className="mb-6"><Slot fallback={<SectionSkeleton height="h-56" title={false} />}><RecentMoves /></Slot></section>}
       <Slot fallback={<SectionSkeleton height="h-72" title={false} />}><ActivitySection projectId={null} limit={10} /></Slot>
     </DashMain>
   );

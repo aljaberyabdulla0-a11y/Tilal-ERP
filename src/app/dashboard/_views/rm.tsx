@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getI18n } from "@/lib/i18n/server";
+import { canSeeBrokers } from "@/lib/auth";
 import { tValue } from "@/lib/i18n/values";
 import {
   bucketLeads, companyMoney, getBrokerCommissions, getBrokerCompanies, getBrokerLeads,
@@ -164,7 +165,7 @@ async function RmBody() {
 export default async function RmDashboard() {
   const { t } = getI18n();
   const a = t.dash.actions;
-  const name = await getEmployeeName();
+  const [name, sees] = await Promise.all([getEmployeeName(), canSeeBrokers()]);
   const actions: QuickAction[] = [
     { href: "/dashboard/brokers/requests", label: a.brokerRequests, icon: "real_estate_agent" },
     { href: "/dashboard/brokers/leads", label: t.nav.brokers, icon: "handshake" },
@@ -173,7 +174,14 @@ export default async function RmDashboard() {
   return (
     <DashMain>
       <DashboardHeader name={name} actions={actions} />
-      <Slot fallback={<SectionSkeleton height="h-96" />}><RmBody /></Slot>
+      {sees ? (
+        <Slot fallback={<SectionSkeleton height="h-96" />}><RmBody /></Slot>
+      ) : (
+        <p role="note" className="mb-6 flex items-center gap-2 rounded-card border border-line bg-surface-subtle px-4 py-3 text-sm text-ink-secondary">
+          <Icon name="handshake" />
+          {t.dash.persona.noAccessBrokers}
+        </p>
+      )}
       <Slot fallback={<SectionSkeleton height="h-48" title={false} />}><TodayTasks /></Slot>
     </DashMain>
   );

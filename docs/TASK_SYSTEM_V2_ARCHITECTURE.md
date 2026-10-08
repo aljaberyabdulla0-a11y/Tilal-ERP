@@ -1,7 +1,7 @@
 # محرّك العمل في تلال — معمارية المهام V2
 
-> الحالة (2026-10-08): التصميم مكتوب، والهجرات **189–194** مكتوبة على فرع `hr-release` و**لم تُطبَّق بعد**.
-> ⚠️ لا تُدفع الواجهة الجديدة قبل تطبيق 189–194: كل شاشاتها تقرأ دوالّ هذه الهجرات.
+> الحالة (2026-10-08): **مطبّقة على الحيّ** — 189–194 و197 (إصلاح `task_list`: حدّ ١٠٠ معامل في `jsonb_build_object`).
+> `tests.run_tasks_v2()` = **65/65**، والانحدار: الاستمارة 13/13، اللوحة 15/15، الأمان 17/17. والواجهة مدفوعة.
 > المرجع الوظيفي للحالة السابقة: [TASKS_ARCHITECTURE.md](TASKS_ARCHITECTURE.md).
 
 ---
@@ -288,7 +288,7 @@
 ### ٢) الملفات
 | النوع | الملفات |
 |---|---|
-| هجرات | `sql/189_task_v2_schema.sql` · `190_task_v2_permissions.sql` · `191_task_v2_engine.sql` · `192_task_v2_workflows.sql` · `193_task_v2_analytics.sql` · `194_task_v2_tests.sql` · `rollback_task_v2.sql` (طوارئ، بلا رقم) |
+| هجرات | `sql/189_task_v2_schema.sql` · `197_task_v2_list_fix.sql` · `190_task_v2_permissions.sql` · `191_task_v2_engine.sql` · `192_task_v2_workflows.sql` · `193_task_v2_analytics.sql` · `194_task_v2_tests.sql` · `rollback_task_v2.sql` (طوارئ، بلا رقم) |
 | مكتبة | `src/lib/types.ts` (أنواع V2) · `src/lib/tasks.ts` (موسّعة) · `src/lib/task-filters.ts` (جديد) · `src/lib/tasks-server.ts` (جديد) |
 | اختبارات واجهة | `src/lib/tasks.test.ts` · `src/lib/task-filters.test.ts` |
 | مكوّنات `src/components/tasks/` | `badges` · `use-task-actions` · `task-row-card` · `quick-add` · `filter-bar` · `list-view` · `board-view` · `calendar-view` · `work-center-ui` · `task-form` · `template-picker` · `template-editor` · `assign-rule-editor` · `settings-panels` · `related-tasks` · `detail/{detail-actions, approval-panel, checklist-panel, comments-panel, attachments-panel, relations-panel}` · `workspaces/{task-section, sales-workspace, marketing-workspace, sections-workspaces}` |
@@ -318,7 +318,8 @@
 | `next build` | ✅ نجح — عشر صفحات مهام |
 | تحليل SQL بمحلّل PostgreSQL الحقيقي (libpg-query 17) | ✅ 454 جملة، 57 دالة plpgsql، 8 كتل DO — بلا خطأ صياغة |
 | تتبّع يدوي للمسارات الخطرة | وجد وأصلح ٤ أخطاء قبل القاعدة: `v_top` الفارغ كان يُسقط كل الفرعية، و`is_waiting` الفارغ كان يُخفي المهام العادية من «عملي»، وقيد الكيان في الترحيل، وتجميع متداخل في التقارير |
-| `tests.run_tasks_v2()` على الحيّ | ⏳ **لم يُشغَّل بعد** — يحتاج تطبيق المالك (أو ملف التجربة الذي يُلغى) |
+| `tests.run_tasks_v2()` على الحيّ | ✅ **65/65** — بعد إصلاح خطأ تشغيل كشفه أول تشغيل: صفّ `task_list` كان 132 معاملاً والحدّ 100 (الهجرة 197) |
+| الانحدار على الحيّ | ✅ الاستمارة 13/13 · اللوحة 15/15 · الأمان 17/17 · التكامل 6/7 (الفاشل يحتاج ورديةً و`work_shifts` فارغ — لا علاقة له بالمهام) |
 
 ### ١٣) حدود معروفة
 - `assigned_to` إلزامي: لا مهام «بلا مسؤول» (طابور قسم). مرشّح «Unassigned» غير مدعوم.

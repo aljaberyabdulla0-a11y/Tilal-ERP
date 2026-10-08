@@ -1,5 +1,5 @@
 -- ============================================================
--- تلال ERP — 195: إصلاح task_list — حدّ المعاملات في jsonb_build_object
+-- تلال ERP — 197: إصلاح task_list — حدّ المعاملات في jsonb_build_object
 --
 -- ظهر عند أول تشغيل لـ tests.run_tasks_v2() على الحيّ: صفّ المهمة كان
 -- يُبنى بـ jsonb_build_object واحد فيه 66 حقلاً = 132 معاملاً، وPostgreSQL
@@ -243,6 +243,6 @@ begin
 end $$;
 
 comment on function public.task_list(jsonb, int, int) is
-  'قائمة المهام بترقيم من الخادم (191، 195). INVOKER: RLS تحدّد ما يُرى. {rows, total}.';
+  'قائمة المهام بترقيم من الخادم (191، 197). INVOKER: RLS تحدّد ما يُرى. {rows, total}.';
 
 notify pgrst, 'reload schema';

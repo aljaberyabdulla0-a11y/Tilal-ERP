@@ -117,6 +117,9 @@ export const PURCHASE_STATUSES = ["مسودة", "بانتظار الموافقة
 
 export const MANUAL_TOUCH_TYPES = ["حضور فعالية", "إحالة", "مؤثر", "يدوي"] as const;
 
+/** سعر الدولار الرسمي — مرآة DEFAULT_USD_RATE في marketing-sync */
+export const DEFAULT_USD_RATE = 1520;
+
 export const INTEGRATION_PROVIDERS: Record<string, { label: string; ready: boolean }> = {
   meta: { label: "Meta (فيسبوك وإنستغرام)", ready: true },
   google_ads: { label: "Google Ads", ready: false },

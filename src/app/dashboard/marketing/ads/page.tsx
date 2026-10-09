@@ -12,6 +12,7 @@ import RecordForm from "@/components/marketing/record-form";
 import { FieldSelect } from "@/components/marketing/actions";
 import MetricEntry from "@/components/marketing/metric-entry";
 import ImportMetrics from "./import-metrics";
+import AdCampaignSelect from "./ad-campaign-select";
 
 // ============================================================
 // الإعلانات المدفوعة — المنصّة ← حساب الإعلانات ← الحملة الإعلانية ←
@@ -91,7 +92,11 @@ export default async function AdsPage({ searchParams }: { searchParams: Record<s
               <span className="text-xs text-gray-400">{r.level} · </span><b className="font-medium">{r.name}</b>
               {r.external_id && <span className="block text-xs text-gray-400" dir="ltr">{r.external_id}</span>}
             </span>,
-            <span key="a" className="text-xs">{acc.get(r.account_id) ?? "—"}<span className="block text-brand-700">{camp.get(r.campaign_id ?? "") ?? "بلا حملة"}</span></span>,
+            <span key="a" className="text-xs">{acc.get(r.account_id) ?? "—"}
+              {write && r.level === "حملة إعلانية"
+                ? <span className="mt-0.5 block"><AdCampaignSelect id={r.id} value={r.campaign_id} campaigns={campaigns} /></span>
+                : <span className="block text-brand-700">{camp.get(r.campaign_id ?? "") ?? "بلا حملة"}</span>}
+            </span>,
             write ? <FieldSelect key="s" table="mkt_ad_objects" id={r.id} column="status" value={r.status} options={AD_STATUSES} /> : <Badge key="s">{r.status}</Badge>,
             fmt(r.spend), fmt(r.impressions), fmt(r.clicks), fmtPct(r.ctr), fmt(r.cpc), fmt(r.platform_leads),
             <b key="l" className="text-brand-700">{fmt(r.real_leads)}</b>, fmt(r.cpl),

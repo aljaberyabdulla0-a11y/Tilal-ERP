@@ -1,13 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireMktRead } from "@/lib/marketing-guard";
 import { isMarketingManager } from "@/lib/auth";
-import { INTEGRATION_PROVIDERS } from "@/lib/marketing-style";
+import { DEFAULT_USD_RATE, INTEGRATION_PROVIDERS } from "@/lib/marketing-style";
 import { Badge, Card, PageHead } from "@/components/marketing/ui";
 import { SimpleTable } from "@/components/marketing/table";
 import RecordForm from "@/components/marketing/record-form";
 import RpcForm from "@/components/marketing/rpc-form";
 import { ToggleField } from "@/components/marketing/actions";
 import SyncNow from "./sync-now";
+import UsdRate from "./usd-rate";
 
 // ============================================================
 // التكاملات — Meta و Google و TikTok و LinkedIn و YouTube و Analytics
@@ -43,6 +44,7 @@ export default async function IntegrationsPage() {
       <PageHead title="التكاملات" sub="اتصال المنصّات الإعلانية والتحليلات والرسائل. المفاتيح في Vault ولا تظهر في الواجهة أبداً." />
       {manager && (
         <RecordForm table="mkt_integrations" openLabel="تكامل جديد" initial={{ provider: "meta", auth_type: "token", sync_frequency: "يومي" }}
+          fixed={{ mapping: { usd_rate: DEFAULT_USD_RATE } }}
           fields={[
             { name: "name", label: "الاسم", required: true },
             { name: "provider", label: "المنصّة", type: "select", required: true, options: Object.entries(INTEGRATION_PROVIDERS).map(([v, p]) => ({ value: v, label: p.label + (p.ready ? "" : " (إطار — بلا موصّل بعد)") })) },
@@ -57,12 +59,13 @@ export default async function IntegrationsPage() {
 
       <Card title="التكاملات">
         <SimpleTable empty="لا تكاملات. أضِف Meta بمعرّف حساب الإعلانات ورمز System User طويل الأمد."
-          head={["التكامل", "المنصّة", "الحساب", "الحالة", "المفتاح", "آخر مزامنة", "آخر نجاح", "الخطأ", ""]}
+          head={["التكامل", "المنصّة", "الحساب", "سعر الدولار", "الحالة", "المفتاح", "آخر مزامنة", "آخر نجاح", "الخطأ", ""]}
           rows={(integrations ?? []).map((i) => {
             const p = INTEGRATION_PROVIDERS[i.provider];
             return [
               i.name, <span key="p" className="text-xs">{p?.label ?? i.provider}{!p?.ready && <span className="block text-amber-700">بلا موصّل — استورد CSV</span>}</span>,
               <span key="a" dir="ltr" className="text-xs">{i.account_ref ?? "—"}</span>,
+              <UsdRate key="r" id={i.id} mapping={i.mapping} canEdit={manager} />,
               <Badge key="s">{i.status}</Badge>,
               <span key="k" className="text-xs">
                 {hasSecret.get(i.id) ? "محفوظ في Vault" : <span className="text-amber-700">غير مضبوط</span>}
@@ -93,8 +96,9 @@ export default async function IntegrationsPage() {
         <ol className="list-decimal space-y-1 pe-5 text-sm text-gray-700">
           <li>في Business Manager: أنشئ System User، وامنحه حساب الإعلانات بصلاحية <span dir="ltr">ads_read</span>، وولّد له رمزاً طويل الأمد.</li>
           <li>هنا: «تكامل جديد» بمنصّة Meta ومعرّف الحساب (<span dir="ltr">act_…</span>)، ثم «اضبط المفتاح» والصق الرمز.</li>
+          <li>«سعر الدولار» في الجدول: مصروف حسابٍ بالدولار يُحفظ بالدينار به (الافتراضي الرسمي {DEFAULT_USD_RATE.toLocaleString("en")}).</li>
           <li>«زامن الآن»: تُنشأ الحملات الإعلانية ومجموعاتها وإعلاناتها تلقائياً وتدخل مقاييس آخر ٧ أيام يومياً.</li>
-          <li>اربط كل «حملة إعلانية» بحملة تلال من صفحة الإعلانات — أو سمِّ الحملة عند ميتا برمز حملة تلال (<span dir="ltr">cmp-0001</span>) فتُربط تلقائياً.</li>
+          <li>الربط بحملة تلال تلقائيٌّ إن كان رمزها رقمَ حملة ميتا، أو حمل اسمها عند ميتا رمزها (<span dir="ltr">cmp-0001</span>). وإلا فاخترها لكل «حملة إعلانية» من صفحة الإعلانات.</li>
           <li>المزامنة المجدولة تحتاج تفعيل <span dir="ltr">pg_net</span> — الأمر معلَّق في آخر <span dir="ltr">sql/126</span>.</li>
         </ol>
       </Card>

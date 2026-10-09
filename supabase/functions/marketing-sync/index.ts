@@ -12,8 +12,9 @@
 //
 // الموصّل الجاهز: Meta (رؤى الإعلانات اليومية لآخر ٧ أيام على مستوى
 // الإعلان). يُنشئ الحملات الإعلانية ومجموعاتها وإعلاناتها في
-// mkt_ad_objects، ويربط الحملة الإعلانية بحملة تلال حين يحمل اسمها
-// رمزها (cmp-0001) أو حين يُضبط ربطها في mapping.campaigns.
+// mkt_ad_objects، ويربط الحملة الإعلانية بحملة تلال حين يكون رمز حملة
+// تلال رقمَها عند ميتا، أو يحمل اسمها رمزها (cmp-0001)، أو يُضبط ربطها
+// في mapping.campaigns. والمصروف بالدينار بسعر mapping.usd_rate (أو 1520).
 // ثم المقاييس عبر mkt_import_metrics — المسار نفسه لاستيراد CSV.
 //
 // كل محاولة صفٌّ في mkt_sync_logs (بدأ/اكتمل/فشل/إعادة محاولة)، وثلاث
@@ -26,6 +27,7 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
+const DEFAULT_USD_RATE = 1520; // السعر الرسمي في العراق — يُبدَّل لكل تكامل من شاشته
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
@@ -115,9 +117,10 @@ async function syncOne(admin: SupabaseClient, it: Integration): Promise<{ rows: 
 
   const acct = await graph(`${GRAPH}/${it.account_ref}?fields=currency,name`, token as string);
   const currency = String(acct.currency ?? "USD");
-  const rate = currency === "IQD" ? 1 : Number(it.mapping?.usd_rate ?? 0);
+  // سعر الدولار من التكامل (شاشة التكاملات)، وإلا الرسمي — ولا يُفترض لعملة أخرى
+  const rate = currency === "IQD" ? 1 : Number(it.mapping?.usd_rate ?? (currency === "USD" ? DEFAULT_USD_RATE : 0));
   if (currency !== "IQD" && !(rate > 0)) {
-    throw new PermanentError(`عملة الحساب ${currency}: اضبط mapping.usd_rate (كم ديناراً للوحدة) في التكامل`);
+    throw new PermanentError(`عملة الحساب ${currency}: اضبط سعر الصرف (كم ديناراً للوحدة) في التكامل`);
   }
 
   // ===== الرؤى اليومية على مستوى الإعلان، بالترقيم =====
@@ -136,8 +139,10 @@ async function syncOne(admin: SupabaseClient, it: Integration): Promise<{ rows: 
   // ===== الكيانات: حملة إعلانية ← مجموعة ← إعلان =====
   const { data: tilal } = await admin.from("crm_campaigns").select("id, code");
   const byCode = new Map((tilal ?? []).map((c: { id: string; code: string }) => [c.code, c.id]));
+  // الربط: يدويٌّ في mapping، ثم رمز حملة تلال = رقم حملة ميتا، ثم رمزها (cmp-0001) في الاسم
   const resolve = (metaId: string, name: string) =>
-    it.mapping?.campaigns?.[metaId] ?? byCode.get((name.toLowerCase().match(/cmp-\d{4}/) ?? [""])[0]) ?? null;
+    it.mapping?.campaigns?.[metaId] ?? byCode.get(metaId)
+      ?? byCode.get((name.toLowerCase().match(/cmp-\d{4}/) ?? [""])[0]) ?? null;
 
   const uniq = <T,>(arr: T[], key: (t: T) => string) => Array.from(new Map(arr.map((x) => [key(x), x])).values());
   const camps = uniq(rows, (r) => String(r.campaign_id));

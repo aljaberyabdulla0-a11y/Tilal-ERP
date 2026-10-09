@@ -2,6 +2,7 @@
 
 > الحالة (2026-10-08): **مطبّقة على الحيّ** — 189–194 و197 (إصلاح `task_list`: حدّ ١٠٠ معامل في `jsonb_build_object`).
 > `tests.run_tasks_v2()` = **65/65**، والانحدار: الاستمارة 13/13، اللوحة 15/15، الأمان 17/17. والواجهة مدفوعة.
+> الأداء (198 مطبّقة): بحث المهام لغير المدير من ~1.9 ث إلى 21–63 مللي ث. **199 تنتظر التطبيق** (سياسات قراءة الجداول المساعدة: 2 ث ← مرة للاستعلام).
 > المرجع الوظيفي للحالة السابقة: [TASKS_ARCHITECTURE.md](TASKS_ARCHITECTURE.md).
 
 ---
@@ -288,7 +289,7 @@
 ### ٢) الملفات
 | النوع | الملفات |
 |---|---|
-| هجرات | `sql/189_task_v2_schema.sql` · `197_task_v2_list_fix.sql` · `190_task_v2_permissions.sql` · `191_task_v2_engine.sql` · `192_task_v2_workflows.sql` · `193_task_v2_analytics.sql` · `194_task_v2_tests.sql` · `rollback_task_v2.sql` (طوارئ، بلا رقم) |
+| هجرات | `sql/189_task_v2_schema.sql` · `197_task_v2_list_fix.sql` · `198_task_v2_search_perf.sql` · `199_task_v2_aux_rls_perf.sql` · `190_task_v2_permissions.sql` · `191_task_v2_engine.sql` · `192_task_v2_workflows.sql` · `193_task_v2_analytics.sql` · `194_task_v2_tests.sql` · `rollback_task_v2.sql` (طوارئ، بلا رقم) |
 | مكتبة | `src/lib/types.ts` (أنواع V2) · `src/lib/tasks.ts` (موسّعة) · `src/lib/task-filters.ts` (جديد) · `src/lib/tasks-server.ts` (جديد) |
 | اختبارات واجهة | `src/lib/tasks.test.ts` · `src/lib/task-filters.test.ts` |
 | مكوّنات `src/components/tasks/` | `badges` · `use-task-actions` · `task-row-card` · `quick-add` · `filter-bar` · `list-view` · `board-view` · `calendar-view` · `work-center-ui` · `task-form` · `template-picker` · `template-editor` · `assign-rule-editor` · `settings-panels` · `related-tasks` · `detail/{detail-actions, approval-panel, checklist-panel, comments-panel, attachments-panel, relations-panel}` · `workspaces/{task-section, sales-workspace, marketing-workspace, sections-workspaces}` |
@@ -342,3 +343,17 @@
 3. `select * from tests.run_tasks_v2();` ثم `tests.run_lost_analysis_tasks()` · `tests.run_dashboard()` · `tests.run_security()` · `select * from security_audit();`.
 4. **بعدها فقط** ادفع الواجهة.
 5. **الرجوع:** `git revert` للواجهة، ثم `sql/rollback_task_v2.sql` (يعيد السلوك القديم حرفياً، ولا يحذف بيانات).
+
+### الأداء — قياس على الحيّ (2026-10-09)
+| الدالة | مدير | مشرف | موظف |
+|---|---|---|---|
+| `task_list` عملي/مفتوحة | 132 مللي ث | 37 | 25 |
+| `task_list` الكل | 85 | 28 | 25 |
+| `task_list` بحث (بعد 198) | 63 | 23 | 21 — كان 1.7–1.9 ث |
+| `task_counts` | 26 | 12 | 14 |
+| `task_department_overview` | 19 | 11 | 12 |
+| `task_overview` (٣٠ يوماً) | 43 | 14 | 16 |
+| `task_detail` | — | — | 40 |
+| قراءة `task_activity_log` كاملاً | — | — | 2023 قبل 199 |
+
+**الدرس:** في هذا المشروع لا تُستدعى دالة صلاحية لكل صفّ (`task_row_visible`/`can_see_task`) في مسار قراءة: احسب «المهام التي أراها» مرة (`task_my_visible_ids()` بشرط السياسة نفسه والدوال داخل `(select …)`) وقارِن بها.

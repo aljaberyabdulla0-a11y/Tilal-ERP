@@ -59,11 +59,13 @@ select jobname, schedule from cron.job where jobname = 'mkt-automation-scan';
 | المتغيّر | أين | لماذا |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Vercel (خادم) | المساعد. بدونه يقول «غير مفعّل» ولا يسقط شيء |
-| `MKT_CRON_SECRET` | أسرار دالّة الحافة | المزامنة المجدولة |
+| `META_APP_SECRET`، `META_VERIFY_TOKEN` | أسرار دوالّ الحافة | ويبهوك ليدات ميتا (`meta-leads`) |
+| (لا شيء للمجدول) | Vault: `mkt_cron_secret` (200) | المزامنة المجدولة — يولَّد في الهجرة. `MKT_CRON_SECRET` اختياري |
 
 ```bash
-supabase functions deploy marketing-sync
-supabase secrets set MKT_CRON_SECRET=…
+supabase functions deploy marketing-sync --no-verify-jwt
+supabase functions deploy meta-leads --no-verify-jwt
+supabase secrets set META_APP_SECRET=… META_VERIFY_TOKEN=…
 ```
 
 ---
@@ -150,7 +152,6 @@ select * from tests.run_marketing();
 |---|---|
 | موصّلات Google/TikTok/LinkedIn/YouTube/GA | لا حسابات ولا مفاتيح للاختبار؛ الإطار جاهز والـCSV يغطّي |
 | ويبهوك ليدات Meta الفورية | يحتاج تطبيق Meta بمراجعة صلاحيات `leads_retrieval` |
-| المزامنة المجدولة | `pg_net` غير مثبّت |
 | إرسال البريد/الرسائل/واتساب من القسم | لا مزوّد مختار؛ الأتمتة تُشعر داخلياً |
 | السحب والإفلات في التقويم | تغيير موعد النشر يمرّ بحارس المحتوى — يبقى من صفحته |
 | حماية الحافة للصفحتين العامّتين | Turnstile أو Vercel Firewall عند أول إساءة |

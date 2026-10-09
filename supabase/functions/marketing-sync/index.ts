@@ -7,8 +7,8 @@
 // الأنماط:
 //   { mode: "manual", integration_id }  — «زامن الآن»، بجلسة مستخدم
 //                                          يملك الكتابة في التسويق
-//   { mode: "scheduled" }               — كل تكامل فعّال غير يدوي،
-//                                          بترويسة x-cron-secret
+//   { mode: "scheduled" }               — كل تكامل فعّال حان دوره، بترويسة
+//                                          x-cron-secret (السرّ في Vault، sql/200)
 //   { mode: "subscribe_page", integration_id } — اشتراك صفحة التكامل بليدات
 //                                          النماذج (leadgen)، لمدير التسويق
 //
@@ -23,8 +23,10 @@
 // محاولات بمهلة متزايدة. ولا يُكتب في السجلّ رمزٌ ولا حمولة.
 //
 // المتغيّرات: SUPABASE_URL، SUPABASE_SERVICE_ROLE_KEY، SUPABASE_ANON_KEY
-// (تلقائية) + MKT_CRON_SECRET (للمجدول).
-// النشر: supabase functions deploy marketing-sync
+// (تلقائية). MKT_CRON_SECRET اختياري — المجدول يتحقّق بسرّ Vault.
+// النشر: supabase functions deploy marketing-sync --no-verify-jwt
+//   (المجدول بلا JWT؛ الدالّة تتحقّق بنفسها: السرّ، أو can_write_marketing
+//    بجلسة المستخدم — والجلسة الفارغة لا تملكها)
 // ============================================================
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
@@ -41,6 +43,7 @@ const reply = (body: unknown, status = 200) =>
 type Integration = {
   id: string; provider: string; name: string; account_ref: string | null; account_id: string | null; page_ref: string | null;
   sync_frequency: string; mapping: { usd_rate?: number; campaigns?: Record<string, string> } | null; is_active: boolean;
+  last_sync_at: string | null;
 };
 
 Deno.serve(async (req) => {
@@ -56,11 +59,18 @@ Deno.serve(async (req) => {
   let trigger = "يدوي";
 
   if (body.mode === "scheduled") {
-    const secret = Deno.env.get("MKT_CRON_SECRET");
-    if (!secret || req.headers.get("x-cron-secret") !== secret) return reply({ error: "غير مسموح" }, 401);
+    // السرّ في Vault (200) — أو MKT_CRON_SECRET إن ضُبط في أسرار الدوالّ
+    const given = req.headers.get("x-cron-secret") ?? "";
+    const env = Deno.env.get("MKT_CRON_SECRET");
+    const ok = (env && given === env) || (given && (await admin.rpc("mkt_cron_secret_ok", { p_secret: given })).data === true);
+    if (!ok) return reply({ error: "غير مسموح" }, 401);
     trigger = "مجدول";
+    // المهمة كل ساعة (200): «كل ساعة» كل مرة، و«يومي» إن مضى ٢٠ ساعة على آخر محاولة
+    // (لا آخر نجاح: تكاملٌ معطّل لا يُعاد كل ساعة)
     const { data } = await admin.from("mkt_integrations").select("*").eq("is_active", true).neq("sync_frequency", "يدوي");
-    targets = (data ?? []) as Integration[];
+    const dayAgo = Date.now() - 20 * 3600_000;
+    targets = ((data ?? []) as Integration[]).filter((i) =>
+      i.sync_frequency === "كل ساعة" || !i.last_sync_at || Date.parse(i.last_sync_at) < dayAgo);
   } else {
     // جلسة المستخدم: الصلاحية تقرّرها القاعدة (can_write_marketing) لا هذه الدالّة
     const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");

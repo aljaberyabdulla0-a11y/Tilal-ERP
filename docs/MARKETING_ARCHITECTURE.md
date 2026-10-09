@@ -320,7 +320,7 @@ mkt_issue_material (التسويق) ─► inventory_moves «صرف» بـ mkt_c
 | Meta (فيسبوك/إنستغرام) | **موصّل مبني** — `supabase/functions/marketing-sync`: رؤى يومية لآخر ٧ أيام على مستوى الإعلان، ينشئ التسلسل الإعلاني ويربط الحملة الإعلانية بحملة تلال برمزها في اسمها، يحوّل العملة بـ `mapping.usd_rate`، ثلاث محاولات بمهلة متزايدة، والرمز المنتهي يوقف الإعادة |
 | Google Ads، TikTok، LinkedIn، YouTube، GA، GTM، WhatsApp، Email، SMS | **إطار بلا موصّل**: الاتصال والحالة والمفتاح في Vault والسجلّ والتنبيه جاهزة؛ المزامنة تُسجَّل «فشل: الموصّل غير مبني» صراحةً. المقاييس بملف CSV حتى يُبنى |
 | ليدات النماذج الفورية | البوّابة `crm_lead_intake` تستقبلها (079) ومحفّز 124 ينسبها بـ utm_campaign؛ الويبهوك نفسه غير مبني |
-| المزامنة المجدولة | تحتاج `pg_net` (غير مثبّت) — الأمر معلَّق في آخر 126 |
+| المزامنة المجدولة | **مفعّلة (200)**: `pg_net` + المهمة `mkt-sync-hourly` (الدقيقة ٢٠ كل ساعة) تنادي `marketing-sync` بسرّ في Vault (`mkt_cron_secret`، تتحقّق منه `mkt_cron_secret_ok` لـ service_role). التكامل «كل ساعة» كل مرة، و«يومي» إن مضى ٢٠ ساعة على آخر محاولة. الدالّة بـ `verify_jwt = false` وتتحقّق بنفسها. سعر الدولار `mapping.usd_rate` (افتراضياً 1520) |
 
 ---
 
@@ -390,7 +390,7 @@ mkt_issue_material (التسويق) ─► inventory_moves «صرف» بـ mkt_c
 ### التفعيل (المالك)
 
 1. `195` ثم `196` في SQL Editor، ثم `select * from tests.run_marketing_hardening();` و`tests.run_marketing()`.
-2. `supabase functions deploy marketing-sync` و`supabase functions deploy meta-leads --no-verify-jwt`؛ والأسرار `META_APP_SECRET` و`META_VERIFY_TOKEN` و`MKT_CRON_SECRET`.
+2. ✅ ٢٠٢٦-١٠-٠٩: الدالّتان منشورتان (`--no-verify-jwt`) والمزامنة المجدولة مفعّلة (200). باقٍ: السرّان `META_APP_SECRET` و`META_VERIFY_TOKEN`.
 3. تكامل Meta بمعرّف الصفحة (`page_ref`) ورمزها، واشتراك Webhook في تطبيق Meta.
 4. `ANTHROPIC_API_KEY` على Vercel للمساعد.
 5. ربط حركات 5700 الثلاث من «المصروفات ← اربط حركة» بعد إنشاء حملاتها.

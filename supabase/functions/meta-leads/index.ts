@@ -19,7 +19,8 @@
 //     The integration is chosen by page_ref (195) = the page id in the event, otherwise the first active Meta integration.
 //
 // Linking to the campaign: if the ad is known in mkt_ad_objects (the marketing-sync sync creates it) the touchpoint inherits
-// its campaign; otherwise the code is read from the Meta campaign name (cmp-0001) or mapping.campaigns.
+// its campaign; otherwise mapping.campaigns, a Tilal campaign whose code is the Meta campaign id, or cmp-0001 in its name.
+// The page must be subscribed to the app (leadgen) — «اشترك الصفحة» on the integrations screen (marketing-sync).
 //
 // Errors don't stop the response: Meta retries for hours on any non-200 response, so the lead's
 // error is logged in mkt_event_errors (it appears in «data quality») and 200 is returned.
@@ -106,15 +107,22 @@ async function handleLead(admin: SupabaseClient, v: LeadChange) {
   // The ad in Tilal (if the sync created it) — the touchpoint inherits its campaign through it
   const adId = lead.ad_id ?? v.ad_id ?? null;
   let adObject: string | null = null;
+  let adCampaign: string | null = null;
   if (adId) {
-    const { data } = await admin.from("mkt_ad_objects").select("id").eq("level", "إعلان").eq("external_id", adId).limit(1).maybeSingle();
+    const { data } = await admin.from("mkt_ad_objects").select("id, campaign_id").eq("level", "إعلان").eq("external_id", adId).limit(1).maybeSingle();
     adObject = (data as { id: string } | null)?.id ?? null;
+    adCampaign = (data as { campaign_id: string | null } | null)?.campaign_id ?? null;
   }
-  // Otherwise: the campaign code from the Meta campaign name, or an explicit mapping
+  // The client card needs the campaign too (utm_campaign → campaign_ref by code, 124), not only the touchpoint:
+  // the ad's Tilal campaign, an explicit mapping, a Tilal campaign whose code is the Meta campaign id, or cmp-0001 in its name
   let campaignCode: string | null = null;
-  const mapped = lead.campaign_id ? integ.mapping?.campaigns?.[lead.campaign_id] : undefined;
-  if (mapped) {
-    const { data } = await admin.from("crm_campaigns").select("code").eq("id", mapped).maybeSingle();
+  const tilalId = adCampaign ?? (lead.campaign_id ? integ.mapping?.campaigns?.[lead.campaign_id] : undefined) ?? null;
+  if (tilalId) {
+    const { data } = await admin.from("crm_campaigns").select("code").eq("id", tilalId).maybeSingle();
+    campaignCode = (data as { code: string } | null)?.code ?? null;
+  }
+  if (!campaignCode && lead.campaign_id) {
+    const { data } = await admin.from("crm_campaigns").select("code").eq("code", lead.campaign_id).limit(1).maybeSingle();
     campaignCode = (data as { code: string } | null)?.code ?? null;
   }
   campaignCode ??= (String(lead.campaign_name ?? "").toLowerCase().match(/cmp-\d{4}/) ?? [null])[0];

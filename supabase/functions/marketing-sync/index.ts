@@ -9,6 +9,8 @@
 //                                          يملك الكتابة في التسويق
 //   { mode: "scheduled" }               — كل تكامل فعّال غير يدوي،
 //                                          بترويسة x-cron-secret
+//   { mode: "subscribe_page", integration_id } — اشتراك صفحة التكامل بليدات
+//                                          النماذج (leadgen)، لمدير التسويق
 //
 // الموصّل الجاهز: Meta (رؤى الإعلانات اليومية لآخر ٧ أيام على مستوى
 // الإعلان). يُنشئ الحملات الإعلانية ومجموعاتها وإعلاناتها في
@@ -37,7 +39,7 @@ const reply = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 type Integration = {
-  id: string; provider: string; name: string; account_ref: string | null; account_id: string | null;
+  id: string; provider: string; name: string; account_ref: string | null; account_id: string | null; page_ref: string | null;
   sync_frequency: string; mapping: { usd_rate?: number; campaigns?: Record<string, string> } | null; is_active: boolean;
 };
 
@@ -65,10 +67,14 @@ Deno.serve(async (req) => {
     const asUser = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, {
       auth: { persistSession: false }, global: { headers: { Authorization: `Bearer ${jwt}` } },
     });
-    const { data: ok } = await asUser.rpc("can_write_marketing");
-    if (ok !== true) return reply({ error: "المزامنة لفريق التسويق" }, 403);
+    const { data: ok } = await asUser.rpc(body.mode === "subscribe_page" ? "is_marketing_manager" : "can_write_marketing");
+    if (ok !== true) return reply({ error: body.mode === "subscribe_page" ? "الاشتراك لمدير التسويق" : "المزامنة لفريق التسويق" }, 403);
     const { data } = await admin.from("mkt_integrations").select("*").eq("id", body.integration_id ?? "").maybeSingle();
     if (!data) return reply({ error: "التكامل غير موجود" }, 404);
+    if (body.mode === "subscribe_page") {
+      try { return reply({ message: await subscribePage(admin, data as Integration) }); }
+      catch (e) { return reply({ error: e instanceof Error ? e.message : String(e) }, 502); }
+    }
     targets = [data as Integration];
   }
 
@@ -184,6 +190,35 @@ async function syncOne(admin: SupabaseClient, it: Integration): Promise<{ rows: 
   if (error) throw new Error(`حفظ المقاييس: ${error.message}`);
   const res = imp as { ok: number; failed: number };
   return { rows: res.ok, meta: { currency, rate, fetched: rows.length, failed: res.failed, ad_campaigns: camps.length } };
+}
+
+// اشتراك صفحة فيسبوك بالتطبيق في حقل leadgen — بدونه لا يرسل Meta ليدات النماذج
+// إلى meta-leads ولو ضُبط الويبهوك في التطبيق. يحتاج رمز الصفحة: يُشتقّ من رمز
+// System User له صلاحيات الصفحة، وإلا فالرمز المحفوظ رمز صفحة أصلاً.
+async function subscribePage(admin: SupabaseClient, it: Integration): Promise<string> {
+  if (it.provider !== "meta") throw new Error("الاشتراك لتكامل Meta");
+  if (!it.page_ref || !/^\d+$/.test(it.page_ref)) throw new Error("أضِف للتكامل معرّف صفحة فيسبوك (أرقام) — «عدّل»");
+  const { data: token } = await admin.rpc("mkt_integration_secret", { p_integration: it.id });
+  if (!token) throw new Error("لا مفتاح محفوظ — اضبطه أولاً");
+
+  let pageToken = token as string;
+  let pageName = it.page_ref;
+  try {
+    const p = await graph(`${GRAPH}/${it.page_ref}?fields=name,access_token`, token as string);
+    if (typeof p.access_token === "string") pageToken = p.access_token;
+    if (typeof p.name === "string") pageName = p.name;
+  } catch { /* رمز صفحة أصلاً — يُجرَّب كما هو */ }
+
+  const res = await fetch(`${GRAPH}/${it.page_ref}/subscribed_apps`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${pageToken}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body: "subscribed_fields=leadgen",
+  });
+  const json = await res.json().catch(() => ({})) as { success?: boolean; error?: { message?: string } };
+  if (!res.ok || json.success !== true) {
+    throw new Error(`Meta: ${json.error?.message ?? res.status} — الرمز يحتاج pages_manage_metadata و leads_retrieval على الصفحة`);
+  }
+  return `اشتُركت صفحة «${pageName}» بالليدات — جرّبها بأداة اختبار ليدات ميتا`;
 }
 
 async function graph(u: string, token: string): Promise<Record<string, unknown>> {

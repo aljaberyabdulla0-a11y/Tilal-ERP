@@ -76,9 +76,8 @@ export default async function LostSalesPage({ searchParams }: { searchParams: Re
   }
   const outcomesFiltered = filters.source ? await getJourneyOutcomes(outcomeFilters) : outcomes;
 
-  // مُرشِّح المشروع لا يرى إلا الخسائر المنسوبة لمشروع. والمشروع يُجمَّد من
-  // المسار يوم الخسارة — وأغلب الخسائر قبل ٢٠٢٦-١٠-١٣ بلا مشروع لأن بطاقات
-  // العملاء لم تحمله. نُعلن النقص بدل أن يُقرأ الصفر «لا خسائر».
+  // مُرشِّح المشروع لا يرى إلا الخسائر المنسوبة لمشروع (206: مشروع الليد =
+  // بطاقته وإلا موظّفه). ما بقي بلا مشروع يُعلَن بدل أن يُقرأ الصفر «لا خسائر».
   let projectGap: { total: number; without: number } | null = null;
   if (filters.project_id) {
     const supabase = await createClient();
@@ -166,8 +165,8 @@ export default async function LostSalesPage({ searchParams }: { searchParams: Re
         {projectGap && projectGap.without > 0 && (
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {lang === "en"
-              ? `${projectGap.without} of ${projectGap.total} recorded losses have no project, so they don't appear under any project filter. The loss form now asks for the project when the journey has none.`
-              : `${projectGap.without} من ${projectGap.total} خسارة مسجّلة بلا مشروع، فلا تظهر تحت أي مُرشِّح مشروع. السبب أن بطاقات العملاء لا تحمل مشروعاً؛ واستمارة الخسارة تسأل عنه الآن حين لا يعرفه المسار.`}
+              ? `${projectGap.without} of ${projectGap.total} recorded losses have no project, so they don't appear under any project filter. A lead's project is its card's project, else its employee's project (206).`
+              : `${projectGap.without} من ${projectGap.total} خسارة مسجّلة بلا مشروع، فلا تظهر تحت أي مُرشِّح مشروع. مشروع الليد = مشروع بطاقته وإلا مشروع موظّفه (206) — ما بقي بلا مشروع موظّفه بلا مشروع في الموارد البشرية.`}
           </p>
         )}
 

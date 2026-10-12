@@ -26,7 +26,7 @@ async function ViewerKpis({ f }: { f: DashFilters }) {
   const { t } = getI18n();
   const k = t.dash.kpi;
   const [eng, units] = await Promise.all([
-    engineCompare(["REVENUE", "WON_DEALS", "RESERVATIONS", "CONVERSION_RATE", "NEW_LEADS", "OPEN_LEADS"], f.range, f.previous, engineFilters(f), f.today),
+    engineCompare(["REVENUE", "WON_DEALS", "RESERVATIONS", "WIN_RATE_COMMERCIAL", "NEW_LEADS", "OPEN_LEADS"], f.range, f.previous, engineFilters(f), f.today),
     getUnits(f.project),
   ]);
   if (!eng.ok) return <ErrorState detail={eng.error} />;
@@ -38,7 +38,7 @@ async function ViewerKpis({ f }: { f: DashFilters }) {
     makeKpi({ key: "rev", title: k.sales, value: c("REVENUE"), unit: "money", direction: "positive", icon: "payments", href: drillHref("REVENUE", f), definition: k.salesDef }, p("REVENUE")),
     makeKpi({ key: "won", title: k.wonDeals, value: c("WON_DEALS"), unit: "count", direction: "positive", icon: "check_circle", href: drillHref("WON_DEALS", f), definition: k.wonDealsDef }, p("WON_DEALS")),
     makeKpi({ key: "res", title: k.reservations, value: c("RESERVATIONS"), unit: "count", direction: "positive", icon: "key", href: drillHref("RESERVATIONS", f), definition: k.reservationsDef }, p("RESERVATIONS")),
-    makeKpi({ key: "conv", title: k.conversion, value: c("CONVERSION_RATE"), unit: "pct", direction: "positive", icon: "conversion_path", href: drillHref("CONVERSION_RATE", f), definition: k.conversionDef }, p("CONVERSION_RATE")),
+    makeKpi({ key: "conv", title: k.conversion, value: c("WIN_RATE_COMMERCIAL"), unit: "pct", direction: "positive", icon: "conversion_path", href: drillHref("WIN_RATE_COMMERCIAL", f), definition: k.conversionDef }, p("WIN_RATE_COMMERCIAL")),
     makeKpi({ key: "leads", title: k.newLeads, value: c("NEW_LEADS"), unit: "count", direction: "positive", icon: "person_add", href: drillHref("NEW_LEADS", f), definition: k.newLeadsDef }, p("NEW_LEADS")),
     makeKpi({ key: "open", title: k.activeLeads, value: c("OPEN_LEADS"), unit: "count", direction: "neutral", icon: "groups", href: drillHref("OPEN_LEADS", f), definition: k.activeLeadsDef }, p("OPEN_LEADS")),
     { key: "avail", title: k.unitsAvailable, value: available, unit: "count", direction: "neutral", icon: "apartment", delta: null, definition: k.unitsAvailableDef },

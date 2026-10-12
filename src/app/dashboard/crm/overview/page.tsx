@@ -108,7 +108,7 @@ export default async function CrmOverviewPage({
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <Kpi label="مسارات مفتوحة" value={fmt(kpis.open_count)} href="/dashboard/clients/board" />
             <Kpi label="قيمة الأنابيب" value={fmt(kpis.pipeline_value)} sub={`موزونة ${fmt(kpis.weighted_pipeline)}`} href="/dashboard/clients/board" />
-            <Kpi label="معدّل التحويل" value={`${kpis.conversion_rate}%`} sub={`${kpis.won_count} فوز · ${kpis.lost_count} خسارة`} href="/dashboard/crm/reports/analysis" />
+            <Kpi label="معدّل الفوز التجاري" value={`${kpis.conversion_rate}%`} sub={`${kpis.won_count} فوز · ${kpis.lost_count} خسارة بكل أصنافها`} href="/dashboard/crm/reports/analysis" />
             <Kpi label="دورة البيع" value={`${kpis.avg_sales_cycle} يوماً`} sub={`الوسيط ${kpis.median_sales_cycle}`} href="/dashboard/crm/reports/analysis" />
             <Kpi label="متأخرة" value={fmt(kpis.overdue_count)} tone="red" href="/dashboard/crm/today" />
             <Kpi label="مهملة" value={fmt(kpis.neglected_count)} tone="red" href="/dashboard/crm/distribution" />

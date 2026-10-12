@@ -27,7 +27,7 @@ export default async function ProjectsSection({ f }: { f: DashFilters }) {
 
   const [units, perf, labels] = await Promise.all([
     getUnits(f.project),
-    engineBy(["REVENUE", "WON_DEALS", "RESERVATIONS", "NEW_LEADS", "CONVERSION_RATE"], "project", f.range, filters, f.today),
+    engineBy(["REVENUE", "WON_DEALS", "RESERVATIONS", "NEW_LEADS", "WIN_RATE_COMMERCIAL"], "project", f.range, filters, f.today),
     getDimLabels(),
   ]);
 
@@ -63,7 +63,7 @@ export default async function ProjectsSection({ f }: { f: DashFilters }) {
       revenue: num(m.REVENUE),
       won: num(m.WON_DEALS),
       leads: num(m.NEW_LEADS),
-      conversion: num(m.CONVERSION_RATE),
+      conversion: num(m.WIN_RATE_COMMERCIAL),
     };
   }).sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0) || b.total - a.total);
 

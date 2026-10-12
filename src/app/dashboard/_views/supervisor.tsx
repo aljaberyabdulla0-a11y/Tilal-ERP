@@ -31,7 +31,7 @@ import { DashMain, compareText, rangeText, readFilters } from "./shared";
 // سؤالها: كيف يؤدي فريقي في هذه الفترة؟ ومن يحتاج دعماً الآن؟
 // ============================================================
 
-const TEAM_METRICS = ["REVENUE", "WON_DEALS", "NEW_LEADS", "CONVERSION_RATE", "RESERVATIONS", "TOTAL_ACTIVITIES", "OVERDUE", "SLA_BREACH_OPEN"];
+const TEAM_METRICS = ["REVENUE", "WON_DEALS", "NEW_LEADS", "WIN_RATE_COMMERCIAL", "RESERVATIONS", "TOTAL_ACTIVITIES", "OVERDUE", "SLA_BREACH_OPEN"];
 
 async function SupervisorKpis({ f }: { f: DashFilters }) {
   const { t } = getI18n();
@@ -45,7 +45,7 @@ async function SupervisorKpis({ f }: { f: DashFilters }) {
     makeKpi({ key: "rev", title: k.sales, value: c("REVENUE"), unit: "money", direction: "positive", icon: "payments", href: drillHref("REVENUE", f), definition: k.salesDef }, p("REVENUE")),
     makeKpi({ key: "won", title: k.wonDeals, value: c("WON_DEALS"), unit: "count", direction: "positive", icon: "check_circle", href: drillHref("WON_DEALS", f), definition: k.wonDealsDef }, p("WON_DEALS")),
     makeKpi({ key: "leads", title: k.newLeads, value: c("NEW_LEADS"), unit: "count", direction: "positive", icon: "person_add", href: drillHref("NEW_LEADS", f), definition: k.newLeadsDef }, p("NEW_LEADS")),
-    makeKpi({ key: "conv", title: k.conversion, value: c("CONVERSION_RATE"), unit: "pct", direction: "positive", icon: "conversion_path", href: drillHref("CONVERSION_RATE", f), definition: k.conversionDef }, p("CONVERSION_RATE")),
+    makeKpi({ key: "conv", title: k.conversion, value: c("WIN_RATE_COMMERCIAL"), unit: "pct", direction: "positive", icon: "conversion_path", href: drillHref("WIN_RATE_COMMERCIAL", f), definition: k.conversionDef }, p("WIN_RATE_COMMERCIAL")),
   ];
   const overdue = c("OVERDUE");
   const sla = c("SLA_BREACH_OPEN");

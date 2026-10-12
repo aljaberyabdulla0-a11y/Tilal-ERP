@@ -12,6 +12,7 @@ import {
   toIntlPhone,
 } from "@/lib/types";
 import StageSelect from "@/components/stage-select";
+import { getPipelineConfig } from "@/lib/crm-config";
 import ActivityTimeline from "@/components/activity-timeline";
 import LogActivity from "@/app/dashboard/clients/[id]/log-activity";
 
@@ -30,6 +31,9 @@ export default async function BrokerLeadPage({
   if (!(await isBroker())) redirect("/dashboard");
 
   const supabase = await createClient();
+  // الوسيط يتابع ولا يُغلق (201): المراحل المفتوحة اليدوية وحدها
+  const cfg = await getPipelineConfig();
+  const brokerStages = cfg.stages.filter((s) => !s.closed && s.manual !== false);
   const [{ data }, { data: acts }] = await Promise.all([
     supabase
       .from("clients")
@@ -83,7 +87,7 @@ export default async function BrokerLeadPage({
               {leadDeadlineLabel(days)}
             </span>
           )}
-          <StageSelect clientId={lead.id} stage={lead.stage} size="md" />
+          <StageSelect clientId={lead.id} stage={lead.stage} size="md" stages={brokerStages} />
           {intl && (
             <>
               <a

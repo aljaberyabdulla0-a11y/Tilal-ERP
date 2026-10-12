@@ -29,7 +29,7 @@ export default async function CrmSection({ f, showOwners = true }: { f: DashFilt
   const [kpis, bySource, byLost, team, labels] = await Promise.all([
     getCrmKpis({ from: f.range.from, to: f.range.to, projectId: f.project, teamId: f.team, sourceId: f.source }),
     engineBy(["NEW_LEADS", "WON_DEALS"], "source", f.range, filters, f.today),
-    engineBy(["LOST_DEALS"], "lost_reason", f.range, filters, f.today),
+    engineBy(["COMMERCIAL_LOST_DEALS"], "lost_reason", f.range, filters, f.today),
     showOwners ? getTeamPerformance({ from: f.range.from, to: f.range.to, teamId: f.team ?? f.project }) : Promise.resolve([]),
     getDimLabels(),
   ]);
@@ -51,7 +51,7 @@ export default async function CrmSection({ f, showOwners = true }: { f: DashFilt
         .map((r) => ({
           key: r.dims.lost_reason ?? "none",
           label: r.dims.lost_reason ? labels.lost_reason.get(r.dims.lost_reason) ?? unknown : unknown,
-          value: num(r.metrics.LOST_DEALS) ?? 0,
+          value: num(r.metrics.COMMERCIAL_LOST_DEALS) ?? 0,
         }))
         .filter((r) => r.value > 0)
         .sort((a, b) => b.value - a.value)

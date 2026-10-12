@@ -23,8 +23,8 @@ import { ErrorState } from "@/components/dashboard/states";
 // ============================================================
 
 export const EXEC_METRICS = [
-  "REVENUE", "RESERVATIONS", "WON_DEALS", "OPEN_LEADS", "CONVERSION_RATE",
-  "NEW_LEADS", "TOTAL_ACTIVITIES", "AVG_DEAL_VALUE", "AVG_SALES_CYCLE", "LOST_DEALS", "WEIGHTED_PIPELINE",
+  "REVENUE", "RESERVATIONS", "WON_DEALS", "OPEN_LEADS", "WIN_RATE_COMMERCIAL",
+  "NEW_LEADS", "TOTAL_ACTIVITIES", "AVG_DEAL_VALUE", "AVG_SALES_CYCLE", "COMMERCIAL_LOST_DEALS", "WEIGHTED_PIPELINE",
 ];
 
 export default async function ExecutiveKpis({ f, finance }: { f: DashFilters; finance: boolean }) {
@@ -73,7 +73,7 @@ export default async function ExecutiveKpis({ f, finance }: { f: DashFilters; fi
       subtitle: units.ok ? fill(k.unitsOf, { total: fmtNumber(unitsTotal, locale) }) : undefined,
     },
     makeKpi({ key: "active", title: k.activeLeads, value: c("OPEN_LEADS"), unit: "count", direction: "neutral", icon: "groups", href: drillHref("OPEN_LEADS", f), definition: k.activeLeadsDef, source: "crm_report_query:OPEN_LEADS" }, p("OPEN_LEADS")),
-    makeKpi({ key: "conversion", title: k.conversion, value: c("CONVERSION_RATE"), unit: "pct", direction: "positive", icon: "conversion_path", href: drillHref("CONVERSION_RATE", f), definition: k.conversionDef, source: "crm_report_query:CONVERSION_RATE" }, p("CONVERSION_RATE")),
+    makeKpi({ key: "conversion", title: k.conversion, value: c("WIN_RATE_COMMERCIAL"), unit: "pct", direction: "positive", icon: "conversion_path", href: drillHref("WIN_RATE_COMMERCIAL", f), definition: k.conversionDef, source: "crm_report_query:WIN_RATE_COMMERCIAL" }, p("WIN_RATE_COMMERCIAL")),
   ];
 
   const operational: Kpi[] = [
@@ -81,7 +81,7 @@ export default async function ExecutiveKpis({ f, finance }: { f: DashFilters; fi
     makeKpi({ key: "acts", title: k.activities, value: c("TOTAL_ACTIVITIES"), unit: "count", direction: "positive", icon: "call", href: drillHref("TOTAL_ACTIVITIES", f), definition: k.activitiesDef }, p("TOTAL_ACTIVITIES")),
     makeKpi({ key: "avg", title: k.avgDeal, value: c("AVG_DEAL_VALUE"), unit: "money", direction: "positive", icon: "sell", href: drillHref("AVG_DEAL_VALUE", f), definition: k.avgDealDef }, p("AVG_DEAL_VALUE")),
     makeKpi({ key: "cycle", title: k.salesCycle, value: c("AVG_SALES_CYCLE"), unit: "days", direction: "negative", icon: "timelapse", href: drillHref("AVG_SALES_CYCLE", f), definition: k.salesCycleDef }, p("AVG_SALES_CYCLE")),
-    makeKpi({ key: "lost", title: k.lostDeals, value: c("LOST_DEALS"), unit: "count", direction: "negative", icon: "trending_down", href: `/dashboard/crm/lost?from=${f.range.from}&to=${f.range.to}`, definition: k.lostDealsDef }, p("LOST_DEALS")),
+    makeKpi({ key: "lost", title: k.lostDeals, value: c("COMMERCIAL_LOST_DEALS"), unit: "count", direction: "negative", icon: "trending_down", href: `/dashboard/crm/lost?from=${f.range.from}&to=${f.range.to}`, definition: k.lostDealsDef }, p("COMMERCIAL_LOST_DEALS")),
     makeKpi({ key: "wpipe", title: k.weightedPipeline, value: c("WEIGHTED_PIPELINE"), unit: "money", direction: "positive", icon: "stacked_line_chart", href: drillHref("WEIGHTED_PIPELINE", f), definition: k.weightedPipelineDef }, p("WEIGHTED_PIPELINE")),
   ];
 

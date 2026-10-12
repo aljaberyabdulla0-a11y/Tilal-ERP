@@ -61,7 +61,7 @@ const DASHBOARD: ReportTemplate = {
       { key: "projects", title: "المشاريع", type: "table",
         metrics: ["NEW_LEADS", "TOTAL_ACTIVITIES", "VISITS", "QUALIFIED_LEADS", "RESERVATIONS", "WON_DEALS", "OPEN_OPPORTUNITIES"], group_by: ["project"], sort: "-NEW_LEADS", state: "snapshot" },
       { key: "sources", title: "المصادر", type: "table",
-        metrics: ["NEW_LEADS", "UNIQUE_CLIENTS_CONTACTED", "QUALIFIED_LEADS", "WON_DEALS", "CONVERSION_RATE"], group_by: ["source"], sort: "-NEW_LEADS" },
+        metrics: ["NEW_LEADS", "UNIQUE_CLIENTS_CONTACTED", "QUALIFIED_LEADS", "WON_DEALS", "WIN_RATE_COMMERCIAL"], group_by: ["source"], sort: "-NEW_LEADS" },
       { key: "risk", title: "مخاطر المتابعة", type: "kpis",
         metrics: ["OVERDUE", "DUE_TODAY", "NO_NEXT_ACTION", "NO_CONTACT", "NEGLECTED", "DORMANT", "SLA_BREACH_OPEN", "UNASSIGNED"], state: "snapshot" },
       { key: "insights", title: "ما يستحق النظر", type: "insights" },

@@ -400,9 +400,9 @@ async function buildInsights(ctx: {
     reportQuery({ ...base, metrics: ["TOTAL_ACTIVITIES", "NEW_LEADS"], groupBy: ["day"], range: trendRange, state: "snapshot" }),
     reportQuery({ ...base, metrics: ["NEW_LEADS"], groupBy: ["project"], range: cur, state: "snapshot" }),
     reportQuery({ ...base, metrics: ["TOTAL_ACTIVITIES", "OPEN_LEADS"], groupBy: ["employee"], range: cur, state: stateModeFor(cur, today) }),
-    reportQuery({ ...base, metrics: ["NEW_LEADS", "CONVERSION_RATE", "NEGLECTED", "TOTAL_ACTIVITIES"], range: cur, state: stateModeFor(cur, today) }),
+    reportQuery({ ...base, metrics: ["NEW_LEADS", "WIN_RATE_COMMERCIAL", "NEGLECTED", "TOTAL_ACTIVITIES"], range: cur, state: stateModeFor(cur, today) }),
     params.compareRange
-      ? reportQuery({ ...base, metrics: ["NEW_LEADS", "CONVERSION_RATE", "TOTAL_ACTIVITIES"], range: params.compareRange, state: "snapshot" })
+      ? reportQuery({ ...base, metrics: ["NEW_LEADS", "WIN_RATE_COMMERCIAL", "TOTAL_ACTIVITIES"], range: params.compareRange, state: "snapshot" })
       : Promise.resolve(NO_ROWS),
     reportQuery({ ...base, metrics: ["NEW_LEADS", "QUALIFIED_LEADS"], groupBy: ["source"], range: cur, state: "snapshot" }),
     params.compareRange
@@ -421,7 +421,7 @@ async function buildInsights(ctx: {
   const k = kpisCur.rows[0];
   const p = kpisPrev.rows[0];
   if (k && p) {
-    for (const code of ["TOTAL_ACTIVITIES", "NEW_LEADS", "CONVERSION_RATE"]) {
+    for (const code of ["TOTAL_ACTIVITIES", "NEW_LEADS", "WIN_RATE_COMMERCIAL"]) {
       const m = byCode.get(code);
       if (!m) continue;
       const i = changeInsight(m.name_ar, compareValues(valueOf(k, m), valueOf(p, m), m.good_direction), m.unit);

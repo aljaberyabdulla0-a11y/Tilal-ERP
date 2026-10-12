@@ -168,7 +168,11 @@ export default async function JourneyPanel({
         <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
           <Info label={t.project} value={opp.project_name ?? "—"} />
           <Info label={t.unitInfo} value={unit ? `${unit.unit_code}${unit.space_m2 ? ` · ${unit.space_m2} m²` : ""}` : "—"} />
-          <Info label={t.dealValue} value={money(opp.stage_type === "won" ? opp.won_value ?? opp.expected_value : opp.expected_value, lang)} />
+          <Info label={t.dealValue} value={money(opp.expected_value, lang)} />
+          {opp.stage_type === "won" && (
+            <Info label={lang === "en" ? "Tilal revenue (commission)" : "إيراد تلال (العمولة)"}
+                  value={opp.won_value === null ? (lang === "en" ? "No commission recorded" : "لا عمولة مسجّلة") : money(opp.won_value, lang)} />
+          )}
           <Info label={t.owner} value={opp.owner_name ?? "—"} />
           <Info label={t.source} value={opp.source_name ?? "—"} />
           <Info label={t.campaign} value={extras.opp?.crm_campaigns?.name ?? "—"} />

@@ -130,8 +130,8 @@ export default async function CrmReportsPage({
             <Stat label="فرص" value={fmt(kpis.opportunities)} />
             <Stat label="فوز" value={fmt(kpis.won_count)} tone="brand" />
             <Stat label="خسارة" value={fmt(kpis.lost_count)} tone="red" />
-            <Stat label="التحويل" value={`${kpis.conversion_rate}%`} />
-            <Stat label="قيمة الفوز" value={fmt(kpis.won_value)} />
+            <Stat label="الفوز التجاري" value={`${kpis.conversion_rate}%`} />
+            <Stat label="إيراد تلال (العمولة)" value={fmt(kpis.won_value)} />
             <Stat label="الأنابيب" value={fmt(kpis.pipeline_value)} />
             <Stat label="الموزونة" value={fmt(kpis.weighted_pipeline)} />
             <Stat label="متوسط الصفقة" value={fmt(kpis.avg_deal_value)} />

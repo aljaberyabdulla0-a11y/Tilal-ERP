@@ -84,10 +84,10 @@ export default async function CrmSection({ f, showOwners = true }: { f: DashFilt
     <DashboardSection id="crm" title={s.crm} hint={s.crmHint} href="/dashboard/crm/reports" linkLabel={t.dash.common.seeReport}>
       {kpis ? (
         <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
-          <StatTile label={k.open} value={num(kpis.open_count)} href="/dashboard/crm/opportunities?type=open&view=list" />
-          <StatTile label={k.won} value={num(kpis.won_count)} tone="good" href="/dashboard/crm/opportunities?type=won&view=list" />
+          <StatTile label={k.open} value={num(kpis.open_count)} href="/dashboard/clients/board" />
+          <StatTile label={k.won} value={num(kpis.won_count)} tone="good" href={`/dashboard/clients?stage=${encodeURIComponent("بيع")}`} />
           <StatTile label={k.lost} value={num(kpis.lost_count)} href="/dashboard/crm/lost" />
-          <StatTile label={k.pipeline} value={num(kpis.pipeline_value)} unit="money" href="/dashboard/crm/opportunities?type=open" hint={k.pipelineDef} />
+          <StatTile label={k.pipeline} value={num(kpis.pipeline_value)} unit="money" href="/dashboard/clients/board" hint={k.pipelineDef} />
           <StatTile label={k.weightedPipeline} value={num(kpis.weighted_pipeline)} unit="money" href="/dashboard/crm/forecast" hint={k.weightedPipelineDef} />
           <StatTile label={k.hotLeads} value={num(kpis.hot_count)} tone={Number(kpis.hot_count) > 0 ? "good" : "neutral"} href={`/dashboard/clients?temperature=${HOT}`} />
           <StatTile label={k.overdue} value={num(kpis.overdue_count)} tone={Number(kpis.overdue_count) > 0 ? "warning" : "neutral"} href="/dashboard/clients?followup=overdue" />

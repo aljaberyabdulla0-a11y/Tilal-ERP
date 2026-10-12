@@ -37,7 +37,7 @@ export async function GET() {
       : c.key === "source"
         ? { ...c, list: cfg.sources }
         : c.key === "stage"
-          ? { ...c, list: cfg.stageNames }
+          ? { ...c, list: cfg.manualStageNames }
           : c
   );
 

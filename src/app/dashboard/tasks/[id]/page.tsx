@@ -12,6 +12,7 @@ import ChecklistPanel from "@/components/tasks/detail/checklist-panel";
 import CommentsPanel from "@/components/tasks/detail/comments-panel";
 import AttachmentsPanel from "@/components/tasks/detail/attachments-panel";
 import RelationsPanel from "@/components/tasks/detail/relations-panel";
+import { journeyHref } from "@/lib/crm-journey";
 
 // ============================================================
 // صفحة المهمة — كل ما حولها في مكان واحد.
@@ -140,8 +141,8 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
                 ? <Link href={t.entity_url} className="text-brand-700 hover:underline">{t.entity_label}</Link> : t.entity_label))}
               {t.entity_type !== "client" && side("العميل", t.client_id && t.client_name && (
                 <Link href={`/dashboard/clients/${t.client_id}`} className="text-brand-700 hover:underline">{t.client_name}</Link>))}
-              {t.entity_type !== "opportunity" && side("الفرصة", t.opportunity_id && t.opportunity_title && (
-                <Link href={`/dashboard/crm/opportunities/${t.opportunity_id}`} className="text-brand-700 hover:underline">{t.opportunity_title}</Link>))}
+              {t.entity_type !== "opportunity" && side("المسار", t.opportunity_id && t.opportunity_title && (
+                <Link href={journeyHref(t.client_id, t.opportunity_id)} className="text-brand-700 hover:underline">{t.opportunity_title}</Link>))}
               {side("المشروع", t.project_id && t.project_name && (
                 <Link href={`/dashboard/tasks?view=list&project=${t.project_id}`} className="text-brand-700 hover:underline">{t.project_name}</Link>))}
               {side("الحملة", t.campaign_id && t.campaign_name && (

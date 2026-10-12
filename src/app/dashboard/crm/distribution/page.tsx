@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CLOSED_STAGES_PG_LIST } from "@/lib/types";
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/auth";
 import {
@@ -125,7 +126,7 @@ export default async function DistributionPage({
         .from("clients")
         .select("id", { count: "exact", head: true })
         .is("owner_id", null)
-        .not("stage", "in", '("بيع","فشل البيع")'),
+        .not("stage", "in", CLOSED_STAGES_PG_LIST),
     ]);
   const ownerless = ownerlessRes.count ?? 0;
 

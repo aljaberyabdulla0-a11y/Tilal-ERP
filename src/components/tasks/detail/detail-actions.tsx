@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { friendlyTaskError } from "@/lib/tasks";
 import { isOpenTask, type AssignablePerson, type TaskDetail } from "@/lib/types";
 import { useTaskActions } from "../use-task-actions";
+import { journeyHref } from "@/lib/crm-journey";
 
 // ============================================================
 // شريط أفعال المهمة — كل زرّ يظهر لمن يملكه (permissions من task_detail)،
@@ -27,7 +28,7 @@ export default function DetailActions({ detail, people }: { detail: TaskDetail; 
 
   const open = isOpenTask(t.status);
   const lostForm = t.analysis_lost_sale_id && t.opportunity_id && open
-    ? `/dashboard/crm/opportunities/${t.opportunity_id}?tab=lost&analyse=${t.analysis_lost_sale_id}` : null;
+    ? journeyHref(t.client_id, t.opportunity_id, t.analysis_lost_sale_id) : null;
   const pending = t.approval_status === "بانتظار الموافقة";
   const needsApproval = t.requires_approval && t.approval_status !== "معتمدة";
 

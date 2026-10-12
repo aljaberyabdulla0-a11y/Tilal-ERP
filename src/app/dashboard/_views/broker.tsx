@@ -6,7 +6,7 @@ import {
   companyMoney, getBrokerCommissions, getBrokerDashboardSummary, getBrokerPayments,
   getBrokerRequests, getMyBrokerCompany, paidByCommission,
 } from "@/lib/brokers";
-import { isOpenBrokerRequest, leadDaysLeft } from "@/lib/types";
+import { isOpenBrokerRequest, leadDaysLeft, CLOSED_STAGES_PG_LIST } from "@/lib/types";
 import { baghdadDate } from "@/lib/time";
 import { addDays } from "@/lib/report-dates";
 import { fill, fmtMoney, fmtShortDate } from "@/lib/dashboard/format";
@@ -53,7 +53,7 @@ async function Deadlines() {
       .select("id, name, stage, broker_deadline, projects(name)")
       .not("broker_company_id", "is", null)
       .is("deleted_at", null)
-      .or(`stage.is.null,stage.not.in.("بيع","فشل البيع")`);
+      .or(`stage.is.null,stage.not.in.${CLOSED_STAGES_PG_LIST}`);
   const [soon, expired] = await Promise.all([
     base().gte("broker_deadline", today).lte("broker_deadline", addDays(today, 3)).order("broker_deadline", { ascending: true }).limit(10),
     base().lt("broker_deadline", today).order("broker_deadline", { ascending: false }).limit(5),

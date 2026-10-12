@@ -4,7 +4,10 @@ import { getUserRole } from "@/lib/auth";
 import { getLocale } from "@/lib/i18n/server";
 import { tValue } from "@/lib/i18n/values";
 import { getProjectsLite, getEmployeesLite, getSources, getCampaigns } from "@/lib/crm";
-import { getLossLookups, getLostIntelligence, type DimRow, type LostIntelligence } from "@/lib/lost-sales";
+import {
+  getLossLookups, getLostIntelligence, getJourneyOutcomes, LOSS_CLASSES,
+  type DimRow, type LostIntelligence, type JourneyOutcomes,
+} from "@/lib/lost-sales";
 import {
   lostDict, money, compactMoney, pct, bandLabel, milestoneLabel, insightText, INSIGHT_STYLE,
   PRICE_BANDS, type Lang, type LostDict,
@@ -28,7 +31,15 @@ import CrmTabs from "../crm-tabs";
 // ============================================================
 
 const FILTER_KEYS = ["from", "to", "project_id", "owner_id", "team_id", "source", "campaign_id",
-                     "unit_size", "price_band", "category_id", "competitor_id"] as const;
+                     "unit_size", "price_band", "category_id", "competitor_id", "loss_class"] as const;
+
+// صنف النتيجة (202): من الاستمارة نفسها — لا يُكتب فوقها
+const CLASS_LABEL: Record<string, { ar: string; en: string; style: string }> = {
+  commercial:  { ar: "خسارة تجارية",  en: "Commercial loss", style: "bg-red-50 text-red-800" },
+  unqualified: { ar: "غير مؤهّل",      en: "Not qualified",   style: "bg-slate-100 text-slate-700" },
+  unreachable: { ar: "تعذّر الوصول",   en: "Unreachable",     style: "bg-orange-50 text-orange-800" },
+  unanalysed:  { ar: "بلا تحليل",      en: "Unanalysed",      style: "bg-gray-100 text-gray-600" },
+};
 
 export default async function LostSalesPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
   const role = await getUserRole();
@@ -43,14 +54,26 @@ export default async function LostSalesPage({ searchParams }: { searchParams: Re
     if (v) filters[k] = v;
   }
 
-  const [data, lookups, projects, employees, sources, campaigns] = await Promise.all([
+  // نتائج المسارات بأبعادها يوم الحدث: المصدر بالمعرّف هنا لا بالاسم
+  const outcomeFilters: Record<string, string> = {};
+  for (const k of ["from", "to", "owner_id", "team_id", "project_id", "campaign_id"] as const) {
+    if (filters[k]) outcomeFilters[k] = filters[k];
+  }
+
+  const [data, lookups, projects, employees, sources, campaigns, outcomes] = await Promise.all([
     getLostIntelligence(filters),
     getLossLookups(),
     getProjectsLite(),
     getEmployeesLite(),
     getSources(),
     getCampaigns(),
+    getJourneyOutcomes(outcomeFilters),
   ]);
+  if (filters.source) {
+    const sid = sources.find((x) => x.name === filters.source)?.id;
+    if (sid) outcomeFilters.source_id = sid;
+  }
+  const outcomesFiltered = filters.source ? await getJourneyOutcomes(outcomeFilters) : outcomes;
 
   const catName = (code: string | null | undefined) => {
     if (!code) return "—";
@@ -113,6 +136,9 @@ export default async function LostSalesPage({ searchParams }: { searchParams: Re
             <Select name="category_id" label={t.category} value={filters.category_id} all={t.allCategories}
                     options={[...lookups.categories.map((c) => ({ value: c.id, label: lang === "en" ? c.name_en : c.name_ar })),
                               { value: "none", label: t.kUnanalysed }]} />
+            <Select name="loss_class" label={lang === "en" ? "Outcome class" : "صنف النتيجة"} value={filters.loss_class}
+                    all={lang === "en" ? "All classes" : "كل الأصناف"}
+                    options={LOSS_CLASSES.map((c) => ({ value: c, label: lang === "en" ? CLASS_LABEL[c].en : CLASS_LABEL[c].ar }))} />
             <Select name="competitor_id" label={t.competitor} value={filters.competitor_id} all={t.allCompetitors}
                     options={lookups.competitors.map((c) => ({ value: c.id, label: lang === "en" ? c.name_en || c.name : c.name }))} />
             <div className="flex items-end gap-2">
@@ -123,6 +149,8 @@ export default async function LostSalesPage({ searchParams }: { searchParams: Re
           <p className="mt-2 text-[11px] text-gray-400">{t.categoryFilterNote}</p>
         </form>
 
+        {outcomesFiltered && <Outcomes o={outcomesFiltered} lang={lang} filters={filters} />}
+
         {!data ? (
           <p className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-10 text-center text-sm text-gray-400">{t.unavailable}</p>
         ) : (
@@ -130,6 +158,73 @@ export default async function LostSalesPage({ searchParams }: { searchParams: Re
         )}
       </div>
     </div>
+  );
+}
+
+// ============================================================
+// تصنيف النتائج — يجيب قبل كل شيء: كم خسرنا «فعلاً»؟
+// من ٨٩٦ «فشل البيع» في ٣٠ يوماً (٢٠٢٦-١٠-١٢) ١١٤ فقط خسارة تجارية؛
+// الباقي غير مؤهّل أو لا يرد أو بلا تحليل. فمعدّل الفوز بالمقام القديم
+// يقيس جودة الليدات قبل أداء البيع.
+// ============================================================
+function Outcomes({ o, lang, filters }: { o: JourneyOutcomes; lang: Lang; filters: Record<string, string> }) {
+  const en = lang === "en";
+  const href = (cls: string) => {
+    const q = new URLSearchParams(filters);
+    q.set("loss_class", cls);
+    return `/dashboard/crm/lost?${q.toString()}`;
+  };
+  const cell = (cls: keyof typeof CLASS_LABEL, n: number) => (
+    <Link key={cls} href={href(cls)} className={`rounded-xl px-3 py-2 text-center ${CLASS_LABEL[cls].style} hover:ring-2 hover:ring-brand-300`}>
+      <p className="text-xl font-bold">{n}</p>
+      <p className="text-[11px]">{en ? CLASS_LABEL[cls].en : CLASS_LABEL[cls].ar}</p>
+    </Link>
+  );
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <h2 className="font-bold text-gray-800">{en ? "How journeys ended" : "كيف انتهت المسارات في المدة"}</h2>
+      <p className="mb-3 text-xs text-gray-500">
+        {en
+          ? "Only commercial losses are real lost sales. Not-qualified, unreachable and non-commercial closures measure lead quality, not selling."
+          : "الخسارة التجارية وحدها صفقةٌ خسرناها. «غير مؤهّل» و«تعذّر الوصول» والإغلاق غير التجاري تقيس جودة الليد لا أداء البيع."}
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+        <div className="rounded-xl bg-green-50 px-3 py-2 text-center text-green-800">
+          <p className="text-xl font-bold">{o.won}</p><p className="text-[11px]">{en ? "Won" : "فوز"}</p>
+        </div>
+        {cell("commercial", o.lost_commercial)}
+        {cell("unqualified", o.lost_unqualified)}
+        {cell("unreachable", o.lost_unreachable)}
+        {cell("unanalysed", o.lost_unanalysed)}
+        <div className="rounded-xl bg-slate-50 px-3 py-2 text-center text-slate-700" title={Object.entries(o.closed_by_stage).map(([k, v]) => `${k}: ${v}`).join(" · ")}>
+          <p className="text-xl font-bold">{o.closed_noncommercial}</p>
+          <p className="text-[11px]">{en ? "Closed (non-commercial)" : "إغلاق غير تجاري"}</p>
+        </div>
+        <div className="rounded-xl bg-amber-50 px-3 py-2 text-center text-amber-800">
+          <p className="text-xl font-bold">{o.reservations_cancelled}</p>
+          <p className="text-[11px]">{en ? "Reservations cancelled" : "حجوزات أُلغيت"}</p>
+        </div>
+        <div className="rounded-xl bg-indigo-50 px-3 py-2 text-center text-indigo-800">
+          <p className="text-xl font-bold">{o.reopened}</p>
+          <p className="text-[11px]">{en ? "Reopened" : "أُعيد فتحها"}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        <span>
+          {en ? "Commercial win rate" : "معدّل الفوز التجاري"}:{" "}
+          <b className="text-gray-900">{o.win_rate_commercial === null ? "—" : `${o.win_rate_commercial}%`}</b>
+          {o.win_rate_commercial_is_upper_bound && (
+            <span className="ms-1 text-xs text-amber-700">
+              {en ? "(upper bound — some losses unanalysed)" : "(حدٌّ أعلى — خسائر بلا تحليل)"}
+            </span>
+          )}
+        </span>
+        <span className="text-gray-500">
+          {en ? "Over all losses (legacy)" : "على كل الخسائر (التعريف القديم)"}:{" "}
+          {o.win_rate_all === null ? "—" : `${o.win_rate_all}%`}
+        </span>
+      </div>
+    </section>
   );
 }
 

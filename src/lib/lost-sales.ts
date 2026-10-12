@@ -172,6 +172,32 @@ export const getLostIntelligence = cache(async (filters: Record<string, string>)
   return data as LostIntelligence;
 });
 
+// ===== نتائج المسارات بأصنافها (202) =====
+// الخسارة التجارية منفصلة عن «غير مؤهّل» و«تعذّر الوصول» وما بلا تحليل،
+// والإغلاق غير التجاري بمرحلة (closed) منفصل عنها كلها. والمقام الصحيح
+// لمعدّل الفوز: فوز + خسارة تجارية.
+export type JourneyOutcomes = {
+  won: number; lost_all: number; lost_commercial: number; lost_unqualified: number;
+  lost_unreachable: number; lost_unanalysed: number; closed_noncommercial: number;
+  closed_by_stage: Record<string, number>;
+  reservations: number; reservations_cancelled: number; sales_completed: number; reopened: number;
+  win_rate_commercial: number | null; win_rate_all: number | null;
+  win_rate_commercial_is_upper_bound: boolean;
+};
+
+export const LOSS_CLASSES = ["commercial", "unqualified", "unreachable", "unanalysed"] as const;
+export type LossClass = (typeof LOSS_CLASSES)[number];
+
+export const getJourneyOutcomes = cache(async (filters: Record<string, string>): Promise<JourneyOutcomes | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("crm_journey_outcomes", { p_filters: filters });
+  if (error) {
+    console.error("[lost-sales] crm_journey_outcomes:", error.message);
+    return null;
+  }
+  return data as JourneyOutcomes;
+});
+
 export const getOpportunityLosses = cache(async (opportunityId: string) =>
   rows<LostSaleRow>("v_crm_lost_sales", (q) =>
     q.select("*").eq("opportunity_id", opportunityId).order("loss_no", { ascending: false }))
@@ -208,7 +234,7 @@ export type OppDetail = {
   id: string; client_id: string; client_name: string; owner_id: string | null; owner_name: string | null;
   project_id: string | null; project_name: string | null; unit_id: string | null; source_name: string | null;
   campaign_id: string | null; client_campaign_id: string | null; stage_id: string; stage_name: string;
-  stage_type: "open" | "won" | "lost"; probability: number | null; expected_value: number | null;
+  stage_type: "open" | "won" | "lost" | "closed"; probability: number | null; expected_value: number | null;
   won_value: number | null; lost_reason: string | null; created_at: string; closed_at: string | null;
   expected_close_date: string | null; next_action_date: string | null; days_in_stage: number; days_open: number;
   days_silent: number; lead_temperature: string | null; lead_score: number | null;
@@ -231,7 +257,7 @@ export const getOpportunityExtras = cache(async (id: string) => {
       .select("id, title, created_at, created_by_name, unit_id, campaign_id, payment_method, budget_min, budget_max, notes, next_action, units(unit_code, space_m2, price, unit_type), crm_campaigns(name)")
       .eq("id", id).maybeSingle(),
     supabase.from("opportunity_stage_history")
-      .select("from_stage, to_stage, days_in_from, changed_by_name, note, at")
+      .select("from_stage, to_stage, days_in_from, changed_by_name, note, at, change_source")
       .eq("opportunity_id", id).order("at", { ascending: true }),
     supabase.from("client_activities")
       .select("activity_type, summary, actor_name, occurred_at, next_action, next_action_date")
@@ -239,7 +265,7 @@ export const getOpportunityExtras = cache(async (id: string) => {
   ]);
   return {
     opp: opp as any,
-    history: (history ?? []) as { from_stage: string | null; to_stage: string | null; days_in_from: number | null; changed_by_name: string | null; note: string | null; at: string }[],
+    history: (history ?? []) as { from_stage: string | null; to_stage: string | null; days_in_from: number | null; changed_by_name: string | null; note: string | null; at: string; change_source?: string | null }[],
     activities: (acts ?? []) as { activity_type: string; summary: string | null; actor_name: string | null; occurred_at: string; next_action: string | null; next_action_date: string | null }[],
   };
 });

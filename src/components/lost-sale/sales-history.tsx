@@ -3,6 +3,7 @@ import { getLocale } from "@/lib/i18n/server";
 import { tValue } from "@/lib/i18n/values";
 import { getClientSalesHistory } from "@/lib/lost-sales";
 import { lostDict, money, outcomeLabel, outcomeStyle, type Lang } from "@/lib/lost-sales-i18n";
+import { journeyHref } from "@/lib/crm-journey";
 
 // ============================================================
 // «تاريخ المبيعات» في ملفّ العميل.
@@ -48,7 +49,7 @@ export default async function SalesHistory({ clientId }: { clientId: string }) {
       <ul className="mt-4 divide-y divide-gray-100 rounded-lg border border-gray-100">
         {h.opportunities.map((o) => (
           <li key={o.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-            <Link href={`/dashboard/crm/opportunities/${o.id}`} className="font-medium text-gray-800 hover:text-brand-600">
+            <Link href={journeyHref(clientId, o.id)} className="font-medium text-gray-800 hover:text-brand-600">
               {o.title}
             </Link>
             <span className={`rounded px-2 py-0.5 text-xs ${STAGE_STYLE[o.stage_type] ?? "bg-gray-100"}`}>{tValue(o.stage_name, lang)}</span>
@@ -76,7 +77,7 @@ export default async function SalesHistory({ clientId }: { clientId: string }) {
                 {l.lost_stage_name && <span className="text-gray-400">· {tValue(l.lost_stage_name, lang)}</span>}
                 {l.competitor && <span className="text-amber-700">· {l.competitor}</span>}
                 <span className={`rounded px-1.5 py-0.5 ${outcomeStyle(l.outcome)}`}>{outcomeLabel(l.outcome, lang)}</span>
-                <Link href={`/dashboard/crm/opportunities/${l.opportunity_id}?tab=lost`} className="ms-auto text-brand-600 hover:underline">
+                <Link href={journeyHref(clientId, l.opportunity_id)} className="ms-auto text-brand-600 hover:underline">
                   {t.open}
                 </Link>
               </li>

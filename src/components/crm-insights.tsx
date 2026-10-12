@@ -9,6 +9,7 @@ import {
   scoreStyle,
   fmt,
 } from "@/lib/crm";
+import { journeyHref } from "@/lib/crm-journey";
 
 // ============================================================
 // «الرؤى» في ملف العميل — ما يضيفه الـCRM الجديد فوق البيانات.
@@ -139,9 +140,9 @@ export default async function CrmInsights({ clientId }: { clientId: string }) {
       {opps.length > 0 && (
         <div className="rounded-2xl border bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-gray-500">الفرص</p>
+            <p className="text-xs font-medium text-gray-500">مسارات الشراء</p>
             <Link
-              href={`/dashboard/crm/opportunities?client=${clientId}`}
+              href={`/dashboard/clients/${clientId}?tab=journey`}
               className="text-xs text-brand-600 hover:underline"
             >
               الكل
@@ -161,7 +162,7 @@ export default async function CrmInsights({ clientId }: { clientId: string }) {
                 >
                   {o.stage_name}
                 </span>
-                <Link href={`/dashboard/crm/opportunities/${o.id}`} className="font-medium text-gray-800 hover:text-brand-600">
+                <Link href={journeyHref(clientId, o.id)} className="font-medium text-gray-800 hover:text-brand-600">
                   {o.project_name ?? "بلا مشروع"}
                 </Link>
                 {o.expected_value !== null && (
@@ -173,7 +174,7 @@ export default async function CrmInsights({ clientId }: { clientId: string }) {
                   </span>
                 )}
                 {o.stage_type === "lost" && (
-                  <Link href={`/dashboard/crm/opportunities/${o.id}?tab=lost`} className="ms-auto text-xs text-red-600 hover:underline">
+                  <Link href={journeyHref(clientId, o.id)} className="ms-auto text-xs text-red-600 hover:underline">
                     {o.lost_reason ?? "تحليل الخسارة"}
                   </Link>
                 )}

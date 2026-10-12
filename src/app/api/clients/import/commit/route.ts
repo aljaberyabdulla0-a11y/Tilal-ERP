@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   // إعادة تحقّق كاملة من جهة الخادم
   const [employeeNames, cfg] = await Promise.all([getSalesEmployeeNames(), getPipelineConfig()]);
-  const lists = { source: cfg.sources, stage: cfg.stageNames };
+  const lists = { source: cfg.sources, stage: cfg.manualStageNames };
   const payload: Record<string, string | null>[] = [];
   const rejected: { rowNumber: number; errors: string[] }[] = [];
 

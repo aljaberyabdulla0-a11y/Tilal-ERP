@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CLOSED_STAGES_PG_LIST } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import ClientFollowUps from "@/components/client-followups";
 import TaskSection from "./task-section";
@@ -25,7 +26,7 @@ export default async function SalesWorkspace({
     .select("id, name, phone, stage, follow_up_date, last_contact_at")
     .eq("lead_temperature", "ساخن")
     .is("deleted_at", null)
-    .not("stage", "in", '("بيع","فشل البيع")')
+    .not("stage", "in", CLOSED_STAGES_PG_LIST)
     .order("follow_up_date", { ascending: true, nullsFirst: false })
     .limit(8);
   const hotLeads = (hot ?? []) as { id: string; name: string; phone: string | null; stage: string | null; follow_up_date: string | null }[];

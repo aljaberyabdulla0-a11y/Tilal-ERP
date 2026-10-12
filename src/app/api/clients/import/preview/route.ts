@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
   // قراءة الصفوف
   const [employeeNames, cfg] = await Promise.all([getSalesEmployeeNames(), getPipelineConfig()]);
-  const lists = { source: cfg.sources, stage: cfg.stageNames };
+  const lists = { source: cfg.sources, stage: cfg.manualStageNames };
   const rows: ParsedRow[] = [];
   let truncated = false;
 

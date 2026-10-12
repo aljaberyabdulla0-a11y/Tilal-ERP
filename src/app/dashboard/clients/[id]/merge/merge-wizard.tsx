@@ -29,7 +29,7 @@ export type MergeSide = {
   counts: { activities: number; opportunities: number; reservations: number; tasks: number; documents: number };
 };
 
-type StageLite = { name: string; sort_order: number; stage_type: "open" | "won" | "lost" };
+type StageLite = { name: string; sort_order: number; stage_type: "open" | "won" | "lost" | "closed" };
 type Side = "a" | "b";
 
 // رقمٌ واحد بكتابات مختلفة (07… و+964…) لا يُعدّ تعارضاً

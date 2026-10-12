@@ -17,7 +17,7 @@ export default async function CrmTabs({ active }: { active: string }) {
   // «يومي» أولاً عمداً: الموظف يفتح الـCRM ليعمل لا ليتصفّح قوائم.
   //
   // ثلاث طبقات من التبويبات بحسب من يفتحها:
-  //   الجميع        يومي · العملاء · الفرص · سجلّ التواصل
+  //   الجميع        يومي · العملاء (القائمة ولوحة المسار) · سجلّ التواصل
   //   من يدير       + نظرة · التوزيع · التقارير · التنبؤ
   //   المدير وحده   + الجودة (الدمج والحذف من صلاحيته في sql/077)
   //
@@ -39,7 +39,6 @@ export default async function CrmTabs({ active }: { active: string }) {
           ? []
           : [
               { key: "clients", label: "العملاء", href: "/dashboard/clients" },
-              { key: "opportunities", label: "الفرص", href: "/dashboard/crm/opportunities" },
             ]),
         { key: "reports", label: "التقارير", href: "/dashboard/crm/reports" },
         { key: "lost", label: "لماذا نخسر؟", href: "/dashboard/crm/lost" },
@@ -50,7 +49,6 @@ export default async function CrmTabs({ active }: { active: string }) {
     { key: "today", label: "يومي", href: "/dashboard/crm/today" },
     ...(manages ? [{ key: "overview", label: "نظرة", href: "/dashboard/crm/overview" }] : []),
     { key: "clients", label: "العملاء", href: "/dashboard/clients" },
-    { key: "opportunities", label: "الفرص", href: "/dashboard/crm/opportunities" },
     { key: "activities", label: "سجلّ التواصل", href: "/dashboard/clients/activities" },
     // التقارير للجميع منذ محرّك التقارير (099): الموظف يرى «تقاريري» —
     // RLS على الأحداث واللقطات تعطيه نشاطه وليداته وحدها (§71)

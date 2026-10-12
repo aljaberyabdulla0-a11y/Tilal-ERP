@@ -13,6 +13,7 @@ import {
   nameKey,
   sinceColor,
   sinceLabel,
+  isClosedStage,
 } from "@/lib/types";
 import {
   companySchedule,
@@ -70,7 +71,7 @@ export default async function TeamPage() {
     clients.filter((c) => nameKey(c.sales_employee) === nameKey(fullName));
 
   const openClients = clients.filter(
-    (c) => !["بيع", "فشل البيع"].includes(c.stage ?? "ليد")
+    (c) => !isClosedStage(c.stage)
   );
   const overdue = openClients.filter(
     (c) => c.follow_up_date && c.follow_up_date < today
@@ -186,7 +187,7 @@ export default async function TeamPage() {
                 {team.map((m) => {
                   const mine = clientsOf(m.full_name);
                   const open = mine.filter(
-                    (c) => !["بيع", "فشل البيع"].includes(c.stage ?? "ليد")
+                    (c) => !isClosedStage(c.stage)
                   );
                   const late = open.filter(
                     (c) => c.follow_up_date && c.follow_up_date < today

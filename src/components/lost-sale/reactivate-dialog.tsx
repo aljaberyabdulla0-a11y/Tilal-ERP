@@ -41,6 +41,8 @@ export default function ReactivateDialog({
       .select("id, name, sort_order")
       .eq("stage_type", "open")
       .eq("is_active", true)
+      // «حجز» يدخله المسار بالحجز نفسه — لا يُعاد التنشيط إليه (201)
+      .eq("is_manual", true)
       .order("sort_order")
       .then(({ data }) => {
         const s = (data ?? []) as { id: string; name: string }[];

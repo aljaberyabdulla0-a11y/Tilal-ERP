@@ -21,7 +21,9 @@ export type Client = {
   sales_employee: string | null; // موظف المبيعات
   entry_date: string | null;    // التاريخ (YYYY-MM-DD)
   notes: string | null;
-  stage?: string;               // مرحلة المبيعات (Pipeline)
+  stage?: string;               // مرحلة المبيعات — مرآة مرحلة المسار الحالي (201)
+  current_journey_id?: string | null; // المسار الحالي (201)
+  stage_entered_at?: string | null;   // دخول المرحلة الحالية (201)
   follow_up_date?: string | null; // تاريخ المتابعة
   last_contact_at?: string | null; // آخر تواصل (يُحدَّث تلقائياً من سجلّ الأنشطة)
   contact_count?: number;          // عدد مرات التواصل
@@ -224,9 +226,16 @@ export const PIPELINE_STAGES = [
   "فشل البيع",
 ] as const;
 
-// المراحل المغلقة — انتهى الملف عندها (بيع أو فشل)، فلا حاجة
-// لخطوة قادمة ولا موعد متابعة.
-export const CLOSED_STAGES = ["بيع", "فشل البيع"] as const;
+// المراحل المغلقة — انتهى المسار عندها (بيع أو فشل أو إغلاق غير تجاري)،
+// فلا حاجة لخطوة قادمة ولا موعد متابعة. مرآة is_open_stage في القاعدة:
+// «غير مؤهّل» و«تعذّر الوصول» نوعهما closed (201) — ليستا خسارة بيع.
+export const CLOSED_STAGES = ["بيع", "فشل البيع", "غير مؤهّل", "تعذّر الوصول"] as const;
+
+// الختامية غير التجارية (201): لا تُعدّ خسارة ولا تدخل مقام معدّل الفوز
+export const NONCOMMERCIAL_STAGES = ["غير مؤهّل", "تعذّر الوصول"] as const;
+
+// قائمة PostgREST للمراحل المغلقة: .not("stage", "in", CLOSED_STAGES_PG_LIST)
+export const CLOSED_STAGES_PG_LIST = `(${CLOSED_STAGES.map((s) => `"${s}"`).join(",")})`;
 
 export function isClosedStage(stage: string | null | undefined): boolean {
   return (CLOSED_STAGES as readonly string[]).includes(stage ?? "ليد");
@@ -247,6 +256,10 @@ export const PIPELINE_STAGE_COLORS: Record<string, string> = {
   "مناقشة العرض": "bg-amber-100 text-amber-700",
   "بيع": "bg-green-100 text-green-700",
   "فشل البيع": "bg-red-100 text-red-700",
+  // 201 — مكتوبة هنا أيضاً كي يولّد Tailwind أصنافها (الألوان تأتي من القاعدة)
+  "حجز": "bg-teal-100 text-teal-700",
+  "غير مؤهّل": "bg-slate-200 text-slate-700",
+  "تعذّر الوصول": "bg-orange-100 text-orange-700",
 };
 
 // محافظات العراق (18)

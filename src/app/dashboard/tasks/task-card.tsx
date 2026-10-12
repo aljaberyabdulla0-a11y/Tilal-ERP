@@ -15,6 +15,7 @@ import {
   taskOrigin,
 } from "@/lib/types";
 import { friendlyTaskError } from "@/lib/tasks";
+import { journeyHref } from "@/lib/crm-journey";
 
 // ============================================================
 // بطاقة مهمة واحدة.
@@ -84,7 +85,7 @@ export default function TaskCard({
   // القاعدة ترفض «تمّت» قبلها، فلا نعرضه ونقود إلى الاستمارة نفسها.
   const lostForm =
     task.analysis_lost_sale_id && task.opportunity_id
-      ? `/dashboard/crm/opportunities/${task.opportunity_id}?tab=lost&analyse=${task.analysis_lost_sale_id}`
+      ? journeyHref(task.client_id, task.opportunity_id, task.analysis_lost_sale_id)
       : null;
   const formPending = lostForm !== null && isOpenTask(task.status);
 

@@ -66,8 +66,9 @@ export default function BulkActions({
   const n = selected.length;
   if (n === 0) return null;
 
-  // المراحل ذات الحقول المطلوبة (الخسارة) مستثناة — القاعدة ترفضها
-  const bulkStages = stages.filter((s) => !s.closed || s.name === "بيع");
+  // الخسارة تُحلَّل لكل عميل، و«حجز» يدخله المسار بالحجز نفسه — القاعدة ترفضهما (201)
+  const bulkStages = stages.filter((s) => !s.lost && s.manual !== false);
+  const stageNeedsReason = Boolean(stages.find((s) => s.name === stage)?.requiresReason);
 
   function report(r: BulkResult | null) {
     if (!r) return setErr("لم تُرجِع القاعدة نتيجة.");
@@ -86,6 +87,8 @@ export default function BulkActions({
     if (action === "assign" && !reason.trim())
       return setErr("اذكر سبب الإسناد — نقلٌ بلا سبب لا يُراجَع لاحقاً.");
     if (action === "stage" && !stage) return setErr("اختر المرحلة.");
+    if (action === "stage" && stageNeedsReason && !reason.trim())
+      return setErr(`«${stage}» إغلاق غير تجاري — اكتب سببه مرة للدفعة.`);
     if (action === "task" && !title.trim()) return setErr("اكتب عنوان المهمّة.");
     if (action === "tag" && !tagId) return setErr("اختر الوسم.");
 
@@ -119,6 +122,7 @@ export default function BulkActions({
       ({ data, error } = await supabase.rpc("bulk_set_stage", {
         p_client_ids: selected,
         p_stage: stage,
+        p_reason: reason.trim() || null,
       }));
     } else if (action === "tag") {
       ({ data, error } = await supabase.rpc("bulk_tag_clients", {
@@ -221,10 +225,20 @@ export default function BulkActions({
         )}
 
         {action === "stage" && (
-          <select value={stage} onChange={(e) => setStage(e.target.value)} className="rounded border border-gray-300 bg-white px-2 py-1.5">
-            <option value="">— المرحلة —</option>
-            {bulkStages.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
-          </select>
+          <>
+            <select value={stage} onChange={(e) => setStage(e.target.value)} className="rounded border border-gray-300 bg-white px-2 py-1.5">
+              <option value="">— المرحلة —</option>
+              {bulkStages.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+            </select>
+            {stageNeedsReason && (
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="سبب الإغلاق"
+                className="w-48 rounded border border-gray-300 px-2 py-1.5"
+              />
+            )}
+          </>
         )}
 
         {action === "tag" && (
@@ -269,7 +283,8 @@ export default function BulkActions({
 
       {action === "stage" && (
         <p className="mt-2 text-xs text-gray-600">
-          «فشل البيع» غير متاح جماعةً: مئة صفقة بسبب واحد تُفسد تحليل الخسارة. تُغلق كلٌّ بسببها من شاشة الفرص.
+          «فشل البيع» غير متاح جماعةً: مئة صفقة بسبب واحد تُفسد تحليل الخسارة — تُغلق كلٌّ بنموذجها من بطاقة العميل.
+          و«غير مؤهّل» و«تعذّر الوصول» إغلاقٌ غير تجاري بسببٍ يُكتب مرة للدفعة، والعميل الخاسر يُعاد تنشيطه من بطاقته.
         </p>
       )}
       {action === "task" && (

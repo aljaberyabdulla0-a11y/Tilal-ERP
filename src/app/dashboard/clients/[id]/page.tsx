@@ -25,7 +25,7 @@ import ClientTouchpoints from "@/components/marketing/client-touchpoints";
 import SalesHistory from "@/components/lost-sale/sales-history";
 import { getPipelineConfig } from "@/lib/crm-config";
 import QualificationPanel from "./qualification-panel";
-import NewOpportunity from "./new-opportunity";
+import JourneyPanel from "@/components/journey/journey-panel";
 import InterestsPanel from "./interests-panel";
 import DocumentsPanel from "./documents-panel";
 import ClientTabs, { type ClientTab } from "./client-tabs";
@@ -52,7 +52,8 @@ export default async function ClientDetailsPage({
   params: { id: string };
   // ?tab= يفتح تبويباً بعينه — تستعمله روابط «الإجراء التالي» (080):
   // «اعرض عليه وحدات» تفتح تبويب العقار لا الصفحة من أولها.
-  searchParams: { tab?: string };
+  // ?journey= مسارٌ بعينه، و?analyse= يفتح استمارة الخسارة (مهامّ 175)
+  searchParams: { tab?: string; journey?: string; analyse?: string };
 }) {
   // التسويق لا يفتح ملفّ شخص (092)
   if ((await getUserRole()) === "marketing") redirect("/dashboard/crm/overview");
@@ -105,6 +106,8 @@ export default async function ClientDetailsPage({
   const openOpps = opps
     .filter((o) => o.stage_type === "open")
     .map((o) => ({ id: o.id, title: `${o.project_name ?? "بلا مشروع"} · ${o.stage_name}` }));
+  const role = await getUserRole();
+  const isManager = role === "admin" || role === "followup_manager" || role === "supervisor";
   const activities = (acts ?? []) as ClientActivity[];
   const reservations = (resv ?? []) as Reservation[];
 
@@ -116,8 +119,12 @@ export default async function ClientDetailsPage({
   const tabs = buildTabs({
     c, canWrite, admin, stages, projects, interests, documents,
     qualification, activities, openOpps, reservations,
-    oppCount: opps.length,
+    journeys: opps, isManager,
+    journeyParam: searchParams.journey ?? null,
+    analyse: searchParams.analyse ?? null,
   });
+  // روابط قديمة: «الصفقات» و«تحليل الخسارة» صارا تبويب المسار
+  const initialTab = searchParams.tab === "deals" || searchParams.tab === "lost" ? "journey" : searchParams.tab;
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -169,10 +176,15 @@ export default async function ClientDetailsPage({
       <div className="px-6 pt-6">
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm">
           {canWrite ? (
-            <StageSelect clientId={c.id} stage={c.stage} size="md" stages={cfg.stages} />
+            <StageSelect clientId={c.id} stage={c.stage} size="md" stages={cfg.stages} isAdmin={admin} />
           ) : (
             <span className={`rounded-full px-3 py-1.5 text-sm font-medium ${cfg.colors[c.stage ?? "ليد"] ?? "bg-gray-100 text-gray-700"}`}>
               {c.stage ?? "ليد"}
+            </span>
+          )}
+          {c.stage_entered_at && (
+            <span className="text-sm text-gray-500" title="منذ دخول المرحلة الحالية">
+              في المرحلة منذ <b className="text-gray-800">{Math.max(0, Math.floor((Date.now() - new Date(c.stage_entered_at).getTime()) / 86400000))}</b> يوم
             </span>
           )}
           <span className="text-sm text-gray-500">
@@ -233,7 +245,7 @@ export default async function ClientDetailsPage({
         </div>
       </div>
 
-      <ClientTabs initial={searchParams.tab} tabs={tabs} />
+      <ClientTabs initial={initialTab} tabs={tabs} />
     </main>
   );
 }
@@ -260,7 +272,10 @@ type TabArgs = {
   activities: ClientActivity[];
   openOpps: { id: string; title: string }[];
   reservations: Reservation[];
-  oppCount: number;
+  journeys: { id: string; project_name: string | null; stage_name: string; stage_type: string; created_at: string }[];
+  isManager: boolean;
+  journeyParam: string | null;
+  analyse: string | null;
 };
 
 // ============================================================
@@ -272,7 +287,8 @@ type TabArgs = {
 // ============================================================
 function buildTabs(a: TabArgs): ClientTab[] {
   const { c, canWrite, admin, stages, projects, interests, documents,
-          qualification, activities, openOpps, reservations, oppCount } = a;
+          qualification, activities, openOpps, reservations, journeys, isManager,
+          journeyParam, analyse } = a;
 
   // صفّان للهاتف: المحلي والدولي معاً للسهولة
   const phoneLocal = c.phone ? toLocalPhone(c.phone) : null;
@@ -320,49 +336,57 @@ function buildTabs(a: TabArgs): ClientTab[] {
       ),
     },
 
-    // ——— التأهيل والصفقات ———
+    // ——— المسار: رحلة البيع كاملة من البطاقة (201) ———
     {
-      key: "deals",
-      label: "الصفقات",
-      icon: "handshake",
-      badge: oppCount,
+      key: "journey",
+      label: "المسار",
+      icon: "route",
+      badge: journeys.length > 1 ? journeys.length : undefined,
+      content: (
+        <JourneyPanel
+          clientId={c.id}
+          journeys={journeys}
+          currentJourneyId={c.current_journey_id ?? null}
+          selectedJourneyId={journeyParam}
+          analyse={analyse}
+          canWrite={canWrite}
+          isManager={isManager}
+          isAdmin={admin}
+          defaultProjectId={c.preferred_project_id ?? c.project_id}
+        />
+      ),
+    },
+
+    // ——— التأهيل والاهتمامات: ما يفرّق الليد عن المشتري، منفصلٌ عن المرحلة ———
+    {
+      key: "qualification",
+      label: "التأهيل",
+      icon: "fact_check",
       content: (
         <div className="mx-auto max-w-3xl space-y-6">
-          {/* تاريخ المبيعات (141): لكل فرصة نتيجتها — العميل لا يُوسم «خاسراً» */}
-          <SalesHistory clientId={c.id} />
-
-          {/* التأهيل — ما يفرّق الليد عن الفرصة، وأثره في الدرجة فوراً */}
           {canWrite && stages.length > 0 && (
             <QualificationPanel client={c} qualification={qualification} projects={projects} />
           )}
-
-          {/* فتح فرصة من الملف: الصفقة كيانٌ مستقل عن الشخص (sql/072) */}
-          {canWrite && (
-            <NewOpportunity
-              clientId={c.id}
-              projects={projects}
-              stages={stages}
-              defaultProjectId={c.preferred_project_id ?? c.project_id}
-              defaultPaymentMethod={c.payment_method}
-            />
+          {canWrite && stages.length > 0 && (
+            <InterestsPanel clientId={c.id} interests={interests} projects={projects} />
+          )}
+          {!canWrite && qualification && (
+            <p className="rounded-2xl bg-white p-4 text-sm text-gray-700 shadow-sm">{qualification}</p>
           )}
         </div>
       ),
     },
 
-    // ——— العقار: ما يهتم به وما يُعرض عليه وما حجزه ———
+    // ——— العقار والحجوزات: المعاملة العقارية مستقلة عن مرحلة المسار ———
     {
       key: "property",
-      label: "العقار",
+      label: "الحجوزات",
       icon: "apartment",
+      badge: reservations.length || undefined,
       content: (
         <div className="mx-auto max-w-3xl space-y-6">
-          {canWrite && stages.length > 0 && (
-            <InterestsPanel clientId={c.id} interests={interests} projects={projects} />
-          )}
-
           {/* الحجز من ملفّ العميل: الموظف جالس معه فيحجز من مكانه،
-              بدل أن يفتح المخزون ويبحث عن الوحدة ثم يعود لاختياره */}
+              والحجز ينقل المسار إلى «حجز» تلقائياً (201) */}
           {canWrite && (
             <ReserveUnit clientId={c.id} clientName={c.name} existing={reservations} />
           )}

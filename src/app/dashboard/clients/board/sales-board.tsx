@@ -2,9 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import ClientLostFlow from "@/components/lost-sale/client-lost-flow";
 import {
   Client,
   PIPELINE_STAGES,
@@ -16,6 +14,10 @@ import {
   type SilenceThresholds,
 } from "@/lib/types";
 import type { StageLite } from "@/lib/crm-config";
+import { TEMPERATURE_STYLE } from "@/lib/crm-style";
+import { daysInStage, needsAction } from "@/lib/crm-journey";
+import { useStageMove } from "@/components/journey/use-stage-move";
+import { baghdadDate } from "@/lib/time";
 
 // الافتراض القديم — حين لا تمرّر الصفحة مراحل من القاعدة
 const FALLBACK_STAGES: StageLite[] = PIPELINE_STAGES.map((name) => ({
@@ -24,7 +26,6 @@ const FALLBACK_STAGES: StageLite[] = PIPELINE_STAGES.map((name) => ({
   closed: isClosedStage(name),
   lost: name === "فشل البيع",
 }));
-import { baghdadDate } from "@/lib/time";
 
 const todayStr = () => baghdadDate();
 
@@ -38,23 +39,52 @@ const FOLLOW_UP_FILTERS = [
   { key: "none", label: "بلا موعد" },
 ];
 
-// لوحة المبيعات (Kanban) — سحب وإفلات بين المراحل + تحكّم بتاريخ المتابعة
+const ACTION_LABEL: Record<string, string> = {
+  overdue: "متابعة فاتت",
+  no_date: "بلا موعد",
+  never_contacted: "لم يُتواصل معه",
+};
+
+export type BoardColumnMeta = { total: number; truncated: boolean };
+
+// لوحة مسار العملاء (Kanban) — سحب وإفلات بين المراحل عبر الباب الواحد
+// crm_move_client_stage (201) + تحكّم بتاريخ المتابعة
 export default function SalesBoard({
   initial,
   stages = FALLBACK_STAGES,
   silence = DEFAULT_SILENCE,
+  columns = {},
+  overdueTasks = {},
+  projectNames = {},
+  isAdmin = false,
+  closedLimit = 100,
 }: {
   initial: Client[];
   stages?: StageLite[];
   silence?: SilenceThresholds;
+  columns?: Record<string, BoardColumnMeta>;
+  overdueTasks?: Record<string, number>;
+  projectNames?: Record<string, string>;
+  isAdmin?: boolean;
+  closedLimit?: number;
 }) {
   const supabase = createClient();
   const [items, setItems] = useState<Client[]>(initial);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [editDateId, setEditDateId] = useState<string | null>(null);
-  const [lostFor, setLostFor] = useState<string | null>(null);
-  const router = useRouter();
+
+  // النقل: القاعدة تقرّر، والبطاقة تأخذ ما أعادته القاعدة لا ما افترضناه
+  const mover = useStageMove({
+    stages,
+    isAdmin,
+    onMoved: (id, stage) => {
+      if (!stage) return;
+      setItems((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, stage, stage_entered_at: new Date().toISOString() } : c))
+      );
+    },
+  });
 
   // ===== الفلاتر (كلها في المتصفح — الاستجابة فورية بلا تحميل صفحة) =====
   const [employee, setEmployee] = useState("");     // "" = كل الموظفين
@@ -62,8 +92,10 @@ export default function SalesBoard({
   const [governorate, setGovernorate] = useState("");
   const [source, setSource] = useState("");
   const [followUp, setFollowUp] = useState("");
+  const [actionOnly, setActionOnly] = useState(false);
 
   const today = todayStr();
+  const closedSet = useMemo(() => new Set(stages.filter((s) => s.closed).map((s) => s.name)), [stages]);
 
   // الموظفون مستخرجون من العملاء المعروضين نفسهم مع عدد ليداتهم
   const employees = useMemo(() => {
@@ -115,11 +147,19 @@ export default function SalesBoard({
         if (followUp === "upcoming" && (!d || d <= today)) return false;
       }
 
+      if (actionOnly) {
+        const open = !closedSet.has(c.stage ?? "ليد");
+        const need = needsAction(
+          { follow_up_date: c.follow_up_date ?? null, last_contact_at: c.last_contact_at ?? null },
+          open, today);
+        if (!need && !(overdueTasks[c.id] > 0 && open)) return false;
+      }
+
       return true;
     });
-  }, [items, employee, governorate, source, q, followUp, today]);
+  }, [items, employee, governorate, source, q, followUp, actionOnly, today, closedSet, overdueTasks]);
 
-  const hasFilters = Boolean(employee || governorate || source || q || followUp);
+  const hasFilters = Boolean(employee || governorate || source || q || followUp || actionOnly);
 
   function clearFilters() {
     setEmployee("");
@@ -127,33 +167,33 @@ export default function SalesBoard({
     setSource("");
     setQ("");
     setFollowUp("");
+    setActionOnly(false);
   }
 
-  // تحريك عميل إلى مرحلة
-  async function moveTo(id: string, stage: string, force = false) {
+  // تحريك عميل إلى مرحلة — عبر الباب الواحد
+  async function moveTo(id: string, stage: string) {
     const current = items.find((c) => c.id === id);
     if (!current || current.stage === stage) return;
-    // «فشل البيع» لا يُسحب إليه سحباً: الخسارة تُحلَّل على الفرصة (140)
-    if (!force && stages.find((s) => s.name === stage)?.lost) {
-      setLostFor(id);
-      return;
-    }
-    setItems((prev) => prev.map((c) => (c.id === id ? { ...c, stage } : c)));
-    const { error } = await supabase.from("clients").update({ stage }).eq("id", id);
-    if (error) alert("تعذّر النقل: " + error.message);
+    await mover.request(id, current.stage, stage);
   }
 
   // تحديث تاريخ المتابعة
   async function setDate(id: string, date: string) {
+    const before = items.find((c) => c.id === id)?.follow_up_date ?? null;
     setItems((prev) =>
       prev.map((c) => (c.id === id ? { ...c, follow_up_date: date || null } : c))
     );
     setEditDateId(null);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("clients")
       .update({ follow_up_date: date || null })
-      .eq("id", id);
-    if (error) alert("تعذّر حفظ التاريخ: " + error.message);
+      .eq("id", id)
+      .select("id");
+    // RLS تمنع صمتاً: صفر صفوف = لم يُحفظ — لا نُظهر نجاحاً لم يقع
+    if (error || !data || data.length === 0) {
+      setItems((prev) => prev.map((c) => (c.id === id ? { ...c, follow_up_date: before } : c)));
+      alert("تعذّر حفظ التاريخ" + (error ? ": " + error.message : " — لا تملك تعديل هذا العميل."));
+    }
   }
 
   const select =
@@ -203,11 +243,7 @@ export default function SalesBoard({
             className={select + " w-64"}
           />
 
-          <select
-            value={followUp}
-            onChange={(e) => setFollowUp(e.target.value)}
-            className={select}
-          >
+          <select value={followUp} onChange={(e) => setFollowUp(e.target.value)} className={select}>
             <option value="">كل المتابعات</option>
             {FOLLOW_UP_FILTERS.map((f) => (
               <option key={f.key} value={f.key}>
@@ -217,83 +253,51 @@ export default function SalesBoard({
           </select>
 
           {governorates.length > 1 && (
-            <select
-              value={governorate}
-              onChange={(e) => setGovernorate(e.target.value)}
-              className={select}
-            >
+            <select value={governorate} onChange={(e) => setGovernorate(e.target.value)} className={select}>
               <option value="">كل المحافظات</option>
               {governorates.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
+                <option key={g} value={g}>{g}</option>
               ))}
             </select>
           )}
 
           {sources.length > 1 && (
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className={select}
-            >
+            <select value={source} onChange={(e) => setSource(e.target.value)} className={select}>
               <option value="">كل المصادر</option>
               {sources.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
           )}
 
+          <label className="flex items-center gap-1.5 text-sm text-gray-700">
+            <input type="checkbox" checked={actionOnly} onChange={(e) => setActionOnly(e.target.checked)} />
+            يحتاج إجراء
+          </label>
+
           {hasFilters && (
-            <button
-              onClick={clearFilters}
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 hover:underline"
-            >
+            <button onClick={clearFilters} className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 hover:underline">
               مسح الفلاتر
             </button>
           )}
 
           <span className="ms-auto text-sm text-gray-500">
             {hasFilters ? (
-              <>
-                عرض <b className="text-gray-800">{filtered.length}</b> من {items.length}{" "}
-                عميل
-              </>
+              <>عرض <b className="text-gray-800">{filtered.length}</b> من {items.length} عميل</>
             ) : (
-              <>
-                <b className="text-gray-800">{items.length}</b> عميل
-              </>
+              <><b className="text-gray-800">{items.length}</b> عميل معروض</>
             )}
           </span>
         </div>
+        {mover.error && <p className="text-sm text-red-700">تعذّر النقل: {mover.error}</p>}
       </div>
 
-      {lostFor && (
-        <ClientLostFlow
-          clientId={lostFor}
-          onClose={() => setLostFor(null)}
-          onDone={async () => {
-            // البطاقة تتبع فرصتها الوحيدة بالمرآة؛ ولعميلٍ بعدة فرص تبقى كما هي —
-            // فنقرأ مرحلتها من القاعدة بدل افتراضها
-            const id = lostFor;
-            const { data } = await supabase.from("clients").select("stage").eq("id", id).single();
-            if (data) setItems((prev) => prev.map((c) => (c.id === id ? { ...c, stage: data.stage } : c)));
-            router.refresh();
-          }}
-          onNoOpportunity={() => {
-            const id = lostFor;
-            setLostFor(null);
-            const lostStage = stages.find((s) => s.lost)?.name ?? "فشل البيع";
-            moveTo(id, lostStage, true);
-          }}
-        />
-      )}
+      {mover.dialogs}
 
       <div className="flex gap-4 overflow-x-auto p-6">
-      {stages.map(({ name: stage, color: stageColor, closed }) => {
+      {stages.map(({ name: stage, color: stageColor, closed, manual }) => {
         const cards = filtered.filter((c) => (c.stage ?? "ليد") === stage);
+        const meta = columns[stage];
         return (
           <div
             key={stage}
@@ -311,22 +315,38 @@ export default function SalesBoard({
               overStage === stage ? "ring-2 ring-brand-400" : ""
             }`}
           >
-            {/* رأس العمود */}
-            <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${stageColor}`}
-              >
-                {stage}
-              </span>
-              <span className="text-xs font-bold text-gray-400">{cards.length}</span>
+            {/* رأس العمود: العدد الحقيقي، والمقطوع يُعلَن */}
+            <div className="border-b px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${stageColor}`}>
+                  {stage}
+                </span>
+                <span className="text-xs font-bold text-gray-400">
+                  {hasFilters || !meta ? cards.length : meta.total}
+                </span>
+              </div>
+              {meta?.truncated && !hasFilters && (
+                <Link
+                  href={`/dashboard/clients?stage=${encodeURIComponent(stage)}`}
+                  className="mt-1 block text-[11px] text-amber-700 hover:underline"
+                >
+                  آخر {closedLimit} من {meta.total} — الكل في القائمة
+                </Link>
+              )}
+              {manual === false && (
+                <p className="mt-1 text-[11px] text-gray-400">يدخلها العميل بتسجيل الحجز</p>
+              )}
             </div>
 
             {/* البطاقات */}
             <div className="flex-1 space-y-2 p-2" style={{ minHeight: 120 }}>
               {cards.map((c) => {
-                // ملف مغلق (بيع/فشل البيع): لا متابعة ولا تأخّر — «مغلق» من نوع المرحلة في القاعدة
-                const overdue =
-                  !closed && c.follow_up_date && c.follow_up_date < todayStr();
+                const overdue = !closed && c.follow_up_date && c.follow_up_date < today;
+                const age = daysInStage(c.stage_entered_at);
+                const need = needsAction(
+                  { follow_up_date: c.follow_up_date ?? null, last_contact_at: c.last_contact_at ?? null },
+                  !closed, today);
+                const lateTasks = !closed ? overdueTasks[c.id] ?? 0 : 0;
                 return (
                   <div
                     key={c.id}
@@ -335,39 +355,61 @@ export default function SalesBoard({
                     onDragEnd={() => setDragId(null)}
                     className="cursor-grab rounded-xl border bg-white p-3 shadow-sm transition hover:shadow-md active:cursor-grabbing"
                   >
-                    <Link
-                      href={`/dashboard/clients/${c.id}`}
-                      className="font-bold text-brand-800 hover:underline"
-                    >
-                      {c.name}
-                    </Link>
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={`/dashboard/clients/${c.id}`} className="font-bold text-brand-800 hover:underline">
+                        {c.name}
+                      </Link>
+                      {c.lead_temperature && (
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${TEMPERATURE_STYLE[c.lead_temperature] ?? "bg-gray-100 text-gray-500"}`}>
+                          {c.lead_temperature}
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-1 space-y-0.5 text-xs text-gray-500">
                       {c.phone && <div dir="ltr" className="text-end">{c.phone}</div>}
                       <div>
+                        {c.project_id && projectNames[c.project_id] ? `${projectNames[c.project_id]} · ` : ""}
                         {c.governorate || "—"}
                         {c.area ? ` - ${c.area}` : ""}
                       </div>
                     </div>
 
-                    {/* موظف المبيعات + آخر تواصل */}
+                    {/* المسؤول + آخر تواصل + عمر المرحلة */}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {c.sales_employee && (
                         <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] text-brand-700">
                           {c.sales_employee}
                         </span>
                       )}
-                      <span
-                        className={`text-[11px] font-medium ${sinceColor(c.last_contact_at, silence)}`}
-                        title="آخر تواصل مسجّل"
-                      >
+                      <span className={`text-[11px] font-medium ${sinceColor(c.last_contact_at, silence)}`} title="آخر تواصل مسجّل">
                         ☎ {sinceLabel(c.last_contact_at)}
                       </span>
+                      {age !== null && (
+                        <span className="text-[11px] text-gray-400" title="منذ دخول المرحلة الحالية">
+                          ⏱ {age} يوم
+                        </span>
+                      )}
                     </div>
+
+                    {(need || lateTasks > 0) && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {need && (
+                          <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                            {ACTION_LABEL[need]}
+                          </span>
+                        )}
+                        {lateTasks > 0 && (
+                          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                            {lateTasks} مهمة متأخرة
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* تاريخ المتابعة + زر التحكم — يختفي في المراحل المغلقة */}
                     {closed ? (
                       <div className="mt-2 border-t pt-2 text-[11px] text-gray-400">
-                        ✓ ملف مغلق — بلا متابعة
+                        ✓ مسار مغلق — بلا متابعة
                       </div>
                     ) : (
                     <div className="mt-2 flex items-center justify-between border-t pt-2">
@@ -382,12 +424,7 @@ export default function SalesBoard({
                           className="rounded border border-gray-300 px-2 py-1 text-xs"
                         />
                       ) : (
-                        <span
-                          className={`text-[11px] ${
-                            overdue ? "font-bold text-red-600" : "text-gray-500"
-                          }`}
-                          dir="ltr"
-                        >
+                        <span className={`text-[11px] ${overdue ? "font-bold text-red-600" : "text-gray-500"}`} dir="ltr">
                           {c.follow_up_date
                             ? `📅 ${c.follow_up_date}${overdue ? " (متأخر)" : ""}`
                             : "بدون تاريخ"}
@@ -408,7 +445,7 @@ export default function SalesBoard({
 
               {cards.length === 0 && (
                 <p className="py-6 text-center text-xs text-gray-300">
-                  {hasFilters ? "لا نتائج" : "أفلت هنا"}
+                  {hasFilters ? "لا نتائج" : manual === false ? "بالحجز" : "أفلت هنا"}
                 </p>
               )}
             </div>

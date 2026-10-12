@@ -106,8 +106,8 @@ export default async function CrmOverviewPage({
         {/* ===== ٢) ما يحدث ===== */}
         {kpis ? (
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Kpi label="فرص مفتوحة" value={fmt(kpis.open_count)} href="/dashboard/crm/opportunities?type=open" />
-            <Kpi label="قيمة الأنابيب" value={fmt(kpis.pipeline_value)} sub={`موزونة ${fmt(kpis.weighted_pipeline)}`} href="/dashboard/crm/opportunities?type=open" />
+            <Kpi label="مسارات مفتوحة" value={fmt(kpis.open_count)} href="/dashboard/clients/board" />
+            <Kpi label="قيمة الأنابيب" value={fmt(kpis.pipeline_value)} sub={`موزونة ${fmt(kpis.weighted_pipeline)}`} href="/dashboard/clients/board" />
             <Kpi label="معدّل التحويل" value={`${kpis.conversion_rate}%`} sub={`${kpis.won_count} فوز · ${kpis.lost_count} خسارة`} href="/dashboard/crm/reports/analysis" />
             <Kpi label="دورة البيع" value={`${kpis.avg_sales_cycle} يوماً`} sub={`الوسيط ${kpis.median_sales_cycle}`} href="/dashboard/crm/reports/analysis" />
             <Kpi label="متأخرة" value={fmt(kpis.overdue_count)} tone="red" href="/dashboard/crm/today" />
@@ -195,7 +195,7 @@ export default async function CrmOverviewPage({
         {/* ===== ٤) ماذا أفعل ===== */}
         <section className="flex flex-wrap gap-2">
           <Action href="/dashboard/crm/distribution" label="مركز التوزيع" />
-          <Action href="/dashboard/crm/opportunities" label="الفرص" />
+          <Action href="/dashboard/clients/board" label="لوحة المسار" />
           <Action href="/dashboard/crm/reports" label="التقارير" />
           <Action href="/dashboard/crm/forecast" label="الأهداف والتنبؤ" />
           <Action href="/dashboard/crm/data-quality" label="جودة البيانات" />

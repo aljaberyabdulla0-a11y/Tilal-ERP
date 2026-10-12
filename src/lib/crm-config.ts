@@ -21,13 +21,24 @@ import {
 // ============================================================
 
 // lost: مرحلة خسارة — اختيارها يفتح نموذج تحليل الخسارة (140) بدل تحديث البطاقة
-export type StageLite = { name: string; color: string; closed: boolean; lost?: boolean };
+// type/requiresReason/manual (201): الختامية غير التجارية تطلب سبباً،
+// و«حجز» لا يُختار يدوياً — يدخله المسار بالحجز نفسه.
+export type StageLite = {
+  name: string;
+  color: string;
+  closed: boolean;
+  lost?: boolean;
+  type?: "open" | "won" | "lost" | "closed";
+  requiresReason?: boolean;
+  manual?: boolean;
+};
 
 export type PipelineConfig = {
   stages: StageLite[];             // الفعّالة بترتيبها
   stageNames: string[];
+  manualStageNames: string[];      // ما يُكتب يدوياً (الاستيراد، القالب) — بلا «حجز» (201)
   colors: Record<string, string>;  // بالاسم — يشمل غير الفعّالة كي لا تفقد لونها في التاريخ
-  closed: string[];                // أسماء مراحل الفوز والخسارة
+  closed: string[];                // أسماء المراحل المغلقة: فوز، خسارة، ختامية غير تجارية
   silence: SilenceThresholds;
   sources: string[];               // الفعّالة بترتيبها
 };
@@ -54,6 +65,7 @@ export const getPipelineConfig = cache(async (): Promise<PipelineConfig> => {
         lost: name === "فشل البيع",
       })),
       stageNames: [...PIPELINE_STAGES],
+      manualStageNames: [...PIPELINE_STAGES],
       colors: { ...PIPELINE_STAGE_COLORS },
       closed: [...CLOSED_STAGES],
       silence,
@@ -64,13 +76,23 @@ export const getPipelineConfig = cache(async (): Promise<PipelineConfig> => {
   const colors: Record<string, string> = { ...PIPELINE_STAGE_COLORS };
   for (const s of stages) colors[s.name] = s.color ?? colors[s.name] ?? "bg-gray-100 text-gray-700";
 
-  const active = stages
+  const active: StageLite[] = stages
     .filter((s) => s.is_active)
-    .map((s) => ({ name: s.name, color: colors[s.name], closed: s.stage_type !== "open", lost: s.stage_type === "lost" }));
+    .map((s) => ({
+      name: s.name,
+      color: colors[s.name],
+      closed: s.stage_type !== "open",
+      lost: s.stage_type === "lost",
+      type: s.stage_type,
+      requiresReason: s.requires_reason ?? false,
+      manual: s.is_manual ?? true,
+    }));
 
   return {
     stages: active,
     stageNames: active.map((s) => s.name),
+    // ما يُكتب في الاستيراد والقوالب: اليدوية وحدها («حجز» يدخله المسار بالحجز نفسه)
+    manualStageNames: active.filter((s) => s.manual !== false).map((s) => s.name),
     colors,
     closed: stages.filter((s) => s.stage_type !== "open").map((s) => s.name),
     silence,

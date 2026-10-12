@@ -7,6 +7,7 @@ import { progressOf } from "@/lib/tasks";
 import LogActivity from "@/app/dashboard/clients/[id]/log-activity";
 import { DueLabel, FlagChip, LabelChips, MiniProgress, PriorityBadge, StatusBadge, StepBadge, TypeIcon } from "./badges";
 import { useTaskActions } from "./use-task-actions";
+import { journeyHref } from "@/lib/crm-journey";
 
 // ============================================================
 // بطاقة مهمة في القوائم (عملي، القائمة، المساحات).
@@ -46,7 +47,7 @@ export default function TaskRowCard({
   // مهمة الاستمارة (175): إنجازها بملء الاستمارة لا بالزرّ
   const lostForm =
     task.analysis_lost_sale_id && task.opportunity_id
-      ? `/dashboard/crm/opportunities/${task.opportunity_id}?tab=lost&analyse=${task.analysis_lost_sale_id}`
+      ? journeyHref(task.client_id, task.opportunity_id, task.analysis_lost_sale_id)
       : null;
   const formPending = lostForm !== null && open;
   const pendingApproval = task.approval_status === "بانتظار الموافقة";
@@ -240,7 +241,7 @@ export default function TaskRowCard({
                 </Link>
               )}
               {task.opportunity_id && (
-                <Link href={`/dashboard/crm/opportunities/${task.opportunity_id}`} className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100">
+                <Link href={journeyHref(task.client_id, task.opportunity_id)} className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100">
                   الفرصة
                 </Link>
               )}

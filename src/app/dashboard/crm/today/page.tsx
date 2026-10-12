@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
-import { Task, isOpenTask } from "@/lib/types";
+import { Task, isOpenTask, CLOSED_STAGES_PG_LIST } from "@/lib/types";
 import { baghdadDate } from "@/lib/time";
 import { getUnworkedLeads, TEMPERATURE_STYLE, scoreStyle } from "@/lib/crm";
 import { getUserRole } from "@/lib/auth";
@@ -9,6 +9,7 @@ import { getMyEmployee } from "@/lib/hr";
 import { getDueRecontacts, type LostSaleRow } from "@/lib/lost-sales";
 import { compactMoney } from "@/lib/lost-sales-i18n";
 import CrmTabs from "../crm-tabs";
+import { journeyHref } from "@/lib/crm-journey";
 
 // ============================================================
 // «يومي» — مساحة عمل الموظف.
@@ -63,7 +64,7 @@ export default async function CrmTodayPage() {
         "id, name, phone, stage, follow_up_date, last_contact_at, lead_score, lead_temperature"
       )
       .is("deleted_at", null)
-      .not("stage", "in", '("بيع","فشل البيع")')
+      .not("stage", "in", CLOSED_STAGES_PG_LIST)
       .order("follow_up_date", { ascending: true, nullsFirst: false })
       .limit(500),
     supabase
@@ -172,7 +173,7 @@ export default async function CrmTodayPage() {
             <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
               {recontacts.map((l) => (
                 <li key={l.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                  <Link href={`/dashboard/crm/opportunities/${l.opportunity_id}?tab=lost`} className="font-medium text-gray-800 hover:text-brand-600">
+                  <Link href={journeyHref(l.client_id, l.opportunity_id)} className="font-medium text-gray-800 hover:text-brand-600">
                     {l.client_name}
                   </Link>
                   <span className="rounded bg-red-50 px-2 py-0.5 text-xs text-red-700">

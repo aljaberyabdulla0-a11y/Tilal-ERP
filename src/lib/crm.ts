@@ -393,7 +393,7 @@ export type OpportunityRow = {
   source_name: string | null;
   stage_id: string;
   stage_name: string;
-  stage_type: "open" | "won" | "lost";
+  stage_type: "open" | "won" | "lost" | "closed";
   stage_order: number;
   probability: number | null;
   expected_value: number | null;
@@ -412,17 +412,25 @@ export type OpportunityRow = {
   lead_temperature: string | null;
 };
 
+// closed = ختامية غير تجارية («غير مؤهّل»، «تعذّر الوصول») — ليست خسارة بيع (201)
+export type StageType = "open" | "won" | "lost" | "closed";
+
 export type Stage = {
   id: string;
   name: string;
   sort_order: number;
-  stage_type: "open" | "won" | "lost";
+  stage_type: StageType;
   probability: number;
   sla_hours: number | null;
   requires_activity: boolean;
   required_fields: string[];
   color: string | null;
   is_active: boolean;
+  // 201 — اختيارية: تغيب قبل تطبيق الهجرة
+  name_en?: string | null;
+  requires_reason?: boolean;
+  is_manual?: boolean;
+  description?: string | null;
 };
 
 export type CrmSetting = {
@@ -481,28 +489,8 @@ async function table<T>(name: string, build: (q: any) => any): Promise<T[]> {
   return (data ?? []) as T[];
 }
 
-export const getOpportunities = cache(async (opts: { stageType?: "open" | "won" | "lost" | null; limit?: number } = {}) =>
-  table<OpportunityRow>("v_crm_opportunities", (q) => {
-    let s = q.select("*").order("stage_order", { ascending: true }).order("created_at", { ascending: false }).limit(opts.limit ?? 500);
-    if (opts.stageType) s = s.eq("stage_type", opts.stageType);
-    return s;
-  })
-);
+// لوحة «الفرص» المستقلة أُزيلت (201): المسار يُدار من بطاقة العميل ولوحة مسار العملاء.
 
-// ⚠️ العدد الحقيقي مستقلاً عن الحدّ: لوحة الأعمدة لا تُرقَّم (العمود
-//    يفقد معناه مقطوعاً)، فتُقطع عند ٥٠٠ — والقطع يُعلَن لا يُخفى.
-//    شاشةٌ تعرض ٥٠٠ من ألف بلا أن تقول ذلك تكذب على من يخطّط عليها.
-export const countOpportunities = cache(async (stageType: "open" | "won" | "lost" | null = null): Promise<number> => {
-  const supabase = await createClient();
-  let q = supabase.from("v_crm_opportunities").select("id", { count: "exact", head: true });
-  if (stageType) q = q.eq("stage_type", stageType);
-  const { count, error } = await q;
-  if (error) {
-    console.error("[crm] فشل عدّ الفرص:", error.message);
-    return 0;
-  }
-  return count ?? 0;
-});
 
 export const getClientOpportunities = cache(async (clientId: string) =>
   table<OpportunityRow>("v_crm_opportunities", (q) => q.select("*").eq("client_id", clientId).order("created_at", { ascending: false }))

@@ -19,6 +19,8 @@ const EN: Record<string, string> = {
   "مناقشة العرض": "Negotiation",
   "بيع": "Won",
   "فشل البيع": "Lost",
+  "غير مؤهّل": "Not qualified",
+  "تعذّر الوصول": "Unreachable",
 
   // أنواع التواصل
   "مكالمة": "Call",

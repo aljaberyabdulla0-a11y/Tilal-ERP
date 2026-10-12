@@ -30,7 +30,7 @@ declare
   j uuid; j2 uuid; j3 uuid; j4 uuid;
   u1 uuid; u2 uuid; u3 uuid;
   res1 uuid; res2 uuid; res3 uuid;
-  n int; m int; txt text; base jsonb; h record;
+  n int; m int; txt text; base jsonb; hrow record;
   v_mine0 jsonb; v_mine1 jsonb; v_other0 jsonb; v_other1 jsonb;
   i int := 0;
   today date := public.baghdad_today();
@@ -124,10 +124,10 @@ begin
     perform public.crm_move_client_stage(cli, 'اتصال', 'ردّ وحدّد موعداً');
     log := log || extensions.is((select stage from public.clients where id = cli), 'اتصال',
       '٣: النقل يحرّك المسار والبطاقة معاً');
-    select * into h from public.opportunity_stage_history
+    select * into hrow from public.opportunity_stage_history
      where opportunity_id = j and to_stage_id = g_contact order by at desc limit 1;
-    log := log || extensions.ok(h.from_stage_id = g_lead and h.changed_by = plain_u and h.change_source = 'user'
-                                and h.note = 'ردّ وحدّد موعداً' and h.owner_id = plain_emp and h.project_id = proj,
+    log := log || extensions.ok(hrow.from_stage_id = g_lead and hrow.changed_by = plain_u and hrow.change_source = 'user'
+                                and hrow.note = 'ردّ وحدّد موعداً' and hrow.owner_id = plain_emp and hrow.project_id = proj,
       '٣: السجلّ يحفظ السابقة والمنفّذ والمصدر والسبب والمالك والمشروع وقتها');
     log := log || extensions.ok(exists (select 1 from public.client_activities
                                          where client_id = cli and activity_type = 'تغيير مرحلة' and stage_to = 'اتصال'),

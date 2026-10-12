@@ -1090,10 +1090,11 @@ begin
   update public.opportunity_stage_history set change_source = 'legacy' where change_source is null;
 
   -- 3) الحجوزات بلا مسار تُربط بمسار عميلها الحالي
-  update public.reservations r
-     set opportunity_id = public.crm_current_journey(r.client_id)
-   where r.opportunity_id is null
-     and public.crm_current_journey(r.client_id) is not null;
+  -- الاسم المختصر rs لا r: r متغيّر الحلقة في هذه الكتلة، والتباسهما يُفشل التحديث
+  update public.reservations rs
+     set opportunity_id = public.crm_current_journey(rs.client_id)
+   where rs.opportunity_id is null
+     and public.crm_current_journey(rs.client_id) is not null;
   get diagnostics n_link = row_count;
 
   -- 4) البطاقات: المسار الحالي ووقت دخول مرحلته (عمودان مشتقّان — بلا تدقيق صفّي)

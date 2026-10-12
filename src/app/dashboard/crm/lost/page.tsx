@@ -13,6 +13,7 @@ import {
   PRICE_BANDS, type Lang, type LostDict,
 } from "@/lib/lost-sales-i18n";
 import CrmTabs from "../crm-tabs";
+import { createClient } from "@/lib/supabase/server";
 
 // ============================================================
 // «لماذا نخسر المبيعات؟» — Lost Sales Intelligence.
@@ -74,6 +75,19 @@ export default async function LostSalesPage({ searchParams }: { searchParams: Re
     if (sid) outcomeFilters.source_id = sid;
   }
   const outcomesFiltered = filters.source ? await getJourneyOutcomes(outcomeFilters) : outcomes;
+
+  // مُرشِّح المشروع لا يرى إلا الخسائر المنسوبة لمشروع. والمشروع يُجمَّد من
+  // المسار يوم الخسارة — وأغلب الخسائر قبل ٢٠٢٦-١٠-١٣ بلا مشروع لأن بطاقات
+  // العملاء لم تحمله. نُعلن النقص بدل أن يُقرأ الصفر «لا خسائر».
+  let projectGap: { total: number; without: number } | null = null;
+  if (filters.project_id) {
+    const supabase = await createClient();
+    const [all, none] = await Promise.all([
+      supabase.from("crm_lost_sales").select("id", { count: "exact", head: true }),
+      supabase.from("crm_lost_sales").select("id", { count: "exact", head: true }).is("project_id", null),
+    ]);
+    projectGap = { total: all.count ?? 0, without: none.count ?? 0 };
+  }
 
   const catName = (code: string | null | undefined) => {
     if (!code) return "—";
@@ -149,6 +163,14 @@ export default async function LostSalesPage({ searchParams }: { searchParams: Re
           <p className="mt-2 text-[11px] text-gray-400">{t.categoryFilterNote}</p>
         </form>
 
+        {projectGap && projectGap.without > 0 && (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {lang === "en"
+              ? `${projectGap.without} of ${projectGap.total} recorded losses have no project, so they don't appear under any project filter. The loss form now asks for the project when the journey has none.`
+              : `${projectGap.without} من ${projectGap.total} خسارة مسجّلة بلا مشروع، فلا تظهر تحت أي مُرشِّح مشروع. السبب أن بطاقات العملاء لا تحمل مشروعاً؛ واستمارة الخسارة تسأل عنه الآن حين لا يعرفه المسار.`}
+          </p>
+        )}
+
         {outcomesFiltered && <Outcomes o={outcomesFiltered} lang={lang} filters={filters} />}
 
         {!data ? (
@@ -175,7 +197,8 @@ function Outcomes({ o, lang, filters }: { o: JourneyOutcomes; lang: Lang; filter
     return `/dashboard/crm/lost?${q.toString()}`;
   };
   const cell = (cls: keyof typeof CLASS_LABEL, n: number) => (
-    <Link key={cls} href={href(cls)} className={`rounded-xl px-3 py-2 text-center ${CLASS_LABEL[cls].style} hover:ring-2 hover:ring-brand-300`}>
+    <Link key={cls} href={href(cls)} aria-current={filters.loss_class === cls ? "true" : undefined}
+          className={`rounded-xl px-3 py-2 text-center ${CLASS_LABEL[cls].style} hover:ring-2 hover:ring-brand-300 ${filters.loss_class === cls ? "ring-2 ring-brand-600" : ""}`}>
       <p className="text-xl font-bold">{n}</p>
       <p className="text-[11px]">{en ? CLASS_LABEL[cls].en : CLASS_LABEL[cls].ar}</p>
     </Link>
@@ -183,10 +206,15 @@ function Outcomes({ o, lang, filters }: { o: JourneyOutcomes; lang: Lang; filter
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <h2 className="font-bold text-gray-800">{en ? "How journeys ended" : "كيف انتهت المسارات في المدة"}</h2>
-      <p className="mb-3 text-xs text-gray-500">
+      <p className="mb-1 text-xs text-gray-500">
         {en
           ? "Only commercial losses are real lost sales. Not-qualified, unreachable and non-commercial closures measure lead quality, not selling."
           : "الخسارة التجارية وحدها صفقةٌ خسرناها. «غير مؤهّل» و«تعذّر الوصول» والإغلاق غير التجاري تقيس جودة الليد لا أداء البيع."}
+      </p>
+      <p className="mb-3 text-[11px] text-gray-400">
+        {en
+          ? "These counts cover every class; the class you pick filters the lists below."
+          : "الأعداد هنا لكل الأصناف — الصنف المختار يُرشِّح القوائم أدناه."}
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
         <div className="rounded-xl bg-green-50 px-3 py-2 text-center text-green-800">

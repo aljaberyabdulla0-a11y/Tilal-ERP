@@ -104,13 +104,18 @@ export default function LostSaleDialog({
   const [showComp, setShowComp] = useState(Boolean(initial?.competitor_id || initial?.competitor_name));
   const [compMode, setCompMode] = useState<"list" | "other">(initial?.competitor_name && !initial?.competitor_id ? "other" : "list");
   const [editReason, setEditReason] = useState("");
+  // المشروع محل الاهتمام: يُسأل عنه حين لا يعرفه المسار — وإلا لم تُنسب
+  // الخسارة لأي مشروع وغابت عن «لماذا نخسر؟» بمُرشِّح المشروع.
+  // "none" = اختيارٌ صريح بأن لا مشروع (ليد لم يصل إلى عرض مشروع).
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projectChoice, setProjectChoice] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [c, r, s, p, rec, comp, cp, o] = await Promise.all([
+      const [c, r, s, p, rec, comp, cp, o, pj] = await Promise.all([
         supabase.from("crm_loss_categories").select("*").order("sort_order"),
         supabase.from("crm_lost_reasons").select("id, category_id, name, name_en, requires_note, is_other, is_active, sort_order").order("sort_order"),
         supabase.from("crm_loss_sources").select("*").order("sort_order"),
@@ -119,6 +124,7 @@ export default function LostSaleDialog({
         supabase.from("mkt_competitors").select("id, name, name_en, is_active, projects, price_position").order("name"),
         supabase.from("mkt_competitor_projects").select("id, competitor_id, name, location, price_per_m2, payment_plan, is_active").order("name"),
         supabase.from("v_crm_opportunities").select("stage_name, expected_value, owner_name, project_name, client_name").eq("id", opportunityId).maybeSingle(),
+        supabase.from("projects").select("id, name").order("name"),
       ]);
       if (!alive) return;
       if (c.error || r.error || s.error || p.error || rec.error) {
@@ -136,6 +142,7 @@ export default function LostSaleDialog({
         competitorProjects: (cp.data ?? []) as CompetitorProject[],
       });
       setOpp((o.data ?? null) as OppSummary | null);
+      setProjects((pj.data ?? []) as { id: string; name: string }[]);
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,6 +207,8 @@ export default function LostSaleDialog({
   if (compRequired && !(compMode === "list" ? v.competitor_id : v.competitor_name.trim())) problems.push(t.competitor);
   if (v.recontact_required && !v.recontact_date) problems.push(t.recontactDate);
   if (mode === "edit" && needsEditReason && !editReason.trim()) problems.push(t.editReason);
+  const askProject = mode === "create" && opp !== null && !opp.project_name && projects.length > 0;
+  if (askProject && !projectChoice) problems.push(t.project);
 
   async function submit() {
     if (problems.length > 0) return;
@@ -228,6 +237,17 @@ export default function LostSaleDialog({
       competitor_choice_reason: useComp ? v.competitor_choice_reason.trim() || null : null,
     };
     if (mode === "edit" && canEditValue && v.lost_value) payload.lost_value = v.lost_value;
+
+    // المشروع يُكتب على المسار قبل الإغلاق، فتجمّده الخسارة مع أبعادها
+    if (askProject && projectChoice && projectChoice !== "none") {
+      const { data: upd, error: pErr } = await supabase
+        .from("opportunities").update({ project_id: projectChoice }).eq("id", opportunityId).select("id");
+      if (pErr || !upd || upd.length === 0) {
+        setBusy(false);
+        setErr(pErr?.message ?? (lang === "en" ? "Could not set the project on this journey." : "تعذّر تسجيل المشروع على المسار — لا تملك تعديله."));
+        return;
+      }
+    }
 
     const { error } =
       mode === "create"
@@ -282,9 +302,27 @@ export default function LostSaleDialog({
                     <Chip label={t.customer} value={opp.client_name} />
                     <Chip label={t.stageNow} value={opp.stage_name} strong />
                     <Chip label={t.dealValue} value={opp.expected_value ? money(opp.expected_value, lang) : "—"} />
-                    <Chip label={t.project} value={opp.project_name ?? "—"} />
+                    {!askProject && <Chip label={t.project} value={opp.project_name ?? "—"} />}
                     <Chip label={t.owner} value={opp.owner_name ?? "—"} />
                   </div>
+                </section>
+              )}
+
+              {askProject && (
+                <section>
+                  <label className={label} htmlFor="lost-project">
+                    {lang === "en" ? "Project of interest" : "المشروع محل الاهتمام"} <Req t={t} />
+                  </label>
+                  <select id="lost-project" value={projectChoice} onChange={(e) => setProjectChoice(e.target.value)} className={input}>
+                    <option value="">{t.choose}</option>
+                    {projects.map((pr) => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+                    <option value="none">{lang === "en" ? "No specific project" : "لم يُحدَّد مشروع"}</option>
+                  </select>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    {lang === "en"
+                      ? "Without a project the loss won't appear when \"Why we lose\" is filtered by project."
+                      : "بلا مشروع لا تظهر الخسارة في «لماذا نخسر؟» عند الترشيح بالمشروع."}
+                  </p>
                 </section>
               )}
 

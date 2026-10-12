@@ -358,10 +358,14 @@ begin
       and (v_mine1->>'lost_unqualified')::int - (v_mine0->>'lost_unqualified')::int = 1,
       '١٣: نتائج المدة بمرشّح الموظف: إغلاق غير تجاري ١، خسارة تجارية ١، غير مؤهّل ١');
     log := log || extensions.is(v_other1, v_other0, '١٣: أحداث موظف لا تظهر في مرشّح غيره');
+    -- المقام نفسه لا قيمة المعدّل: بلا فوز في اليوم يكون المعدّلان صفراً كلاهما
     log := log || extensions.ok(
-      (v_mine1->>'win_rate_all') is distinct from (v_mine1->>'win_rate_commercial')
-      or (v_mine1->>'lost_all')::int = (v_mine1->>'lost_commercial')::int,
-      '١٣: معدّل الفوز التجاري يستبعد غير التجاري من المقام');
+      (v_mine1->>'lost_all')::int > (v_mine1->>'lost_commercial')::int
+      and (v_mine1->>'win_rate_commercial')::numeric is not distinct from
+          case when (v_mine1->>'won')::int + (v_mine1->>'lost_commercial')::int > 0
+               then round((v_mine1->>'won')::int * 100.0
+                          / ((v_mine1->>'won')::int + (v_mine1->>'lost_commercial')::int), 1) end,
+      '١٣: معدّل الفوز التجاري مقامه فوز + خسارة تجارية — غير المؤهّل خارجه');
 
     -- ================= (١٠) الدمج والحذف الناعم =================
     perform tests.act_as(admin_u);
@@ -390,7 +394,7 @@ begin
       p_from => today - 30, p_to => today);
     log := log || extensions.pass('٢٠: المقاييس الحدثية الجديدة تُنفَّذ في المحرّك');
     perform public.crm_report_query(
-      p_metrics => array['AT_RESERVATION', 'CLOSED_NONCOMMERCIAL_TOTAL'], p_state => 'live');
+      p_metrics => array['AT_RESERVATION', 'CLOSED_NONCOMMERCIAL_TOTAL'], p_state => 'current');
     log := log || extensions.pass('٢٠: مقاييس الحالة الجديدة تُنفَّذ في المحرّك');
 
     log := log || extensions.is((select count(*)::int from public.crm_journey_drift()
@@ -559,8 +563,8 @@ begin
     values ('اختبار تطابق ٢', v_phone2, 'ليد', plain_emp, 'سوشيل ميديا', 'بغداد', proj)
     returning id into cli2;
     select current_journey_id into opp from public.clients where id = cli2;
-    insert into public.opportunities (client_id, stage_id, owner_id, project_id)
-    values (cli2, g_neg, plain_emp, proj) returning id into opp2;
+    insert into public.opportunities (client_id, stage_id, owner_id, project_id, created_at)
+    values (cli2, g_neg, plain_emp, proj, now() + interval '1 second') returning id into opp2;
     log := log || extensions.is((select current_journey_id from public.clients where id = cli2), opp2,
       'مساران مفتوحان: البطاقة على الأحدث');
 

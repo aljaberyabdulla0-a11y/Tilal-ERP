@@ -118,6 +118,7 @@ export default async function MergeClientsPage({
           projects={projects}
           canMerge={peer.mode === "direct"}
           ownerLocked={peer.owner_locked}
+          ownerCardId={peer.owner_card ?? null}
           matchOn={peer.match_on}
         />
       </section>

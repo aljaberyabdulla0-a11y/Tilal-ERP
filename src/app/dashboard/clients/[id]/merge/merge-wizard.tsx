@@ -21,6 +21,8 @@ import type { Client } from "@/lib/types";
 // (169) ownerLocked: الدامج لا يملك البطاقتين (دمجٌ بالتطابق مع بطاقة
 // زميل) ⇒ المالك لا يُسأل عنه: العميل لمالك البطاقة الأقدم، ومن خسر
 // الملكية يبقى يرى البطاقة. القاعدة تفرضه ولو أُرسل «owner».
+// (210) البطاقة الحيّة قبل الأقدم: بطاقة «فشل البيع» القديمة لا تسحب
+// عميلاً عاد عند زميل — ownerCardId من client_merge_owner_card.
 // ============================================================
 
 export type MergeSide = {
@@ -104,6 +106,7 @@ export default function MergeWizard({
   projects,
   canMerge,
   ownerLocked,
+  ownerCardId,
   matchOn,
 }: {
   a: MergeSide;
@@ -112,6 +115,7 @@ export default function MergeWizard({
   projects: { id: string; name: string }[];
   canMerge: boolean;
   ownerLocked: boolean;
+  ownerCardId: string | null;
   matchOn: string | null;
 }) {
   const router = useRouter();
@@ -143,15 +147,22 @@ export default function MergeWizard({
     return s.stage_type === "won" ? 1000 : s.stage_type === "lost" ? -1 : s.sort_order;
   };
 
-  // العميل للأقدم (169) — نفس ترتيب القاعدة: التاريخ ثم المعرّف،
-  // وإن كانت الأقدم بلا مالك فالمالك من الأخرى
+  // المالك من القاعدة (210: الحيّة قبل الأقدم). وقبل 210: العميل للأقدم
+  // (169) — التاريخ ثم المعرّف، وإن كانت الأقدم بلا مالك فالمالك من الأخرى
   const older: Side =
     a.client.created_at < b.client.created_at ||
     (a.client.created_at === b.client.created_at && a.client.id < b.client.id)
       ? "a"
       : "b";
   const younger: Side = older === "a" ? "b" : "a";
-  const ownerSide: Side = sides[older].client.owner_id || sides[older].client.sales_employee ? older : younger;
+  const ownerSide: Side =
+    ownerCardId === a.client.id
+      ? "a"
+      : ownerCardId === b.client.id
+      ? "b"
+      : sides[older].client.owner_id || sides[older].client.sales_employee
+      ? older
+      : younger;
   const ownerOwnerName = sides[ownerSide].ownerName;
   const loserOwnerName = sides[ownerSide === "a" ? "b" : "a"].ownerName;
 
@@ -259,7 +270,10 @@ export default function MergeWizard({
         {ownerLocked && canMerge && (
           <p className="border-b bg-sky-50 px-4 py-3 text-sm text-sky-900">
             {matchOn && <>البطاقتان متطابقتان ({matchOn}). </>}
-            العميل يبقى عند <b>{ownerOwnerName ?? "صاحب البطاقة الأقدم"}</b> — صاحب البطاقة الأقدم تسجيلاً
+            العميل يبقى عند <b>{ownerOwnerName ?? "صاحب البطاقة الأقدم"}</b> —{" "}
+            {ownerSide === older
+              ? "صاحب البطاقة الأقدم تسجيلاً"
+              : "صاحب البطاقة الحيّة؛ الأخرى فشل بيعها ولا تسحب العميل"}
             {loserOwnerName && loserOwnerName !== ownerOwnerName && (
               <>، و«{loserOwnerName}» يبقى يرى البطاقة وتاريخها كاملاً</>
             )}

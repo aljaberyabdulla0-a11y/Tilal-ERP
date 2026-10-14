@@ -538,13 +538,15 @@ export const getClientMatchCandidates = cache(async (clientId: string) =>
 
 // الطرف الآخر في شاشة الدمج — client_merge_peer (169). يعود حتى لبطاقة
 // زميل لا تمرّ من RLS حين يحقّ الدمج المباشر.
-//   owner_locked: الدامج لا يملك البطاقتين ⇒ العميل لمالك الأقدم
+//   owner_locked: الدامج لا يملك البطاقتين ⇒ المالك من القاعدة لا من الدامج
+//   owner_card: البطاقة التي يبقى مالكها (210: الحيّة قبل الأقدم) — غائبة قبل 210
 export type MergePeer = {
   client: Client;
   owner_name: string | null;
   counts: { activities: number; opportunities: number; reservations: number; tasks: number; documents: number };
   mode: "direct" | "request" | "none";
   owner_locked: boolean;
+  owner_card?: string | null;
   match_on: "هاتف" | "هاتف بديل" | "الاسم نفسه" | null;
 };
 

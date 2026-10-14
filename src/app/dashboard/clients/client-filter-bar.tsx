@@ -5,8 +5,10 @@ import {
   FOLLOWUP_OPTIONS,
   QUALITY_OPTIONS,
   NO_OWNER,
+  NO_CAMPAIGN,
   type ParsedClientFilters,
 } from "@/lib/client-list-filters";
+import type { ClientFilterOptions, FilterOption } from "@/lib/crm";
 
 // ============================================================
 // شريط مُرشِّحات قائمة العملاء.
@@ -15,9 +17,13 @@ import {
 // في الرابط فيُشارَك كما هو، ويُحفَظ في «العروض المحفوظة»، ويعود بزرّ
 // الرجوع — ويعمل قبل أن يُحمَّل شيء.
 //
-// صفّان: ما يُسأل كل يوم ظاهر (الموظف، المرحلة، المتابعة، آخر تواصل،
-// المصدر، التاريخ)، والباقي تحت «فلاتر إضافية» — ويبقى مفتوحاً إن
-// كان فيه مُرشِّح فعّال، كي لا يختفي سبب قِصَر القائمة.
+// صفّان: ما يُسأل كل يوم ظاهر (موظف المبيعات، المشروع، الحملة، المرحلة،
+// المتابعة، آخر تواصل، المصدر، التاريخ)، والباقي تحت «فلاتر إضافية» —
+// ويبقى مفتوحاً إن كان فيه مُرشِّح فعّال، كي لا يختفي سبب قِصَر القائمة.
+//
+// خيارات الموظف والمشروع والحملة والوسيط من العملاء الظاهرين للسائل
+// (213) — فالصلاحية في القاعدة لا هنا: المشرف يرى مشاريعه وفريقه،
+// ومدير التسويق والمدير الكل. والعدد بجانب كلٍّ من نطاقه كله.
 // ============================================================
 
 const BASE = "/dashboard/clients";
@@ -54,10 +60,12 @@ function Select({
 
 const entries = (o: Record<string, string>) => Object.entries(o).map(([value, label]) => ({ value, label }));
 const plain = (xs: readonly string[]) => xs.map((x) => ({ value: x, label: x }));
+const counted = (xs: FilterOption[]) => xs.map((x) => ({ value: x.id, label: `${x.name} (${x.n})` }));
 
 export default function ClientFilterBar({
   parsed,
   owners,
+  options,
   stages,
   sources,
   temperatures,
@@ -65,6 +73,7 @@ export default function ClientFilterBar({
 }: {
   parsed: ParsedClientFilters;
   owners: { id: string; full_name: string }[];
+  options: ClientFilterOptions;
   stages: string[];
   sources: string[];
   temperatures: string[];
@@ -87,6 +96,11 @@ export default function ClientFilterBar({
 
   // الموظف لا يُعرض لمن لا يرى غير نفسه — قائمةٌ من اسم واحد ضجيج
   const showOwner = owners.length > 1;
+  const ownerCount = new Map(options.owners.map((o) => [o.id, o.n]));
+  // المشروع كذلك: من لا يرى إلا مشروعاً واحداً لا يُرشِّح به
+  const showProject = options.projects.length > 1;
+  const showCampaign = options.campaigns.length > 0;
+  const showBroker = options.brokers.length > 0;
 
   // اختصارات ما يُسأل كل صباح — نقرة بدل ثلاث
   const presets: { label: string; patch: Record<string, string | null> }[] = [
@@ -112,12 +126,29 @@ export default function ClientFilterBar({
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
           {showOwner && (
             <Select
-              label="الموظف"
+              label="موظف المبيعات"
               name="owner"
               value={params.owner}
               options={[
-                ...owners.map((o) => ({ value: o.id, label: o.full_name })),
+                ...owners.map((o) => {
+                  const n = ownerCount.get(o.id);
+                  return { value: o.id, label: n === undefined ? o.full_name : `${o.full_name} (${n})` };
+                }),
                 { value: NO_OWNER, label: "— بلا موظف —" },
+              ]}
+            />
+          )}
+          {showProject && (
+            <Select label="المشروع" name="project" value={params.project} options={counted(options.projects)} />
+          )}
+          {showCampaign && (
+            <Select
+              label="الحملة"
+              name="campaign"
+              value={params.campaign}
+              options={[
+                ...counted(options.campaigns),
+                { value: NO_CAMPAIGN, label: `— بلا حملة — (${options.no_campaign})` },
               ]}
             />
           )}
@@ -140,6 +171,9 @@ export default function ClientFilterBar({
         <details open={secondaryActive} className="rounded-lg border border-dashed border-gray-200 px-3 py-2">
           <summary className="cursor-pointer select-none text-sm text-gray-600">فلاتر إضافية</summary>
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+            {showBroker && (
+              <Select label="الوسيط" name="broker" value={params.broker} options={counted(options.brokers)} />
+            )}
             <Select label="الحرارة" name="temperature" value={params.temperature} options={plain(temperatures)} />
             <Select
               label="الوسم"

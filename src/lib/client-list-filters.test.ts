@@ -5,6 +5,7 @@ import {
   cleanText,
   parseClientListFilters,
   NO_OWNER,
+  NO_CAMPAIGN,
   type ClientFilterContext,
 } from "./client-list-filters";
 
@@ -15,6 +16,9 @@ const ctx: ClientFilterContext = {
     { id: "e1", full_name: "دانيه ابراهيم جبوري" },
     { id: "e2", full_name: "ندى ماجد يس" },
   ],
+  projects: [{ id: "p1", name: "لاماك" }],
+  campaigns: [{ id: "k1", name: "حملة رمضان" }],
+  brokers: [{ id: "b1", name: "النخبة" }],
   tags: [{ id: "t1", name: "VIP" }],
   temperatures: ["ساخن", "دافئ", "بارد", "خامل"],
   today: "2026-09-23",
@@ -41,7 +45,7 @@ describe("parseClientListFilters", () => {
     );
     expect(p.filters.owner).toBe("e1");
     expect(p.params).toEqual({ owner: "e1", stage: "اتصال", followup: "overdue", payment: "أقساط" });
-    expect(p.chips.map((c) => c.label)).toContain("الموظف: دانيه ابراهيم جبوري");
+    expect(p.chips.map((c) => c.label)).toContain("موظف المبيعات: دانيه ابراهيم جبوري");
     expect(p.secondaryActive).toBe(true); // طريقة الدفع في «فلاتر إضافية»
   });
 
@@ -65,6 +69,15 @@ describe("parseClientListFilters", () => {
       .toMatchObject({ from: "2026-09-01", to: "2026-09-10" });
     expect(parseClientListFilters({ from: "2026-13-45" }, ctx).filters.from).toBeNull();
     expect(parseClientListFilters({ from: "أمس" }, ctx).filters.from).toBeNull();
+  });
+
+  it("المشروع والحملة والوسيط من خيارات نطاق السائل وحدها", () => {
+    const p = parseClientListFilters({ project: "p1", campaign: "k1", broker: "b1" }, ctx);
+    expect(p.chips.map((c) => c.label)).toEqual(["المشروع: لاماك", "الحملة: حملة رمضان", "الوسيط: النخبة"]);
+    expect(p.secondaryActive).toBe(true); // الوسيط في «فلاتر إضافية»
+    // مشروعٌ خارج نطاقه (مشرفٌ يلصق رابط مشروع غيره) يُتجاهل
+    expect(parseClientListFilters({ project: "p9", campaign: "k9" }, ctx).params).toEqual({});
+    expect(parseClientListFilters({ campaign: NO_CAMPAIGN }, ctx).chips[0].label).toBe("بلا حملة");
   });
 
   it("المُرشِّحات الأساسية لا تفتح «فلاتر إضافية»", () => {
@@ -96,6 +109,13 @@ describe("applyClientListFilters", () => {
   it("الموظف بالمفتاح، و«بلا موظف» = owner_id فارغ", () => {
     expect(run({ owner: "e2" })).toEqual([["eq", "owner_id", "e2"]]);
     expect(run({ owner: NO_OWNER })).toEqual([["is", "owner_id", null]]);
+  });
+
+  it("المشروع بالحقل المحسوب lead_project_id، و«بلا حملة» = campaign_id فارغ", () => {
+    expect(run({ project: "p1" })).toEqual([["eq", "lead_project_id", "p1"]]);
+    expect(run({ campaign: "k1" })).toEqual([["eq", "campaign_id", "k1"]]);
+    expect(run({ campaign: NO_CAMPAIGN })).toEqual([["is", "campaign_id", null]]);
+    expect(run({ broker: "b1" })).toEqual([["eq", "broker_company_id", "b1"]]);
   });
 
   it("تاريخ الإضافة على entry_date لا created_at", () => {

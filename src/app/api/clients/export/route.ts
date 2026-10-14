@@ -5,7 +5,7 @@ import { isAdmin } from "@/lib/auth";
 import { Client } from "@/lib/types";
 import { CLIENT_COLUMNS } from "@/lib/clients-excel";
 import { getPipelineConfig } from "@/lib/crm-config";
-import { getEmployeesLite, getTags, TEMPERATURE_STYLE } from "@/lib/crm";
+import { getClientFilterOptions, getEmployeesLite, getTags, TEMPERATURE_STYLE } from "@/lib/crm";
 import { baghdadDate } from "@/lib/time";
 import {
   applyClientListFilters,
@@ -39,12 +39,21 @@ export async function GET(request: Request) {
   // مُرشِّحات القائمة نفسها (client-list-filters.ts): ما يراه المدير
   // في القائمة هو ما يُصدَّر. بلا مُرشِّح = كل العملاء كما كان.
   const sp = Object.fromEntries(new URL(request.url).searchParams) as ClientListSearchParams;
-  const [cfg, tags, employees] = await Promise.all([getPipelineConfig(), getTags(), getEmployeesLite()]);
+  const [cfg, tags, employees, opts] = await Promise.all([
+    getPipelineConfig(),
+    getTags(),
+    getEmployeesLite(),
+    getClientFilterOptions(),
+  ]);
   const today = baghdadDate();
   const { filters: f } = parseClientListFilters(sp, {
     stages: Object.keys(cfg.colors),
     sources: cfg.sources,
-    owners: employees,
+    // كقائمة العملاء (213) — وقائمة الفريق احتياطاً
+    owners: opts.owners.length > 0 ? opts.owners.map((o) => ({ id: o.id, full_name: o.name })) : employees,
+    projects: opts.projects,
+    campaigns: opts.campaigns,
+    brokers: opts.brokers,
     tags,
     temperatures: Object.keys(TEMPERATURE_STYLE),
     today,

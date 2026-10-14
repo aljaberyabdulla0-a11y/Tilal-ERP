@@ -12,7 +12,14 @@ import DeleteClientButton from "./delete-client-button";
 import CrmTabs from "../crm/crm-tabs";
 import StageSelect from "@/components/stage-select";
 import { getPipelineConfig } from "@/lib/crm-config";
-import { TEMPERATURE_STYLE, getSavedViews, getEmployeesLite, getTags, getTagsForClients } from "@/lib/crm";
+import {
+  TEMPERATURE_STYLE,
+  getSavedViews,
+  getEmployeesLite,
+  getTags,
+  getTagsForClients,
+  getClientFilterOptions,
+} from "@/lib/crm";
 import SavedViews from "@/components/saved-views";
 import ClientsTable from "./clients-table";
 import ClientFilterBar from "./client-filter-bar";
@@ -45,8 +52,19 @@ export default async function ClientsPage({
 
   const supabase = await createClient();
   // القوائم تُجلب أولاً: منها يُقبل المُرشِّح أو يُرفض، وتُعرض في الشريط.
-  // والموظفون من team_members — فالمشرف يرى فريقه والموظف نفسه.
-  const [cfg, tags, employees] = await Promise.all([getPipelineConfig(), getTags(), getEmployeesLite()]);
+  // والموظفون من team_members (للإسناد): المشرف فريقه والموظف نفسه.
+  // وخيارات «موظف المبيعات/المشروع/الحملة/الوسيط» من العملاء الظاهرين
+  // للسائل (213) — فكلٌّ يُرشِّح بما يراه: المشرف فريقه ومشاريعه،
+  // ومدير التسويق والمدير الكل.
+  const [cfg, tags, employees, opts] = await Promise.all([
+    getPipelineConfig(),
+    getTags(),
+    getEmployeesLite(),
+    getClientFilterOptions(),
+  ]);
+  // احتياطٌ إن لم تُطبَّق 213 بعد: قائمة الفريق كما كانت
+  const owners =
+    opts.owners.length > 0 ? opts.owners.map((o) => ({ id: o.id, full_name: o.name })) : employees;
   const today = baghdadDate();
   const temperatures = Object.keys(TEMPERATURE_STYLE);
 
@@ -54,7 +72,10 @@ export default async function ClientsPage({
     // cfg.colors يشمل المراحل غير الفعّالة — رابطٌ قديم لمرحلة أُوقفت يبقى يعمل
     stages: Object.keys(cfg.colors),
     sources: cfg.sources,
-    owners: employees,
+    owners,
+    projects: opts.projects,
+    campaigns: opts.campaigns,
+    brokers: opts.brokers,
     tags,
     temperatures,
     today,
@@ -176,8 +197,9 @@ export default async function ClientsPage({
           <div className="mb-4 flex items-start gap-2 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
             <span className="material-symbols-outlined text-[18px]">lock</span>
             <span>
-              تشوف هنا العملاء الذين أضفتهم أو المُسندين لك فقط. لعرض عميل غير ظاهر
-              لك، راجع الإدارة.
+              {role === "supervisor"
+                ? "تشوف هنا عملاءك وعملاء فريقك (مشاريعك). لعرض عميل غير ظاهر لك، راجع الإدارة."
+                : "تشوف هنا العملاء الذين أضفتهم أو المُسندين لك فقط. لعرض عميل غير ظاهر لك، راجع الإدارة."}
             </span>
           </div>
         )}
@@ -185,7 +207,8 @@ export default async function ClientsPage({
         {/* البحث والمُرشِّحات — كلها في الرابط */}
         <ClientFilterBar
           parsed={parsed}
-          owners={employees}
+          owners={owners}
+          options={opts}
           stages={cfg.stageNames}
           sources={cfg.sources}
           temperatures={temperatures}

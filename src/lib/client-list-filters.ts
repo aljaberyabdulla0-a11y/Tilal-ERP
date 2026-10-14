@@ -21,6 +21,9 @@ import { IRAQ_GOVERNORATES, PAYMENT_METHODS, PURCHASE_PURPOSES } from "@/lib/typ
 export type ClientListSearchParams = {
   q?: string;
   owner?: string;
+  project?: string;
+  campaign?: string;
+  broker?: string;
   stage?: string;
   source?: string;
   from?: string;
@@ -68,6 +71,8 @@ export const QUALITY_OPTIONS = {
 export type QualityKey = keyof typeof QUALITY_OPTIONS;
 
 export const NO_OWNER = "none";
+// «بلا حملة» — ليدٌ لم يُنسب لإعلان: ما يسأل عنه التسويق أولاً
+export const NO_CAMPAIGN = "none";
 
 // ===== ما يُمرَّر من الصفحة =====
 
@@ -75,6 +80,10 @@ export type ClientFilterContext = {
   stages: string[];
   sources: string[];
   owners: { id: string; full_name: string }[];
+  /** مشاريع وحملات ووسطاء عملاء السائل (crm_client_filter_options، 213) */
+  projects?: { id: string; name: string }[];
+  campaigns?: { id: string; name: string }[];
+  brokers?: { id: string; name: string }[];
   tags: { id: string; name: string }[];
   temperatures: string[];
   /** اليوم بتوقيت بغداد YYYY-MM-DD */
@@ -84,6 +93,9 @@ export type ClientFilterContext = {
 export type ClientListFilters = {
   q: string | null;
   owner: string | null; // معرّف موظف أو NO_OWNER
+  project: string | null; // مشروع الليد (lead_project_id)
+  campaign: string | null; // معرّف حملة أو NO_CAMPAIGN
+  broker: string | null;
   stage: string | null;
   source: string | null;
   from: string | null;
@@ -149,6 +161,10 @@ export function parseClientListFilters(
   const filters: ClientListFilters = {
     q: cleanText(sp.q),
     owner,
+    project: oneOf(sp.project, (ctx.projects ?? []).map((p) => p.id)),
+    campaign:
+      sp.campaign === NO_CAMPAIGN ? NO_CAMPAIGN : oneOf(sp.campaign, (ctx.campaigns ?? []).map((c) => c.id)),
+    broker: oneOf(sp.broker, (ctx.brokers ?? []).map((b) => b.id)),
     stage: oneOf(sp.stage, ctx.stages),
     source: oneOf(sp.source, ctx.sources),
     from,
@@ -179,8 +195,17 @@ export function parseClientListFilters(
     f.owner,
     f.owner === NO_OWNER
       ? "بلا موظف"
-      : `الموظف: ${ctx.owners.find((o) => o.id === f.owner)?.full_name ?? ""}`
+      : `موظف المبيعات: ${ctx.owners.find((o) => o.id === f.owner)?.full_name ?? ""}`
   );
+  put("project", f.project, `المشروع: ${ctx.projects?.find((p) => p.id === f.project)?.name ?? ""}`);
+  put(
+    "campaign",
+    f.campaign,
+    f.campaign === NO_CAMPAIGN
+      ? "بلا حملة"
+      : `الحملة: ${ctx.campaigns?.find((c) => c.id === f.campaign)?.name ?? ""}`
+  );
+  put("broker", f.broker, `الوسيط: ${ctx.brokers?.find((b) => b.id === f.broker)?.name ?? ""}`);
   put("stage", f.stage, `المرحلة: ${f.stage}`);
   put("source", f.source, `المصدر: ${f.source}`);
   put("from", f.from, `أُضيف من ${f.from}`);
@@ -196,7 +221,7 @@ export function parseClientListFilters(
   put("filter", f.quality, f.quality ? QUALITY_OPTIONS[f.quality] : "");
 
   const secondaryActive = !!(
-    f.temperature || f.tag || f.payment || f.purpose || f.governorate || f.area || f.quality
+    f.broker || f.temperature || f.tag || f.payment || f.purpose || f.governorate || f.area || f.quality
   );
 
   return { filters, params, chips, secondaryActive };
@@ -229,6 +254,16 @@ export function applyClientListFilters(
 
   if (f.owner === NO_OWNER) q = q.is("owner_id", null);
   else if (f.owner) q = q.eq("owner_id", f.owner);
+
+  // المشروع بقاعدة التقارير (206): البطاقة ← المفضّل ← الحملة ← فريق
+  // الموظف — حقلٌ محسوب في القاعدة (213)، لا project_id وحده الذي
+  // يخلو عند أغلب العملاء.
+  if (f.project) q = q.eq("lead_project_id", f.project);
+
+  if (f.campaign === NO_CAMPAIGN) q = q.is("campaign_id", null);
+  else if (f.campaign) q = q.eq("campaign_id", f.campaign);
+
+  if (f.broker) q = q.eq("broker_company_id", f.broker);
 
   if (f.stage) q = q.eq("stage", f.stage);
   if (f.source) q = q.eq("source", f.source);

@@ -761,6 +761,29 @@ export const getEmployeesLite = cache(async () =>
   )
 );
 
+// خيارات مُرشِّحات قائمة العملاء من العملاء الظاهرين للسائل وحده (213):
+// المشرف موظفي فريقه ومشاريعه، ومدير التسويق والمدير الكل، والموظف نفسه.
+// n = عدد عملائه في النطاق.
+export type FilterOption = { id: string; name: string; n: number };
+export type ClientFilterOptions = {
+  owners: FilterOption[];
+  projects: FilterOption[];
+  campaigns: FilterOption[];
+  brokers: FilterOption[];
+  no_campaign: number;
+};
+
+export const getClientFilterOptions = cache(async (): Promise<ClientFilterOptions> => {
+  const empty: ClientFilterOptions = { owners: [], projects: [], campaigns: [], brokers: [], no_campaign: 0 };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("crm_client_filter_options");
+  if (error || !data) {
+    if (error) console.error("[crm] فشل خيارات المُرشِّحات:", error.message);
+    return empty;
+  }
+  return { ...empty, ...(data as ClientFilterOptions) };
+});
+
 // ===== الحملات (079) =====
 
 export type Campaign = {

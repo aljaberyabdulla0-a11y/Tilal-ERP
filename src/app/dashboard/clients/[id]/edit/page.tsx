@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/auth";
+import { canEditAnyClient } from "@/lib/auth";
 import { getSalesEmployeeNames } from "@/lib/hr";
 import { Client } from "@/lib/types";
 import ClientForm from "../../client-form";
@@ -14,8 +14,8 @@ export default async function EditClientPage({
 }: {
   params: { id: string };
 }) {
-  // حماية من جهة الخادم: غير المدير يُعاد لصفحة تفاصيل العميل
-  if (!(await isAdmin())) {
+  // حماية من جهة الخادم: غير المدير ومدير التسويق (212) يُعاد لصفحة تفاصيل العميل
+  if (!(await canEditAnyClient())) {
     redirect(`/dashboard/clients/${params.id}`);
   }
 

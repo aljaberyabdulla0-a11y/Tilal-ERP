@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin, getCurrentUser, canWriteCrm, getUserRole } from "@/lib/auth";
+import { isAdmin, getCurrentUser, canWriteCrm, getUserRole, canEditAnyClient } from "@/lib/auth";
 import {
   Client,
   PAYMENT_METHOD_COLORS,
@@ -92,12 +92,13 @@ export default async function ClientsPage({
   // هل المستخدم الحالي مدير؟ (لإظهار أزرار التعديل والحذف)
   // ⚠️ canWrite ليس حماية — الحماية في RLS. لكن RLS تمنع صمتاً
   //    (صفر صفوف بلا خطأ)، فزرٌّ ظاهر لمن لا يملك يقول «حُفظ» كاذباً.
-  const [admin, user, views, canWrite, role] = await Promise.all([
+  const [admin, user, views, canWrite, role, allLeads] = await Promise.all([
     isAdmin(),
     getCurrentUser(),
     getSavedViews("clients"),
     canWriteCrm(),
     getUserRole(),
+    canEditAnyClient(), // المدير ومدير التسويق يريان كل الليدات (212)
   ]);
   // وسوم الصفحة المعروضة دفعةً واحدة — لا استعلام لكل صفّ (§62)
   const tagsMap = await getTagsForClients(clients.map((c) => c.id));
@@ -171,7 +172,7 @@ export default async function ClientsPage({
 
       <section className="p-6">
         {/* توضيح للموظف: القائمة تعرض عملاءه فقط */}
-        {!admin && (
+        {!allLeads && (
           <div className="mb-4 flex items-start gap-2 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
             <span className="material-symbols-outlined text-[18px]">lock</span>
             <span>

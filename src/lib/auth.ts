@@ -238,6 +238,12 @@ export const isMarketingManager = cache(async (): Promise<boolean> => {
   return (await getMyMktRole()) === "مدير التسويق";
 });
 
+// من يفتح نموذج «تعديل» العميل الكامل: المدير، ومدير التسويق على كل
+// الليدات (sql/212). نقل الملكية يبقى للإدارة — guard_client_owner.
+export const canEditAnyClient = cache(async (): Promise<boolean> => {
+  return isMarketingManager();
+});
+
 // أرقام التسويق المالية: القسم نفسه والمحاسب (يدفع المصروف)
 export const canReadMarketingMoney = cache(async (): Promise<boolean> => {
   if ((await getUserRole()) === "accountant") return true;

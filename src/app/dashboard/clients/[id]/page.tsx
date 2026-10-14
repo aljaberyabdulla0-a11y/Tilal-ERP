@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin, canWriteCrm, getUserRole } from "@/lib/auth";
+import { isAdmin, canWriteCrm, getUserRole, canEditAnyClient } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import {
   Client,
@@ -80,6 +80,7 @@ export default async function ClientDetailsPage({
   ]);
   // من لا يكتب لا يُعرض له زرّ يكتب — RLS تمنعه صمتاً فيظنّ أنه حفظ
   const canWrite = await canWriteCrm();
+  const canEditCard = await canEditAnyClient();
 
   if (!data) {
     // بطاقةٌ دُمجت (104): رابطها القديم — من إشعار أو مهمة أو مفضّلة —
@@ -149,18 +150,16 @@ export default async function ClientDetailsPage({
               دمج مع بطاقة أخرى
             </Link>
           )}
-          {/* التعديل والحذف للمدراء فقط */}
-          {admin && (
-            <>
-              <Link
-                href={`/dashboard/clients/${c.id}/edit`}
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
-              >
-                تعديل
-              </Link>
-              <DeleteClientButton id={c.id} name={c.name} />
-            </>
+          {/* التعديل للمدير ومدير التسويق (212)، والحذف للمدير وحده */}
+          {canEditCard && (
+            <Link
+              href={`/dashboard/clients/${c.id}/edit`}
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+            >
+              تعديل
+            </Link>
           )}
+          {admin && <DeleteClientButton id={c.id} name={c.name} />}
         </div>
       </header>
 

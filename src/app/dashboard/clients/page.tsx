@@ -24,6 +24,7 @@ import SavedViews from "@/components/saved-views";
 import ClientsTable from "./clients-table";
 import ClientFilterBar from "./client-filter-bar";
 import Pager from "@/components/pager";
+import { getAllCampaigns } from "@/lib/crm-campaigns";
 import { baghdadDate } from "@/lib/time";
 import {
   applyClientListFilters,
@@ -125,6 +126,8 @@ export default async function ClientsPage({
   // وسوم الصفحة المعروضة دفعةً واحدة — لا استعلام لكل صفّ (§62)
   const tagsMap = await getTagsForClients(clients.map((c) => c.id));
   const tagsByClient = Object.fromEntries(tagsMap);
+  // تصحيح الحملة جماعةً لمدير التسويق والمدير (214) — القاعدة تحرسه بنفسها
+  const campaigns = allLeads && role !== "broker" ? await getAllCampaigns() : [];
   // الإسناد فعلٌ محروس في القاعدة (assign_client): المدير ومدير
   // المتابعة والمشرف في نطاقه. غيرهم يرى بقيّة الإجراءات بلا هذا.
   const canAssign = role === "admin" || role === "followup_manager" || role === "supervisor";
@@ -260,6 +263,7 @@ export default async function ClientsPage({
             silence={cfg.silence}
             employees={employees}
             canExport={admin}
+            campaigns={campaigns}
             tags={tags}
             tagsByClient={tagsByClient}
           />

@@ -38,6 +38,7 @@ export default function ClientsTable({
   employees,
   tags,
   tagsByClient,
+  campaigns,
 }: {
   clients: Client[];
   admin: boolean;
@@ -52,6 +53,8 @@ export default function ClientsTable({
   tags: Tag[];
   // معرّفات وسوم كل عميل — تُجلب دفعةً لا صفّاً صفّاً (N+1)
   tagsByClient: Record<string, string[]>;
+  // تصحيح الحملة جماعةً (214) — فارغة لمن لا يملكه فلا يظهر الخيار
+  campaigns: { id: string; name: string; status: string | null }[];
 }) {
   const tagById = new Map(tags.map((t) => [t.id, t]));
   const [selected, setSelected] = useState<string[]>([]);
@@ -74,6 +77,7 @@ export default function ClientsTable({
           tags={tags}
           canAssign={canAssign}
           canExport={canExport}
+          campaigns={campaigns}
           rows={clients}
         />
       )}

@@ -23,7 +23,10 @@ import type { StageLite } from "@/lib/crm-config";
 //    تحليل «لماذا نخسر» — وهو أنفع ما في التقارير. القاعدة نفسها
 //    ترفضه (085)، والشاشة لا تعرضه أصلاً.
 // ============================================================
-type Action = "assign" | "stage" | "task" | "tag" | "export";
+type Action = "assign" | "stage" | "campaign" | "task" | "tag" | "export";
+
+// «بلا حملة» في القائمة — القاعدة تأخذه null (214)
+const NO_CAMPAIGN = "__none__";
 
 export default function BulkActions({
   selected,
@@ -33,6 +36,7 @@ export default function BulkActions({
   tags,
   canAssign,
   canExport,
+  campaigns,
   rows,
 }: {
   selected: string[];
@@ -45,6 +49,8 @@ export default function BulkActions({
   //    الشخصية تخرج من النظام في ملفّ لا تحكمه RLS بعد خروجه، فمن
   //    يملك إخراجها هو من يملك حذفها.
   canExport: boolean;
+  // تصحيح الحملة جماعةً لمدير التسويق والمدير (214) — فارغة لغيرهما فلا يظهر الخيار
+  campaigns: { id: string; name: string; status: string | null }[];
   // صفوف الصفحة المعروضة: التصدير يعمل عليها بلا رحلة ثانية للقاعدة
   rows: Client[];
 }) {
@@ -55,6 +61,7 @@ export default function BulkActions({
   const [tagMode, setTagMode] = useState<"add" | "remove">("add");
   const [owner, setOwner] = useState("");
   const [stage, setStage] = useState("");
+  const [campaign, setCampaign] = useState("");
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [priority, setPriority] = useState("متوسطة");
@@ -89,6 +96,7 @@ export default function BulkActions({
     if (action === "stage" && !stage) return setErr("اختر المرحلة.");
     if (action === "stage" && stageNeedsReason && !reason.trim())
       return setErr(`«${stage}» إغلاق غير تجاري — اكتب سببه مرة للدفعة.`);
+    if (action === "campaign" && !campaign) return setErr("اختر الحملة.");
     if (action === "task" && !title.trim()) return setErr("اكتب عنوان المهمّة.");
     if (action === "tag" && !tagId) return setErr("اختر الوسم.");
 
@@ -103,9 +111,13 @@ export default function BulkActions({
         ? `إسناد ${n} عميلاً`
         : action === "stage"
           ? `نقل ${n} عميلاً إلى «${stage}»`
-          : action === "tag"
-            ? `${tagMode === "add" ? "وسم" : "نزع وسم عن"} ${n} عميلاً`
-            : `إنشاء ${n} مهمّة`;
+          : action === "campaign"
+            ? campaign === NO_CAMPAIGN
+              ? `نزع الحملة عن ${n} عميلاً`
+              : `نقل ${n} عميلاً إلى حملة «${campaigns.find((c) => c.id === campaign)?.name ?? ""}»`
+            : action === "tag"
+              ? `${tagMode === "add" ? "وسم" : "نزع وسم عن"} ${n} عميلاً`
+              : `إنشاء ${n} مهمّة`;
     if (!confirm(`${what}. كل صفّ يُعالَج على حدة ويُسجَّل. متابعة؟`)) return;
 
     setBusy(true);
@@ -123,6 +135,11 @@ export default function BulkActions({
         p_client_ids: selected,
         p_stage: stage,
         p_reason: reason.trim() || null,
+      }));
+    } else if (action === "campaign") {
+      ({ data, error } = await supabase.rpc("bulk_set_campaign", {
+        p_client_ids: selected,
+        p_campaign_id: campaign === NO_CAMPAIGN ? null : campaign,
       }));
     } else if (action === "tag") {
       ({ data, error } = await supabase.rpc("bulk_tag_clients", {
@@ -204,6 +221,7 @@ export default function BulkActions({
         >
           {canAssign && <option value="assign">إسناد إلى موظف</option>}
           <option value="stage">تغيير المرحلة</option>
+          {campaigns.length > 0 && <option value="campaign">تغيير الحملة</option>}
           <option value="tag">وسم</option>
           <option value="task">إنشاء مهمّة</option>
           {canExport && <option value="export">تصدير المختار</option>}
@@ -239,6 +257,19 @@ export default function BulkActions({
               />
             )}
           </>
+        )}
+
+        {action === "campaign" && (
+          <select value={campaign} onChange={(e) => setCampaign(e.target.value)} className="rounded border border-gray-300 bg-white px-2 py-1.5">
+            <option value="">— الحملة —</option>
+            {campaigns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+                {c.status && c.status !== "نشطة" ? ` (${c.status})` : ""}
+              </option>
+            ))}
+            <option value={NO_CAMPAIGN}>— بلا حملة —</option>
+          </select>
         )}
 
         {action === "tag" && (
@@ -285,6 +316,12 @@ export default function BulkActions({
         <p className="mt-2 text-xs text-gray-600">
           «فشل البيع» غير متاح جماعةً: مئة صفقة بسبب واحد تُفسد تحليل الخسارة — تُغلق كلٌّ بنموذجها من بطاقة العميل.
           و«غير مؤهّل» و«تعذّر الوصول» إغلاقٌ غير تجاري بسببٍ يُكتب مرة للدفعة، والعميل الخاسر يُعاد تنشيطه من بطاقته.
+        </p>
+      )}
+      {action === "campaign" && (
+        <p className="mt-2 text-xs text-gray-600">
+          لتصحيح أخطاء الإدخال: تتبع العميلَ تقاريرُ الحملات وسجلّاتُ «فشل البيع» التي حملت حملته القديمة،
+          ويُكتب لكل عميل في سجلّ التدقيق الحملةُ السابقة ومن غيّرها.
         </p>
       )}
       {action === "task" && (

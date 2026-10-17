@@ -126,8 +126,10 @@ export default async function ClientsPage({
   // وسوم الصفحة المعروضة دفعةً واحدة — لا استعلام لكل صفّ (§62)
   const tagsMap = await getTagsForClients(clients.map((c) => c.id));
   const tagsByClient = Object.fromEntries(tagsMap);
-  // تصحيح الحملة جماعةً لمدير التسويق والمدير (214) — القاعدة تحرسه بنفسها
-  const campaigns = allLeads && role !== "broker" ? await getAllCampaigns() : [];
+  // تصحيح الحملة جماعةً (214): مدير التسويق والمدير على الكل، والمشرف على
+  // عملاء فريقه (215) — القاعدة تحرس النطاق بنفسها
+  const campaigns =
+    (allLeads || role === "supervisor") && role !== "broker" ? await getAllCampaigns() : [];
   // الإسناد فعلٌ محروس في القاعدة (assign_client): المدير ومدير
   // المتابعة والمشرف في نطاقه. غيرهم يرى بقيّة الإجراءات بلا هذا.
   const canAssign = role === "admin" || role === "followup_manager" || role === "supervisor";

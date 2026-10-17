@@ -244,6 +244,14 @@ export const canEditAnyClient = cache(async (): Promise<boolean> => {
   return isMarketingManager();
 });
 
+// من يُعرض له زرّ «تعديل» بطاقة العميل: من سبقوا، ومشرف المبيعات على
+// عملاء فريقه. قاعدته موجودة من قبل: «update own clients» تشمل
+// my_scope_employees() (فريقه)، و guard_client_owner يسمح له بنقل
+// العميل بين موظفي فريقه لا خارجه.
+export const canEditClientCard = cache(async (): Promise<boolean> => {
+  return (await canEditAnyClient()) || (await isSupervisor());
+});
+
 // أرقام التسويق المالية: القسم نفسه والمحاسب (يدفع المصروف)
 export const canReadMarketingMoney = cache(async (): Promise<boolean> => {
   if ((await getUserRole()) === "accountant") return true;

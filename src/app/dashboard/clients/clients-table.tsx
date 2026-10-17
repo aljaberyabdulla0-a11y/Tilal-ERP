@@ -28,6 +28,7 @@ import BulkActions from "./bulk-actions";
 export default function ClientsTable({
   clients,
   admin,
+  canEdit,
   canWrite,
   canAssign,
   canExport,
@@ -40,6 +41,7 @@ export default function ClientsTable({
 }: {
   clients: Client[];
   admin: boolean;
+  canEdit: boolean;
   canWrite: boolean;
   canAssign: boolean;
   canExport: boolean;
@@ -206,17 +208,15 @@ export default function ClientsTable({
                     <Link href={`/dashboard/clients/${c.id}`} className="me-3 text-sm text-brand-700 hover:underline">
                       عرض
                     </Link>
-                    {admin && (
-                      <>
-                        <Link
-                          href={`/dashboard/clients/${c.id}/edit`}
-                          className="me-3 text-sm text-brand-700 hover:underline"
-                        >
-                          تعديل
-                        </Link>
-                        <DeleteClientButton id={c.id} name={c.name} />
-                      </>
+                    {canEdit && (
+                      <Link
+                        href={`/dashboard/clients/${c.id}/edit`}
+                        className="me-3 text-sm text-brand-700 hover:underline"
+                      >
+                        تعديل
+                      </Link>
                     )}
+                    {admin && <DeleteClientButton id={c.id} name={c.name} />}
                   </td>
                 </tr>
               );

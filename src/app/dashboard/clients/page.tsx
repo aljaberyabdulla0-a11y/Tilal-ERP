@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin, getCurrentUser, canWriteCrm, getUserRole, canEditAnyClient } from "@/lib/auth";
+import { isAdmin, getCurrentUser, canWriteCrm, getUserRole, canEditAnyClient, canEditClientCard } from "@/lib/auth";
 import {
   Client,
   PAYMENT_METHOD_COLORS,
@@ -113,13 +113,14 @@ export default async function ClientsPage({
   // هل المستخدم الحالي مدير؟ (لإظهار أزرار التعديل والحذف)
   // ⚠️ canWrite ليس حماية — الحماية في RLS. لكن RLS تمنع صمتاً
   //    (صفر صفوف بلا خطأ)، فزرٌّ ظاهر لمن لا يملك يقول «حُفظ» كاذباً.
-  const [admin, user, views, canWrite, role, allLeads] = await Promise.all([
+  const [admin, user, views, canWrite, role, allLeads, canEdit] = await Promise.all([
     isAdmin(),
     getCurrentUser(),
     getSavedViews("clients"),
     canWriteCrm(),
     getUserRole(),
     canEditAnyClient(), // المدير ومدير التسويق يريان كل الليدات (212)
+    canEditClientCard(), // ومعهما المشرف يعدّل عملاء فريقه
   ]);
   // وسوم الصفحة المعروضة دفعةً واحدة — لا استعلام لكل صفّ (§62)
   const tagsMap = await getTagsForClients(clients.map((c) => c.id));
@@ -251,6 +252,7 @@ export default async function ClientsPage({
           <ClientsTable
             clients={clients}
             admin={admin}
+            canEdit={canEdit}
             canWrite={canWrite}
             canAssign={canAssign}
             stages={cfg.stages}

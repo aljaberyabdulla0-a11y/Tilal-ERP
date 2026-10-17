@@ -176,9 +176,12 @@ export default function ClientForm({
     setSaving(true);
     // نفس النموذج يخدم الحالتين: تعديل أو إضافة
     if (isEdit) {
-      const { error } = await supabase.from("clients").update(payload).eq("id", clientId!);
+      // RLS تمنع صمتاً: صفر صفوف بلا خطأ. فبطاقةٌ يقرؤها ولا يملك تعديلها
+      // (عميلٌ خارج فريق المشرف) لا تقول له «حُفظ» كاذبة
+      const { data: saved, error } = await supabase.from("clients").update(payload).eq("id", clientId!).select("id");
       setSaving(false);
       if (error) return setError("تعذّر الحفظ: " + error.message);
+      if (!saved || saved.length === 0) return setError("تعذّر الحفظ: هذا العميل خارج نطاق صلاحيتك في التعديل.");
       router.push(`/dashboard/clients/${clientId}`);
       router.refresh();
       return;

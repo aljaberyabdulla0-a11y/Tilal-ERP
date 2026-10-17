@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin, canWriteCrm, getUserRole, canEditAnyClient } from "@/lib/auth";
+import { isAdmin, canWriteCrm, getUserRole, canEditClientCard } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import {
   Client,
@@ -80,7 +80,7 @@ export default async function ClientDetailsPage({
   ]);
   // من لا يكتب لا يُعرض له زرّ يكتب — RLS تمنعه صمتاً فيظنّ أنه حفظ
   const canWrite = await canWriteCrm();
-  const canEditCard = await canEditAnyClient();
+  const canEditCard = await canEditClientCard();
 
   if (!data) {
     // بطاقةٌ دُمجت (104): رابطها القديم — من إشعار أو مهمة أو مفضّلة —
@@ -150,7 +150,7 @@ export default async function ClientDetailsPage({
               دمج مع بطاقة أخرى
             </Link>
           )}
-          {/* التعديل للمدير ومدير التسويق (212)، والحذف للمدير وحده */}
+          {/* التعديل للمدير ومدير التسويق (212) ومشرف المبيعات على فريقه، والحذف للمدير وحده */}
           {canEditCard && (
             <Link
               href={`/dashboard/clients/${c.id}/edit`}

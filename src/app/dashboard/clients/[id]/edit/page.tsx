@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { canEditAnyClient } from "@/lib/auth";
+import { canEditClientCard, isSupervisor } from "@/lib/auth";
 import { getSalesEmployeeNames } from "@/lib/hr";
 import { Client } from "@/lib/types";
 import ClientForm from "../../client-form";
 import { getPipelineConfig } from "@/lib/crm-config";
 import { getRunningCampaigns } from "@/lib/crm-campaigns";
+import { getEmployeesLite } from "@/lib/crm";
 
 // صفحة تعديل عميل — تجلب بياناته الحالية ثم تعرضها في النموذج المشترك
 export default async function EditClientPage({
@@ -14,15 +15,23 @@ export default async function EditClientPage({
 }: {
   params: { id: string };
 }) {
-  // حماية من جهة الخادم: غير المدير ومدير التسويق (212) يُعاد لصفحة تفاصيل العميل
-  if (!(await canEditAnyClient())) {
+  // حماية من جهة الخادم: غير المدير ومدير التسويق (212) ومشرف المبيعات
+  // يُعاد لصفحة تفاصيل العميل
+  if (!(await canEditClientCard())) {
     redirect(`/dashboard/clients/${params.id}`);
   }
 
   const supabase = await createClient();
+  // المشرف ممنوع من employees (037)، فقائمته من team_members: موظفو فريقه
+  // وحدهم — و guard_client_owner لا يسمح له بنقل العميل خارجه أصلاً
+  const supervisor = await isSupervisor();
   const [{ data }, employeeNames, cfg, campaigns] = await Promise.all([
     supabase.from("clients").select("*").eq("id", params.id).single(),
-    getSalesEmployeeNames(),
+    supervisor
+      ? getEmployeesLite().then((rows) =>
+          Array.from(new Set(rows.map((e) => e.full_name?.trim()).filter((n): n is string => !!n)))
+        )
+      : getSalesEmployeeNames(),
     getPipelineConfig(),
     getRunningCampaigns(),
   ]);

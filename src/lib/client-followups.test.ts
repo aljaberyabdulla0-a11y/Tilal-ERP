@@ -101,6 +101,11 @@ describe("projectResolver — مشروع المتابعة للفرز", () => {
     expect(projectOf(client({ owner_id: "e2", project_id: "furqan" }))).toBe("furqan");
   });
 
+  it("مشروع الليد من القاعدة (217) يسبق الكل — موظفٌ على مشروعين لا يُنسب لأساسيّه", () => {
+    expect(projectOf(client({ owner_id: "e2", lead_project_id: "future" }))).toBe("future");
+    expect(projectOf(client({ owner_id: "e2", lead_project_id: null }))).toBe("damac");
+  });
+
   it("وإلا مشروع المالك بالمفتاح، ثم بالاسم النصّي للعملاء القدامى", () => {
     expect(projectOf(client({ owner_id: "e2", sales_employee: "نرمين" }))).toBe("damac");
     expect(projectOf(client({ sales_employee: " نرمين " }))).toBe("lamak");

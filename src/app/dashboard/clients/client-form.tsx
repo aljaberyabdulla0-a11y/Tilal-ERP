@@ -38,12 +38,19 @@ export default function ClientForm({
   employeeNames = [],
   sources,
   campaigns = [],
+  projects = [],
+  memberProjects = {},
 }: {
   initial?: Partial<Client>;
   clientId?: string;
   // Running marketing campaigns — the employee picks the one the client came from, so the campaign
   // knows its leads and its sales (marketing's attribution is built on it). Optional.
-  campaigns?: { id: string; name: string }[];
+  campaigns?: { id: string; name: string; project_id?: string | null }[];
+  // مشروع العميل (217): المشاريع الظاهرة للسائل، ومشاريع كل موظف باسمه
+  // (الأساسي أولاً). الموظف على أكثر من مشروع (216) يختار مشروع عميله
+  // فلا يُنسب لأساسيّه تلقائياً. فارغة = الحقل لا يظهر.
+  projects?: { id: string; name: string }[];
+  memberProjects?: Record<string, string[]>;
   // أسماء الموظفين المتاحة — الاسم هنا يحدّد من يشوف هذا العميل،
   // فلازم يطابق ملف الموظفين حرفياً (لذلك قائمة وليس كتابة حرة)
   employeeNames?: string[];
@@ -62,6 +69,8 @@ export default function ClientForm({
     purchase_purpose: initial?.purchase_purpose ?? "سكن",
     source: initial?.source ?? "",
     campaign_id: initial?.campaign_id ?? "",
+    // المشروع الفعلي لا مشروع البطاقة وحده: أغلب العملاء مشروعهم من مسارهم
+    project_id: initial?.lead_project_id ?? initial?.project_id ?? "",
     payment_method: initial?.payment_method ?? "",
     sales_employee: initial?.sales_employee ?? "",
     entry_date: initial?.entry_date ?? today(),
@@ -108,6 +117,27 @@ export default function ClientForm({
   const options = Array.from(
     new Set([...employeeNames, form.sales_employee].filter(Boolean))
   );
+  // مشروع العميل: من مشاريع موظف المبيعات المختار، وإن لم تُعرف مشاريعه
+  // (خارج نطاق السائل أو بلا مشروع) فكل المشاريع الظاهرة. والمسجّل سابقاً
+  // يبقى خياراً حتى لا يُنقل العميل بحفظٍ لم يقصده.
+  const empProjectIds = memberProjects[form.sales_employee.trim()] ?? [];
+  const initialProject = initial?.lead_project_id ?? initial?.project_id ?? "";
+  const projectOptions = (() => {
+    const ids = empProjectIds.length > 0 ? [...empProjectIds] : projects.map((p) => p.id);
+    if (isEdit && initialProject && !ids.includes(initialProject)) ids.push(initialProject);
+    return ids
+      .map((id) => projects.find((p) => p.id === id))
+      .filter((p): p is { id: string; name: string } => Boolean(p));
+  })();
+  // مشروعٌ واحد للموظف = يُختار وحده
+  const projectValue = projectOptions.some((p) => p.id === form.project_id)
+    ? form.project_id
+    : empProjectIds.length === 1
+      ? empProjectIds[0]
+      : "";
+  // كل عميل جديد يولد بمشروعه (217) — والتعديل يُلزم حين يتعدّد ما يُختار منه
+  const projectRequired = !isEdit || empProjectIds.length > 1;
+
   // المصدر المحفوظ سابقاً يبقى في القائمة ولو عُطّل لاحقاً
   const sourceOptions = Array.from(
     new Set([...(sources && sources.length > 0 ? sources : CLIENT_SOURCES), form.source].filter(Boolean))
@@ -171,6 +201,11 @@ export default function ClientForm({
       sales_employee: form.sales_employee.trim() || null,
       entry_date: form.entry_date || null,
       notes: form.notes.trim() || null,
+      // مشروع البطاقة (217): في الإضافة كما اختير، وفي التعديل إن تغيّر
+      // فقط — فحفظُ بطاقةٍ مشروعها من مسارها لا يكتبه عليها بلا داعٍ
+      ...(projects.length > 0 && projectValue && (!isEdit || projectValue !== initialProject)
+        ? { project_id: projectValue }
+        : {}),
     };
 
     setSaving(true);
@@ -420,7 +455,12 @@ export default function ClientForm({
             <label className={labelClass}>الحملة التسويقية</label>
             <select
               value={form.campaign_id}
-              onChange={(e) => update("campaign_id", e.target.value)}
+              onChange={(e) => {
+                update("campaign_id", e.target.value);
+                // حملة مشروعٍ من مشاريع الموظف تختار مشروعها
+                const pid = campaigns.find((c) => c.id === e.target.value)?.project_id;
+                if (pid && projectOptions.some((p) => p.id === pid)) update("project_id", pid);
+              }}
               className={inputClass}
             >
               <option value="">— لا حملة / لا أعرف —</option>
@@ -486,6 +526,34 @@ export default function ClientForm({
             الموظف المختار هو من يشوف هذا العميل في حسابه.
           </p>
         </div>
+
+        {/* مشروع العميل (217) — بعد الموظف لأن خياراته مشاريعه. إلزامي عند
+            الإضافة، ومشروع الموظف الوحيد يُختار وحده */}
+        {projects.length > 0 && projectOptions.length > 0 && (
+          <div>
+            <label className={labelClass}>المشروع {projectRequired && req}</label>
+            <select
+              required={projectRequired}
+              value={projectValue}
+              onChange={(e) => update("project_id", e.target.value)}
+              className={inputClass}
+            >
+              {!projectValue && (
+                <option value="">{projectRequired ? "— اختر المشروع —" : "— بلا مشروع —"}</option>
+              )}
+              {projectOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              {empProjectIds.length > 1
+                ? "الموظف على أكثر من مشروع — اختر مشروع هذا العميل ليظهر تحت مشروعه."
+                : "العميل يظهر تحت هذا المشروع في القائمة والتقارير."}
+            </p>
+          </div>
+        )}
 
         {/* التاريخ */}
         <div>

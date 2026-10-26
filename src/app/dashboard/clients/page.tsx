@@ -19,7 +19,9 @@ import {
   getTags,
   getTagsForClients,
   getClientFilterOptions,
+  getProjectsLite,
 } from "@/lib/crm";
+import { getTeamMembers } from "@/lib/projects";
 import SavedViews from "@/components/saved-views";
 import ClientsTable from "./clients-table";
 import ClientFilterBar from "./client-filter-bar";
@@ -97,10 +99,11 @@ export default async function ClientsPage({
   // count: "exact" يُرجع الإجمالي مع الصفحة في رحلة واحدة — فيُعرض
   // العدد الحقيقي لا عدد المعروض.
   const query = applyClientListFilters(
-    // اسم الشركة الوسيطة صاحبة الليد — بتسمية العلاقة (للعميل علاقتان بها)
+    // اسم الشركة الوسيطة صاحبة الليد — بتسمية العلاقة (للعميل علاقتان بها)،
+    // ومشروع الليد الفعلي (217) لعمود «المشروع»
     supabase
       .from("clients")
-      .select("*, broker_companies!clients_broker_company_id_fkey(name)", { count: "exact" })
+      .select("*, lead_project_id, broker_companies!clients_broker_company_id_fkey(name)", { count: "exact" })
       .order("created_at", { ascending: false }),
     f,
     { today, now: new Date(), tagClientIds }
@@ -130,6 +133,15 @@ export default async function ClientsPage({
   // عملاء فريقه (215) — القاعدة تحرس النطاق بنفسها
   const campaigns =
     (allLeads || role === "supervisor") && role !== "broker" ? await getAllCampaigns() : [];
+  // فرز العملاء على المشاريع جماعةً (217): مشاريع من في نطاقي (216) —
+  // الموظف مشاريعه، والمشرف مشاريع فريقه — والإدارة كل المشاريع.
+  // القاعدة تقبل لكل عميل مشاريع مالكه وحدها
+  let bulkProjects: { id: string; name: string }[] = [];
+  if (role !== "broker" && canWrite) {
+    const [allProjects, members] = await Promise.all([getProjectsLite(), getTeamMembers()]);
+    const scope = new Set(members.flatMap((m) => m.project_ids ?? (m.project_id ? [m.project_id] : [])));
+    bulkProjects = admin || allLeads ? allProjects : allProjects.filter((p) => scope.has(p.id));
+  }
   // الإسناد فعلٌ محروس في القاعدة (assign_client): المدير ومدير
   // المتابعة والمشرف في نطاقه. غيرهم يرى بقيّة الإجراءات بلا هذا.
   const canAssign = role === "admin" || role === "followup_manager" || role === "supervisor";
@@ -268,6 +280,13 @@ export default async function ClientsPage({
             campaigns={campaigns}
             tags={tags}
             tagsByClient={tagsByClient}
+            // عمود «المشروع» لمن يرى أكثر من مشروع (217)
+            projectNames={
+              opts.projects.length > 1
+                ? Object.fromEntries(opts.projects.map((p) => [p.id, p.name]))
+                : null
+            }
+            bulkProjects={bulkProjects}
           />
         )}
 

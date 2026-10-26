@@ -86,3 +86,16 @@ export const getTeamMemberNames = cache(async (): Promise<string[]> => {
   const members = await getTeamMembers();
   return members.map((m) => m.full_name).filter(Boolean);
 });
+
+// مشاريع كل عضو في نطاقي باسمه (الأساسي أولاً) — نموذج العميل يختار
+// منها مشروع العميل (217). الاسم مفتاحٌ لأن النموذج يختار الموظف بالاسم.
+export function memberProjectsByName(members: TeamMember[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const m of members) {
+    const name = m.full_name?.trim();
+    if (!name) continue;
+    const ids = m.project_ids?.length ? m.project_ids : m.project_id ? [m.project_id] : [];
+    out[name] = [...ids].sort((a, b) => Number(b === m.project_id) - Number(a === m.project_id));
+  }
+  return out;
+}

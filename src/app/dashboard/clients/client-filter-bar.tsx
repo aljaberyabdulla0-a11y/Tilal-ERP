@@ -9,6 +9,7 @@ import {
   type ParsedClientFilters,
 } from "@/lib/client-list-filters";
 import type { ClientFilterOptions, FilterOption } from "@/lib/crm";
+import ProjectTabs from "@/components/project-tabs";
 
 // ============================================================
 // شريط مُرشِّحات قائمة العملاء.
@@ -97,7 +98,8 @@ export default function ClientFilterBar({
   // الموظف لا يُعرض لمن لا يرى غير نفسه — قائمةٌ من اسم واحد ضجيج
   const showOwner = owners.length > 1;
   const ownerCount = new Map(options.owners.map((o) => [o.id, o.n]));
-  // المشروع كذلك: من لا يرى إلا مشروعاً واحداً لا يُرشِّح به
+  // المشروع كذلك: من لا يرى إلا مشروعاً واحداً لا يُرشِّح به. ومن يرى
+  // أكثر يُرشِّح بتبويبات ظاهرة فوق الشريط (217) لا بقائمة منسدلة
   const showProject = options.projects.length > 1;
   const showCampaign = options.campaigns.length > 0;
   const showBroker = options.brokers.length > 0;
@@ -112,7 +114,14 @@ export default function ClientFilterBar({
 
   return (
     <section className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
+      {showProject && (
+        <div className="mb-3 border-b pb-3">
+          <ProjectTabs base={BASE} params={params} projects={options.projects} active={params.project ?? null} />
+        </div>
+      )}
       <form method="get" action={BASE} className="space-y-3">
+        {/* التبويب المختار يبقى مع «طبّق» */}
+        {showProject && params.project && <input type="hidden" name="project" value={params.project} />}
         <div className="flex gap-2">
           <input
             type="text"
@@ -137,9 +146,6 @@ export default function ClientFilterBar({
                 { value: NO_OWNER, label: "— بلا موظف —" },
               ]}
             />
-          )}
-          {showProject && (
-            <Select label="المشروع" name="project" value={params.project} options={counted(options.projects)} />
           )}
           {showCampaign && (
             <Select

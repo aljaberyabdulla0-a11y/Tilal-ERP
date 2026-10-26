@@ -41,6 +41,8 @@ import {
   TEMPERATURE_STYLE,
 } from "@/lib/crm";
 import DuplicateBanner from "./duplicate-banner";
+import ClientProjectPicker from "./client-project-picker";
+import { getTeamMembers } from "@/lib/projects";
 import RelatedTasks from "@/components/tasks/related-tasks";
 import type { Stage, ProjectLite, ClientInterest, ClientDocument } from "@/lib/crm";
 
@@ -62,7 +64,7 @@ export default async function ClientDetailsPage({
   const [{ data }, { data: acts }, { data: resv }, admin] = await Promise.all([
     supabase
       .from("clients")
-      .select("*, broker_companies!clients_broker_company_id_fkey(name)")
+      .select("*, lead_project_id, broker_companies!clients_broker_company_id_fkey(name)")
       .eq("id", params.id)
       .single(),
     supabase
@@ -109,6 +111,21 @@ export default async function ClientDetailsPage({
     .map((o) => ({ id: o.id, title: `${o.project_name ?? "بلا مشروع"} · ${o.stage_name}` }));
   const role = await getUserRole();
   const isManager = role === "admin" || role === "followup_manager" || role === "supervisor";
+
+  // مشروع العميل (217): يُختار من مشاريع مالكه (216) — وإن لم يكن المالك
+  // في نطاق السائل فمن المشاريع الظاهرة له. ليد الوسيط مشروعه من بوّابته.
+  const members = await getTeamMembers();
+  const owner = members.find((m) => m.id === c.owner_id);
+  const ownerProjectIds = owner
+    ? owner.project_ids?.length ? owner.project_ids : owner.project_id ? [owner.project_id] : []
+    : [];
+  const projectChoiceIds = ownerProjectIds.length > 0 ? ownerProjectIds : projects.map((p) => p.id);
+  if (c.lead_project_id && !projectChoiceIds.includes(c.lead_project_id)) projectChoiceIds.push(c.lead_project_id);
+  const projectChoices = projectChoiceIds
+    .map((id) => projects.find((p) => p.id === id))
+    .filter((p): p is ProjectLite => Boolean(p));
+  const leadProjectName = projects.find((p) => p.id === c.lead_project_id)?.name ?? null;
+  const canPickProject = canWrite && !c.broker_company_id && role !== "broker" && projectChoices.length > 1;
   const activities = (acts ?? []) as ClientActivity[];
   const reservations = (resv ?? []) as Reservation[];
 
@@ -212,6 +229,15 @@ export default async function ClientDetailsPage({
             (ownerName ?? c.sales_employee) && (
               <span className="text-sm text-gray-500">
                 المالك: <b className="text-gray-800">{ownerName ?? c.sales_employee}</b>
+              </span>
+            )
+          )}
+          {canPickProject ? (
+            <ClientProjectPicker clientId={c.id} value={c.lead_project_id ?? null} options={projectChoices} />
+          ) : (
+            leadProjectName && (
+              <span className="text-sm text-gray-500">
+                المشروع: <b className="text-gray-800">{leadProjectName}</b>
               </span>
             )
           )}

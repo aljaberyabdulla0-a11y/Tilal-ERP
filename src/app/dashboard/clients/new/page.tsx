@@ -3,10 +3,18 @@ import { getSalesEmployeeNames } from "@/lib/hr";
 import ClientForm from "../client-form";
 import { getPipelineConfig } from "@/lib/crm-config";
 import { getRunningCampaigns } from "@/lib/crm-campaigns";
+import { getProjectsLite } from "@/lib/crm";
+import { getTeamMembers, memberProjectsByName } from "@/lib/projects";
 
 // صفحة إضافة عميل جديد — تستخدم النموذج المشترك
 export default async function NewClientPage() {
-  const [employeeNames, cfg, campaigns] = await Promise.all([getSalesEmployeeNames(), getPipelineConfig(), getRunningCampaigns()]);
+  const [employeeNames, cfg, campaigns, projects, members] = await Promise.all([
+    getSalesEmployeeNames(),
+    getPipelineConfig(),
+    getRunningCampaigns(),
+    getProjectsLite(),
+    getTeamMembers(),
+  ]);
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -21,7 +29,13 @@ export default async function NewClientPage() {
       </header>
 
       <section className="p-6">
-        <ClientForm employeeNames={employeeNames} sources={cfg.sources} campaigns={campaigns} />
+        <ClientForm
+          employeeNames={employeeNames}
+          sources={cfg.sources}
+          campaigns={campaigns}
+          projects={projects}
+          memberProjects={memberProjectsByName(members)}
+        />
       </section>
     </main>
   );

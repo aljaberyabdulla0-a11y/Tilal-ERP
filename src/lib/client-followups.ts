@@ -38,10 +38,15 @@ export type FollowUpRow = {
 // ============================================================
 export type MemberLite = { id: string; full_name: string; project_id: string | null };
 
+//
+// ومنذ 217 القاعدة تحسبه بنفسها (lead_project_id — والمسار قبل مشروع
+// الموظّف، فموظفٌ على مشروعين لا يُنسب كل عملائه لأساسيّه). ما بعده
+// احتياطٌ لصفٍّ جُلب بلا ذلك الحقل.
 export function projectResolver(members: MemberLite[]): (c: Client) => string | null {
   const byId = new Map(members.map((m) => [m.id, m.project_id]));
   const byName = new Map(members.map((m) => [m.full_name.trim(), m.project_id]));
   return (c) =>
+    c.lead_project_id ??
     c.preferred_project_id ??
     c.project_id ??
     (c.owner_id ? byId.get(c.owner_id) : undefined) ??
@@ -106,7 +111,7 @@ export const getMyFollowUps = cache(async (): Promise<FollowUpsResult> => {
   const [{ data, error }, membersRes, projectsRes] = await Promise.all([
     supabase
       .from("clients")
-      .select("*")
+      .select("*, lead_project_id")
       .not("follow_up_date", "is", null)
       .lte("follow_up_date", today)
       .order("follow_up_date", { ascending: true })

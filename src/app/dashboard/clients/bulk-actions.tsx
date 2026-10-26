@@ -23,7 +23,7 @@ import type { StageLite } from "@/lib/crm-config";
 //    تحليل «لماذا نخسر» — وهو أنفع ما في التقارير. القاعدة نفسها
 //    ترفضه (085)، والشاشة لا تعرضه أصلاً.
 // ============================================================
-type Action = "assign" | "stage" | "campaign" | "task" | "tag" | "export";
+type Action = "assign" | "stage" | "campaign" | "project" | "task" | "tag" | "export";
 
 // «بلا حملة» في القائمة — القاعدة تأخذه null (214)
 const NO_CAMPAIGN = "__none__";
@@ -37,6 +37,7 @@ export default function BulkActions({
   canAssign,
   canExport,
   campaigns,
+  projects = [],
   rows,
 }: {
   selected: string[];
@@ -51,6 +52,9 @@ export default function BulkActions({
   canExport: boolean;
   // تصحيح الحملة جماعةً (214): مدير التسويق والمدير، والمشرف لفريقه (215) — فارغة لغيرهم فلا يظهر الخيار
   campaigns: { id: string; name: string; status: string | null }[];
+  // فرز العملاء على المشاريع جماعةً (217): مشاريع نطاق السائل — أقلّ من
+  // اثنين فلا يظهر الخيار. القاعدة تحرس: في مشاريع مالك كل عميل
+  projects?: { id: string; name: string }[];
   // صفوف الصفحة المعروضة: التصدير يعمل عليها بلا رحلة ثانية للقاعدة
   rows: Client[];
 }) {
@@ -62,6 +66,7 @@ export default function BulkActions({
   const [owner, setOwner] = useState("");
   const [stage, setStage] = useState("");
   const [campaign, setCampaign] = useState("");
+  const [project, setProject] = useState("");
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [priority, setPriority] = useState("متوسطة");
@@ -97,6 +102,7 @@ export default function BulkActions({
     if (action === "stage" && stageNeedsReason && !reason.trim())
       return setErr(`«${stage}» إغلاق غير تجاري — اكتب سببه مرة للدفعة.`);
     if (action === "campaign" && !campaign) return setErr("اختر الحملة.");
+    if (action === "project" && !project) return setErr("اختر المشروع.");
     if (action === "task" && !title.trim()) return setErr("اكتب عنوان المهمّة.");
     if (action === "tag" && !tagId) return setErr("اختر الوسم.");
 
@@ -115,6 +121,8 @@ export default function BulkActions({
             ? campaign === NO_CAMPAIGN
               ? `نزع الحملة عن ${n} عميلاً`
               : `نقل ${n} عميلاً إلى حملة «${campaigns.find((c) => c.id === campaign)?.name ?? ""}»`
+            : action === "project"
+              ? `نقل ${n} عميلاً إلى مشروع «${projects.find((p) => p.id === project)?.name ?? ""}»`
             : action === "tag"
               ? `${tagMode === "add" ? "وسم" : "نزع وسم عن"} ${n} عميلاً`
               : `إنشاء ${n} مهمّة`;
@@ -140,6 +148,11 @@ export default function BulkActions({
       ({ data, error } = await supabase.rpc("bulk_set_campaign", {
         p_client_ids: selected,
         p_campaign_id: campaign === NO_CAMPAIGN ? null : campaign,
+      }));
+    } else if (action === "project") {
+      ({ data, error } = await supabase.rpc("bulk_set_client_project", {
+        p_client_ids: selected,
+        p_project_id: project,
       }));
     } else if (action === "tag") {
       ({ data, error } = await supabase.rpc("bulk_tag_clients", {
@@ -222,6 +235,7 @@ export default function BulkActions({
           {canAssign && <option value="assign">إسناد إلى موظف</option>}
           <option value="stage">تغيير المرحلة</option>
           {campaigns.length > 0 && <option value="campaign">تغيير الحملة</option>}
+          {projects.length > 1 && <option value="project">نقل لمشروع</option>}
           <option value="tag">وسم</option>
           <option value="task">إنشاء مهمّة</option>
           {canExport && <option value="export">تصدير المختار</option>}
@@ -269,6 +283,17 @@ export default function BulkActions({
               </option>
             ))}
             <option value={NO_CAMPAIGN}>— بلا حملة —</option>
+          </select>
+        )}
+
+        {action === "project" && (
+          <select value={project} onChange={(e) => setProject(e.target.value)} className="rounded border border-gray-300 bg-white px-2 py-1.5">
+            <option value="">— المشروع —</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
           </select>
         )}
 
@@ -322,6 +347,12 @@ export default function BulkActions({
         <p className="mt-2 text-xs text-gray-600">
           لتصحيح أخطاء الإدخال: تتبع العميلَ تقاريرُ الحملات وسجلّاتُ «فشل البيع» التي حملت حملته القديمة،
           ويُكتب لكل عميل في سجلّ التدقيق الحملةُ السابقة ومن غيّرها.
+        </p>
+      )}
+      {action === "project" && (
+        <p className="mt-2 text-xs text-gray-600">
+          لفرز العملاء على مشاريع الموظف: يتبع العميلَ مسارُه المفتوح وتقاريره. يُقبل المشروع إن كان من مشاريع
+          موظف العميل، وما سواه يُعدّ في «رُفض». الصفقات المغلقة تبقى على مشروعها.
         </p>
       )}
       {action === "task" && (

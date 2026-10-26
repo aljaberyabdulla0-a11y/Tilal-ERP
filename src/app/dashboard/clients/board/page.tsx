@@ -6,8 +6,9 @@ import { Client } from "@/lib/types";
 import CrmTabs from "../../crm/crm-tabs";
 import SalesBoard, { type BoardColumnMeta } from "./sales-board";
 import { getPipelineConfig } from "@/lib/crm-config";
-import { getProjectsLite } from "@/lib/crm";
+import { getClientFilterOptions, getProjectsLite } from "@/lib/crm";
 import { baghdadDate } from "@/lib/time";
+import ProjectTabs from "@/components/project-tabs";
 
 // ============================================================
 // لوحة مسار العملاء (Kanban) — كل عميل في مرحلة مساره الحالي (201).
@@ -22,26 +23,43 @@ import { baghdadDate } from "@/lib/time";
 const PAGE = 1000;
 const CLOSED_LIMIT = 100;
 const BOARD_COLUMNS =
-  "id, name, phone, governorate, area, source, sales_employee, owner_id, project_id, follow_up_date, last_contact_at, stage, stage_entered_at, lead_temperature, lead_score, created_at";
+  "id, name, phone, governorate, area, source, sales_employee, owner_id, project_id, lead_project_id, follow_up_date, last_contact_at, stage, stage_entered_at, lead_temperature, lead_score, created_at";
 
-export default async function SalesBoardPage() {
+export default async function SalesBoardPage({
+  searchParams = {},
+}: {
+  searchParams?: { project?: string };
+}) {
   // التسويق لا يتصفّح الأشخاص (092)
   if ((await getUserRole()) === "marketing") redirect("/dashboard/crm/overview");
 
   const supabase = await createClient();
-  const [cfg, projects, admin] = await Promise.all([getPipelineConfig(), getProjectsLite(), isAdmin()]);
+  const [cfg, projects, admin, opts] = await Promise.all([
+    getPipelineConfig(),
+    getProjectsLite(),
+    isAdmin(),
+    getClientFilterOptions(),
+  ]);
   const openNames = cfg.stages.filter((s) => !s.closed).map((s) => s.name);
   const closedNames = cfg.stages.filter((s) => s.closed).map((s) => s.name);
+
+  // اللوحة بمشروعٍ واحد (217) — مشروع الليد نفسه الذي ترشّح به القائمة.
+  // مشروعٌ ليس في نطاق السائل يُتجاهل كأنه لم يُطلب
+  const project = opts.projects.some((p) => p.id === searchParams.project)
+    ? (searchParams.project as string)
+    : null;
+  // (النوع عامٌّ عمداً: قيدٌ على باني Supabase يُغرق فاحص الأنواع)
+  const inProject = <Q,>(q: Q): Q =>
+    project ? (q as unknown as { eq: (col: string, v: string) => Q }).eq("lead_project_id", project) : q;
 
   let error: string | null = null;
 
   // المفتوحة كاملةً — صفحةً صفحة حتى النهاية
   const open: Client[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error: e } = await supabase
-      .from("clients")
-      .select(BOARD_COLUMNS)
-      .in("stage", openNames)
+    const { data, error: e } = await inProject(
+      supabase.from("clients").select(BOARD_COLUMNS).in("stage", openNames)
+    )
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
     if (e) { error = e.message; break; }
@@ -52,10 +70,9 @@ export default async function SalesBoardPage() {
   // المغلقة: الأحدث دخولاً إلى مرحلتها + العدد الحقيقي
   const closedCols = await Promise.all(
     closedNames.map(async (name) => {
-      const { data, count, error: e } = await supabase
-        .from("clients")
-        .select(BOARD_COLUMNS, { count: "exact" })
-        .eq("stage", name)
+      const { data, count, error: e } = await inProject(
+        supabase.from("clients").select(BOARD_COLUMNS, { count: "exact" }).eq("stage", name)
+      )
         .order("stage_entered_at", { ascending: false, nullsFirst: false })
         .limit(CLOSED_LIMIT);
       if (e && !error) error = e.message;
@@ -65,10 +82,9 @@ export default async function SalesBoardPage() {
 
   // عملاء في مرحلة أُوقفت (ليست عموداً) — يُعلَن عددهم بدل أن يغيبوا صامتين
   const allNames = cfg.stages.map((s) => s.name);
-  const { count: elsewhere } = await supabase
-    .from("clients")
-    .select("id", { count: "exact", head: true })
-    .not("stage", "in", `(${allNames.map((n) => `"${n}"`).join(",")})`);
+  const { count: elsewhere } = await inProject(
+    supabase.from("clients").select("id", { count: "exact", head: true })
+  ).not("stage", "in", `(${allNames.map((n) => `"${n}"`).join(",")})`);
 
   // مهامّ متأخرة على العملاء المعروضين — RLS تحصرها في ما يراه السائل
   const today = baghdadDate();
@@ -119,6 +135,17 @@ export default async function SalesBoardPage() {
 
       <CrmTabs active="clients" />
 
+      {opts.projects.length > 1 && (
+        <div className="mx-6 mt-4">
+          <ProjectTabs
+            base="/dashboard/clients/board"
+            params={project ? { project } : {}}
+            projects={opts.projects}
+            active={project}
+          />
+        </div>
+      )}
+
       {error ? (
         <div className="m-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
           تعذّر جلب العملاء: {error}
@@ -140,6 +167,7 @@ export default async function SalesBoardPage() {
           projectNames={projectNames}
           isAdmin={admin}
           closedLimit={CLOSED_LIMIT}
+          project={project}
         />
         </>
       )}

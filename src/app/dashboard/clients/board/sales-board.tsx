@@ -58,6 +58,7 @@ export default function SalesBoard({
   projectNames = {},
   isAdmin = false,
   closedLimit = 100,
+  project = null,
 }: {
   initial: Client[];
   stages?: StageLite[];
@@ -67,6 +68,8 @@ export default function SalesBoard({
   projectNames?: Record<string, string>;
   isAdmin?: boolean;
   closedLimit?: number;
+  // المشروع المختار في تبويبات اللوحة (217) — يُحمل إلى رابط القائمة
+  project?: string | null;
 }) {
   const supabase = createClient();
   const [items, setItems] = useState<Client[]>(initial);
@@ -327,7 +330,7 @@ export default function SalesBoard({
               </div>
               {meta?.truncated && !hasFilters && (
                 <Link
-                  href={`/dashboard/clients?stage=${encodeURIComponent(stage)}`}
+                  href={`/dashboard/clients?stage=${encodeURIComponent(stage)}${project ? `&project=${project}` : ""}`}
                   className="mt-1 block text-[11px] text-amber-700 hover:underline"
                 >
                   آخر {closedLimit} من {meta.total} — الكل في القائمة
@@ -368,7 +371,10 @@ export default function SalesBoard({
                     <div className="mt-1 space-y-0.5 text-xs text-gray-500">
                       {c.phone && <div dir="ltr" className="text-end">{c.phone}</div>}
                       <div>
-                        {c.project_id && projectNames[c.project_id] ? `${projectNames[c.project_id]} · ` : ""}
+                        {(() => {
+                          const pid = c.lead_project_id ?? c.project_id;
+                          return pid && projectNames[pid] ? `${projectNames[pid]} · ` : "";
+                        })()}
                         {c.governorate || "—"}
                         {c.area ? ` - ${c.area}` : ""}
                       </div>

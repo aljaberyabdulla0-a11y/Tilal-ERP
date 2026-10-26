@@ -39,6 +39,8 @@ export default function ClientsTable({
   tags,
   tagsByClient,
   campaigns,
+  projectNames = null,
+  bulkProjects = [],
 }: {
   clients: Client[];
   admin: boolean;
@@ -55,6 +57,10 @@ export default function ClientsTable({
   tagsByClient: Record<string, string[]>;
   // تصحيح الحملة جماعةً (214) — فارغة لمن لا يملكه فلا يظهر الخيار
   campaigns: { id: string; name: string; status: string | null }[];
+  // أسماء المشاريع لعمود «المشروع» — null لمن له مشروع واحد فلا يُعرض (217)
+  projectNames?: Record<string, string> | null;
+  // مشاريع «نقل لمشروع» الجماعي (217)
+  bulkProjects?: { id: string; name: string }[];
 }) {
   const tagById = new Map(tags.map((t) => [t.id, t]));
   const [selected, setSelected] = useState<string[]>([]);
@@ -78,6 +84,7 @@ export default function ClientsTable({
           canAssign={canAssign}
           canExport={canExport}
           campaigns={campaigns}
+          projects={bulkProjects}
           rows={clients}
         />
       )}
@@ -98,6 +105,7 @@ export default function ClientsTable({
                 </th>
               )}
               <th className="px-4 py-3 font-medium">الاسم</th>
+              {projectNames && <th className="px-4 py-3 font-medium">المشروع</th>}
               <th className="px-4 py-3 font-medium">الوسوم</th>
               <th className="px-4 py-3 font-medium">الحالة</th>
               <th className="px-4 py-3 font-medium">الهاتف</th>
@@ -134,6 +142,17 @@ export default function ClientsTable({
                       {c.name}
                     </Link>
                   </td>
+                  {projectNames && (
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {c.lead_project_id && projectNames[c.lead_project_id] ? (
+                        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-700">
+                          {projectNames[c.lead_project_id]}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {(tagsByClient[c.id] ?? []).map((id) => {

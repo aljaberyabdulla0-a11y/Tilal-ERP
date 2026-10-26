@@ -7,7 +7,8 @@ import { Client } from "@/lib/types";
 import ClientForm from "../../client-form";
 import { getPipelineConfig } from "@/lib/crm-config";
 import { getRunningCampaigns } from "@/lib/crm-campaigns";
-import { getEmployeesLite } from "@/lib/crm";
+import { getEmployeesLite, getProjectsLite } from "@/lib/crm";
+import { getTeamMembers, memberProjectsByName } from "@/lib/projects";
 
 // صفحة تعديل عميل — تجلب بياناته الحالية ثم تعرضها في النموذج المشترك
 export default async function EditClientPage({
@@ -25,8 +26,9 @@ export default async function EditClientPage({
   // المشرف ممنوع من employees (037)، فقائمته من team_members: موظفو فريقه
   // وحدهم — و guard_client_owner لا يسمح له بنقل العميل خارجه أصلاً
   const supervisor = await isSupervisor();
-  const [{ data }, employeeNames, cfg, campaigns] = await Promise.all([
-    supabase.from("clients").select("*").eq("id", params.id).single(),
+  const [{ data }, employeeNames, cfg, campaigns, projects, members] = await Promise.all([
+    // ومشروع الليد الفعلي (217) — قيمة حقل «المشروع» الأولى
+    supabase.from("clients").select("*, lead_project_id").eq("id", params.id).single(),
     supervisor
       ? getEmployeesLite().then((rows) =>
           Array.from(new Set(rows.map((e) => e.full_name?.trim()).filter((n): n is string => !!n)))
@@ -34,6 +36,8 @@ export default async function EditClientPage({
       : getSalesEmployeeNames(),
     getPipelineConfig(),
     getRunningCampaigns(),
+    getProjectsLite(),
+    getTeamMembers(),
   ]);
 
   if (!data) notFound();
@@ -58,6 +62,8 @@ export default async function EditClientPage({
           employeeNames={employeeNames}
           sources={cfg.sources}
           campaigns={campaigns}
+          projects={projects}
+          memberProjects={memberProjectsByName(members)}
         />
       </section>
     </main>

@@ -29,7 +29,10 @@ export type Client = {
   contact_count?: number;          // عدد مرات التواصل
   // الوساطة (sql/043): الشركة صاحبة الليد ومهلتها ومشروعه
   broker_company_id?: string | null;
-  project_id?: string | null;
+  project_id?: string | null;       // مشروع البطاقة — المُدخَل الصريح (043، 217)
+  // مشروع الليد الفعلي — حقلٌ محسوب يُجلب بالاسم (select "*, lead_project_id"):
+  // البطاقة ← المفضّل ← الحملة ← المسار ← مشروع الموظّف (213، 217)
+  lead_project_id?: string | null;
   broker_assigned_at?: string | null;
   broker_deadline?: string | null;  // آخر يوم قبل العودة لتلال
   returned_at?: string | null;      // متى عاد لتلال

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser, getUserRole } from "@/lib/auth";
 import { getMyEmployee } from "@/lib/hr";
 import { getProjects } from "@/lib/projects";
+import { createClient } from "@/lib/supabase/server";
 import { ROLE_COLORS, ROLE_LABELS } from "@/lib/types";
 import LanguageSwitcher from "@/components/language-switcher";
 import ChangePassword from "./change-password";
@@ -20,9 +21,20 @@ export default async function AccountPage() {
     getProjects(),
   ]);
 
-  const myProject = employee?.project_id
-    ? projects.find((p) => p.id === employee.project_id)
-    : null;
+  // كل مشاريعي (216) — الأساسي أولاً
+  const supabase = await createClient();
+  const { data: memberships } = employee
+    ? await supabase.from("employee_projects").select("project_id").eq("employee_id", employee.id)
+    : { data: null };
+  const myProjectIds = [
+    ...(employee?.project_id ? [employee.project_id] : []),
+    ...((memberships ?? []) as { project_id: string }[])
+      .map((m) => m.project_id)
+      .filter((id) => id !== employee?.project_id),
+  ];
+  const myProjects = myProjectIds
+    .map((id) => projects.find((p) => p.id === id)?.name)
+    .filter(Boolean);
 
   const rows: { label: string; value: string }[] = [
     { label: "الاسم", value: employee?.full_name ?? "— غير مربوط بملف موظف —" },
@@ -30,7 +42,10 @@ export default async function AccountPage() {
     { label: "القسم", value: employee?.department || "—" },
     { label: "الهاتف", value: employee?.phone || "—" },
     { label: "تاريخ التعيين", value: employee?.hire_date || "—" },
-    { label: "المشروع", value: myProject?.name ?? "— بلا مشروع —" },
+    {
+      label: myProjects.length > 1 ? "المشاريع" : "المشروع",
+      value: myProjects.length ? myProjects.join("، ") : "— بلا مشروع —",
+    },
   ];
 
   return (

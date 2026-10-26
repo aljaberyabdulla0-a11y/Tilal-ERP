@@ -340,7 +340,7 @@ export default function EmployeeForm({
         </div>
 
         <div>
-          <label className={labelClass}>المشروع</label>
+          <label className={labelClass}>المشروع الأساسي</label>
           <select
             value={form.project_id}
             onChange={(e) => update("project_id", e.target.value)}
@@ -354,7 +354,8 @@ export default function EmployeeForm({
             ))}
           </select>
           <p className="mt-1 text-xs text-gray-400">
-            مشرف هذا المشروع سيرى ليدات الموظف ومتابعاته وحضوره.
+            مشرف هذا المشروع سيرى ليدات الموظف ومتابعاته وحضوره. لإسناده
+            لمشاريع إضافية استخدم صفحة «المشاريع».
           </p>
         </div>
 

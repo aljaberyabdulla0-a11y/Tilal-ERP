@@ -9,6 +9,7 @@ import {
   Deduction,
   Leave,
   Task,
+  TeamMember,
   formatPrice,
   formatTime,
   isOpenTask,
@@ -82,8 +83,13 @@ export default async function FollowupEmployeesPage() {
   const deductions = (dedData ?? []) as Deduction[];
 
   const active = members.filter((m) => m.status === "active");
-  const projectName = (id: string | null) =>
-    projects.find((p) => p.id === id)?.name ?? "—";
+  // الموظف قد يكون على أكثر من مشروع (216) — الأساسي أولاً
+  const projectNames = (m: TeamMember) => {
+    const ids = m.project_ids?.length ? m.project_ids : m.project_id ? [m.project_id] : [];
+    const ordered = [...ids].sort((a, b) => Number(b === m.project_id) - Number(a === m.project_id));
+    const names = ordered.map((id) => projects.find((p) => p.id === id)?.name).filter(Boolean);
+    return names.length ? names.join("، ") : "—";
+  };
 
   // حالة كل موظف اليوم — بجدول دوامه هو إن كان له جدول خاص
   const rows = active.map((m) => {
@@ -257,7 +263,7 @@ export default async function FollowupEmployeesPage() {
                       {r.member.job_title ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
-                      {projectName(r.member.project_id)}
+                      {projectNames(r.member)}
                     </td>
                     <td className="px-4 py-3">
                       <span

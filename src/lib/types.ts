@@ -1466,11 +1466,12 @@ export type TeamMember = {
   phone: string | null;
   hire_date: string | null;
   status: string;
-  project_id: string | null;
+  project_id: string | null; // المشروع الأساسي (نَسب الليدات والتقارير)
   exempt_from_attendance: boolean;
   work_start_time: string | null;
   work_end_time: string | null;
   work_days: number[] | null;
+  project_ids: string[];     // كل مشاريعه (sql/216) — الأساسي ضمنها
 };
 
 export const USER_ROLES = [

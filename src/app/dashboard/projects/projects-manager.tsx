@@ -12,10 +12,11 @@ import {
 import ProjectForm from "./project-form";
 
 // ============================================================
-// إدارة المشاريع (للمدير): إنشاء وتعديل وحذف، وإسناد كل موظف لمشروع.
+// إدارة المشاريع (للمدير): إنشاء وتعديل وحذف، وإسناد الموظفين للمشاريع.
 //
-// الإسناد هو ما يفعّل نطاق المشرف: الموظف الذي project_id عنده يساوي
-// مشروعاً يشرف عليه فلان، تصير ليداته ومتابعاته مرئية لفلان.
+// الإسناد هو ما يفعّل نطاق المشرف: الموظف المُسند لمشروع يشرف عليه
+// فلان تصير ليداته ومتابعاته مرئية لفلان. والموظف قد يُسند لأكثر من
+// مشروع (sql/216)، وأحدها «الأساسي» (★) — عليه تُنسب ليداته في التقارير.
 // ============================================================
 export default function ProjectsManager({
   projects,
@@ -35,18 +36,26 @@ export default function ProjectsManager({
   const nameOf = (id: string | null) =>
     employees.find((e) => e.id === id)?.full_name ?? null;
 
+  // كل مشاريع الموظف، والأساسي ضمنها حتى قبل تطبيق 216
+  const projectsOf = (e: TeamMember) => {
+    const ids = e.project_ids ?? [];
+    return e.project_id && !ids.includes(e.project_id) ? [e.project_id, ...ids] : ids;
+  };
+
   const membersOf = (projectId: string) =>
-    employees.filter((e) => e.project_id === projectId);
+    employees.filter((e) => projectsOf(e).includes(projectId));
 
-  const unassigned = employees.filter((e) => !e.project_id);
+  const unassigned = employees.filter((e) => projectsOf(e).length === 0);
 
-  async function assign(employeeId: string, projectId: string) {
-    setBusyEmp(employeeId);
+  // تضبط مجموعة مشاريع الموظف كاملةً (ذرّياً في القاعدة)
+  async function saveProjects(e: TeamMember, projectIds: string[], primary?: string) {
+    setBusyEmp(e.id);
     setError(null);
-    const { error } = await supabase
-      .from("employees")
-      .update({ project_id: projectId || null })
-      .eq("id", employeeId);
+    const { error } = await supabase.rpc("set_employee_projects", {
+      p_employee_id: e.id,
+      p_project_ids: projectIds,
+      p_primary: primary ?? e.project_id,
+    });
     setBusyEmp(null);
 
     if (error) {
@@ -56,12 +65,22 @@ export default function ProjectsManager({
     router.refresh();
   }
 
+  function toggle(e: TeamMember, projectId: string) {
+    const current = projectsOf(e);
+    saveProjects(
+      e,
+      current.includes(projectId)
+        ? current.filter((id) => id !== projectId)
+        : [...current, projectId]
+    );
+  }
+
   async function removeProject(p: Project) {
     const members = membersOf(p.id).length;
     if (
       !confirm(
         members > 0
-          ? `حذف «${p.name}»؟ سيبقى ${members} موظفاً بلا مشروع، ووحداته تصير مشتركة.`
+          ? `حذف «${p.name}»؟ سيُزال منه ${members} موظفاً (من ليس له مشروع آخر يبقى بلا مشروع)، ووحداته تصير مشتركة.`
           : `حذف «${p.name}»؟ وحداته تصير مشتركة يراها الجميع.`
       )
     )
@@ -75,9 +94,6 @@ export default function ProjectsManager({
     }
     router.refresh();
   }
-
-  const selectCls =
-    "rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs focus:border-brand-500 focus:outline-none";
 
   return (
     <div className="space-y-5">
@@ -188,8 +204,13 @@ export default function ProjectsManager({
                           {m.id === p.supervisor_id && (
                             <b className="text-brand-700">(مشرف)</b>
                           )}
+                          {projectsOf(m).length > 1 && m.project_id !== p.id && (
+                            <span className="text-gray-400" title="هذا مشروع إضافي له">
+                              (إضافي)
+                            </span>
+                          )}
                           <button
-                            onClick={() => assign(m.id, "")}
+                            onClick={() => toggle(m, p.id)}
                             disabled={busyEmp === m.id}
                             title="إزالة من المشروع"
                             className="text-gray-400 transition hover:text-red-600 disabled:opacity-40"
@@ -211,8 +232,10 @@ export default function ProjectsManager({
       <div className="glass-card p-5">
         <h3 className="text-lg font-bold text-gray-800">إسناد الموظفين للمشاريع</h3>
         <p className="mb-4 text-sm text-gray-500">
-          كل موظف يُسند لمشروع واحد. الموظف بلا مشروع يبقى يرى عملاءه هو فقط،
-          ولا يظهر لأي مشرف.
+          اضغط على المشروع لإسناده أو إزالته — يمكن إسناد الموظف لأكثر من مشروع،
+          فيراه مشرف كلٍّ منها. النجمة ★ تحدّد مشروعه الأساسي الذي تُنسب إليه
+          ليداته في التقارير. الموظف بلا مشروع يبقى يرى عملاءه هو فقط، ولا يظهر
+          لأي مشرف.
           {unassigned.length > 0 && (
             <b className="text-amber-700">
               {" "}
@@ -227,35 +250,69 @@ export default function ProjectsManager({
               <tr>
                 <th className="px-4 py-2.5 font-medium">الموظف</th>
                 <th className="px-4 py-2.5 font-medium">المسمّى</th>
-                <th className="px-4 py-2.5 font-medium">المشروع</th>
+                <th className="px-4 py-2.5 font-medium">المشاريع</th>
               </tr>
             </thead>
             <tbody>
-              {employees.map((e) => (
-                <tr key={e.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="px-4 py-2.5 font-medium text-gray-800">
-                    {e.full_name}
-                  </td>
-                  <td className="px-4 py-2.5 text-xs text-gray-500">
-                    {e.job_title || "—"}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <select
-                      value={e.project_id ?? ""}
-                      onChange={(ev) => assign(e.id, ev.target.value)}
-                      disabled={busyEmp === e.id}
-                      className={selectCls + " disabled:opacity-50"}
-                    >
-                      <option value="">— بلا مشروع —</option>
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {employees.map((e) => {
+                const mine = projectsOf(e);
+                const busy = busyEmp === e.id;
+                return (
+                  <tr key={e.id} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="px-4 py-2.5 font-medium text-gray-800">
+                      {e.full_name}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-gray-500">
+                      {e.job_title || "—"}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className={`flex flex-wrap gap-1.5 ${busy ? "opacity-50" : ""}`}>
+                        {projects.map((p) => {
+                          const on = mine.includes(p.id);
+                          const primary = on && e.project_id === p.id;
+                          return (
+                            <span
+                              key={p.id}
+                              className={`flex items-center overflow-hidden rounded-full border text-xs transition ${
+                                on
+                                  ? "border-brand-500 bg-brand-50 text-brand-700"
+                                  : "border-gray-300 bg-white text-gray-500"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => toggle(e, p.id)}
+                                disabled={busy}
+                                title={on ? "إزالة من المشروع" : "إسناد للمشروع"}
+                                className="px-2.5 py-1 hover:bg-black/5 disabled:cursor-wait"
+                              >
+                                {on ? "✓ " : "+ "}
+                                {p.name}
+                              </button>
+                              {on && mine.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => !primary && saveProjects(e, mine, p.id)}
+                                  disabled={busy || primary}
+                                  title={primary ? "المشروع الأساسي" : "اجعله المشروع الأساسي"}
+                                  className={`border-s border-brand-200 px-1.5 py-1 ${
+                                    primary ? "text-amber-500" : "text-gray-300 hover:text-amber-500"
+                                  }`}
+                                >
+                                  ★
+                                </button>
+                              )}
+                            </span>
+                          );
+                        })}
+                        {mine.length === 0 && (
+                          <span className="py-1 text-xs text-gray-400">— بلا مشروع —</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -109,7 +109,7 @@ export default async function ProjectsPage() {
 
   const active = employees.filter((e) => e.status === "active");
   const supervised = projects.filter((p) => p.supervisor_id).length;
-  const assigned = active.filter((e) => e.project_id).length;
+  const assigned = active.filter((e) => e.project_id || e.project_ids?.length).length;
 
   const kpi = "glass-card border-s-4 p-5";
 

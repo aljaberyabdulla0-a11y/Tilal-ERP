@@ -99,6 +99,14 @@ export default async function ProjectInventoryPage({
             >
               رفع جماعي
             </Link>
+            {admin && (
+              <Link
+                href={`/dashboard/projects/${project.id}/prices`}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+              >
+                تحديث الأسعار
+              </Link>
+            )}
             <Link
               href={`/dashboard/projects/${project.id}/units/new`}
               className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"

@@ -43,9 +43,9 @@ async function MarketingKpiRows({ f }: { f: DashFilters }) {
     makeKpi({ key: "comm", title: k.mktRevenue, value: num(cur.commission), unit: "money", direction: "positive", icon: "paid", href: "/dashboard/marketing/executive" }, p(prev?.commission)),
   ];
   return (
-    <div className="mb-6 space-y-3">
-      <KpiGrid kpis={marketingKpis(cur, prev, k)} size="lg" cols={4} label={t.dash.sections.primary} />
-      <KpiGrid kpis={row2} size="sm" cols={4} label={t.dash.sections.secondary} />
+    <div className="mb-8 overflow-hidden rounded-card border border-line bg-surface">
+      <KpiGrid kpis={marketingKpis(cur, prev, k)} size="lg" cols={4} label={t.dash.sections.primary} framed={false} />
+      <KpiGrid kpis={row2} size="sm" cols={4} label={t.dash.sections.secondary} framed={false} />
     </div>
   );
 }

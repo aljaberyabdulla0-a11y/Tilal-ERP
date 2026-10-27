@@ -81,6 +81,13 @@ const ar = {
     ourRequests: "طلبات الحجز",
     ourLeads: "ليداتنا",
     ourCommissions: "استحقاقاتنا",
+    // مجموعات القائمة الجانبية وأدواتها (الهيكل الجديد)
+    groupDaily: "العمل اليومي",
+    groupManage: "الإدارة",
+    collapse: "طيّ القائمة",
+    expand: "توسيع القائمة",
+    closeMenu: "إغلاق القائمة",
+    breadcrumbHome: "تلال",
   },
 
   auth: {

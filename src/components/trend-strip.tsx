@@ -90,7 +90,7 @@ function Sparkline({ points, good }: { points: number[]; good: boolean | null })
       return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
-  const stroke = good === null ? "#9ca3af" : good ? "#064e3b" : "#dc2626";
+  const stroke = good === null ? "#9aa39d" : good ? "#2e5a40" : "#dc2626";
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="mt-1 h-7 w-full" preserveAspectRatio="none" aria-hidden>
       <path d={d} fill="none" stroke={stroke} strokeWidth={1.5} />

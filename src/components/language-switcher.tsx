@@ -29,8 +29,10 @@ export default function LanguageSwitcher({ compact = false }: { compact?: boolea
 
   return (
     <div
+      role="group"
+      aria-label={t.nav.language}
       title={t.nav.language}
-      className={`inline-flex items-center rounded-xl border border-gray-200 bg-white p-0.5 ${
+      className={`inline-flex items-center rounded-md bg-surface-sunken p-0.5 ${
         pending ? "opacity-60" : ""
       }`}
     >
@@ -44,11 +46,11 @@ export default function LanguageSwitcher({ compact = false }: { compact?: boolea
           aria-pressed={code === locale}
           className={
             code === locale
-              ? "rounded-lg bg-brand-600 px-2.5 py-1 text-xs font-bold text-white"
-              : "rounded-lg px-2.5 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
+              ? "dash-focus rounded-[5px] bg-surface px-2.5 py-1 text-xs font-bold text-brand-700 shadow-[0_1px_2px_rgba(17,36,26,0.08)]"
+              : "dash-focus rounded-[5px] px-2.5 py-1 text-xs font-semibold text-ink-secondary transition hover:text-ink"
           }
         >
-          {compact ? code.toUpperCase() : LOCALE_NAMES[code]}
+          {compact ? (code === "ar" ? "ع" : "EN") : LOCALE_NAMES[code]}
         </button>
       ))}
     </div>

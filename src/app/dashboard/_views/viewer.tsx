@@ -43,7 +43,7 @@ async function ViewerKpis({ f }: { f: DashFilters }) {
     makeKpi({ key: "open", title: k.activeLeads, value: c("OPEN_LEADS"), unit: "count", direction: "neutral", icon: "groups", href: drillHref("OPEN_LEADS", f), definition: k.activeLeadsDef }, p("OPEN_LEADS")),
     { key: "avail", title: k.unitsAvailable, value: available, unit: "count", direction: "neutral", icon: "apartment", delta: null, definition: k.unitsAvailableDef },
   ];
-  return <div className="mb-6"><KpiGrid kpis={kpis.slice(0, 4)} size="lg" cols={4} label={t.dash.sections.primary} /><div className="mt-3"><KpiGrid kpis={kpis.slice(4)} size="sm" cols={3} label={t.dash.sections.secondary} /></div></div>;
+  return <div className="mb-8 overflow-hidden rounded-card border border-line bg-surface"><KpiGrid kpis={kpis.slice(0, 4)} size="lg" cols={4} label={t.dash.sections.primary} framed={false} /><KpiGrid kpis={kpis.slice(4)} size="sm" cols={3} label={t.dash.sections.secondary} framed={false} /></div>;
 }
 
 export default async function ViewerDashboard({ searchParams }: { searchParams: RawParams }) {

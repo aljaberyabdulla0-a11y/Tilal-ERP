@@ -85,14 +85,16 @@ export default async function ExecutiveKpis({ f, finance }: { f: DashFilters; fi
     makeKpi({ key: "wpipe", title: k.weightedPipeline, value: c("WEIGHTED_PIPELINE"), unit: "money", direction: "positive", icon: "stacked_line_chart", href: drillHref("WEIGHTED_PIPELINE", f), definition: k.weightedPipelineDef }, p("WEIGHTED_PIPELINE")),
   ];
 
+  // الطبقات الثلاث لوحةُ قياسٍ واحدة (التصميم المعتمد): إطارٌ واحد تفصل
+  // طبقاته خطوط شعرية، والمبيعات وحدها رقمٌ بطل
   return (
-    <div className="mb-6 space-y-3">
+    <div className="mb-8 overflow-hidden rounded-card border border-line bg-surface">
       <h2 className="sr-only">{s.primary}</h2>
-      <KpiGrid kpis={primary} size="lg" cols={4} label={s.primary} />
+      <KpiGrid kpis={primary} size="lg" cols={4} label={s.primary} hero framed={false} />
       <h2 className="sr-only">{s.secondary}</h2>
-      <KpiGrid kpis={secondary} size="md" cols={4} label={s.secondary} />
+      <KpiGrid kpis={secondary} size="md" cols={4} label={s.secondary} framed={false} />
       <h2 className="sr-only">{s.operational}</h2>
-      <KpiGrid kpis={operational} size="sm" cols={6} label={s.operational} />
+      <KpiGrid kpis={operational} size="sm" cols={6} label={s.operational} framed={false} />
     </div>
   );
 }

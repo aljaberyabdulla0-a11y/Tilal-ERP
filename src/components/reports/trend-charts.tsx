@@ -20,8 +20,8 @@ type Series = { code: string; name: string; unit: MetricUnit; points: Point[] };
 const W = 320;
 const H = 96;
 const PAD = { top: 10, right: 8, bottom: 18, left: 8 };
-const INK = "#064e3b";     // brand-600 — ≥ ٧:١ على الأبيض
-const WASH = "#10b981";    // brand-500 بشفافية ١٠٪ — غسلٌ لا علامة
+const INK = "#2e5a40";     // brand-600 — ≥ ٧:١ على الأبيض
+const WASH = "#2b8058";    // brand-500 بشفافية ١٠٪ — غسلٌ لا علامة
 
 export default function TrendCharts({ series, grain, print }: { series: Series[]; grain: string; print?: boolean }) {
   const [table, setTable] = useState(false);
@@ -92,17 +92,17 @@ function SmallMultiple({ s, grain }: { s: Series; grain: string }) {
           }}
         >
           {/* الخطّ الأساس — شعرة رمادية */}
-          <line x1={PAD.left} x2={W - PAD.right} y1={H - PAD.bottom} y2={H - PAD.bottom} stroke="#e5e7eb" strokeWidth={1} />
+          <line x1={PAD.left} x2={W - PAD.right} y1={H - PAD.bottom} y2={H - PAD.bottom} stroke="#e1e4df" strokeWidth={1} />
           <path d={area} fill={WASH} opacity={0.1} />
           <path d={path} fill="none" stroke={INK} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           {/* النقطة الأخيرة بحلقة من لون السطح */}
           <circle cx={x(n - 1)} cy={y(last.value ?? 0)} r={4} fill={INK} stroke="#fff" strokeWidth={2} />
           {/* تسميتا الطرفين على المحور */}
-          <text x={PAD.left} y={H - 4} fontSize={9} fill="#6b7280">{pts[0].label}</text>
-          <text x={W - PAD.right} y={H - 4} fontSize={9} fill="#6b7280" textAnchor="end">{last.label}</text>
+          <text x={PAD.left} y={H - 4} fontSize={9} fill="#68726c">{pts[0].label}</text>
+          <text x={W - PAD.right} y={H - 4} fontSize={9} fill="#68726c" textAnchor="end">{last.label}</text>
           {hover !== null && (
             <>
-              <line x1={x(hover)} x2={x(hover)} y1={PAD.top - 4} y2={H - PAD.bottom} stroke="#9ca3af" strokeWidth={1} />
+              <line x1={x(hover)} x2={x(hover)} y1={PAD.top - 4} y2={H - PAD.bottom} stroke="#9aa39d" strokeWidth={1} />
               <circle cx={x(hover)} cy={y(pts[hover].value ?? 0)} r={4} fill={INK} stroke="#fff" strokeWidth={2} />
             </>
           )}

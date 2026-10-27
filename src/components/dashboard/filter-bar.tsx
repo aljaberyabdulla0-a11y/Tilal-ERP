@@ -101,11 +101,21 @@ export default function FilterBar({
   const presetLabel = (p: Preset) => f.presets[p];
 
   const selectCls =
-    "dash-focus h-9 min-w-0 rounded-lg border border-line bg-surface px-2.5 text-sm text-ink transition hover:border-line-strong";
+    "dash-focus h-9 min-w-0 rounded-md border border-line-strong bg-surface px-2.5 text-sm text-ink transition hover:border-ink-muted/60";
 
-  const controls = (stacked: boolean) => (
+  // شارات المُرشِّحات الفعّالة — بأسمائها من نفس الخيارات المعروضة
+  const nameOf = (list: FilterOption[], id: string | null) => list.find((o) => o.id === id)?.name ?? null;
+  const chips: { key: string; label: string; clear: () => void }[] = [];
+  const pName = show.project ? nameOf(projects, project) : null;
+  const tName = show.team ? nameOf(teams, team) : null;
+  const sName = show.source ? nameOf(sources, source) : null;
+  if (pName) chips.push({ key: "p", label: pName, clear: () => go({ project: null }) });
+  if (tName) chips.push({ key: "t", label: fill(f.teamOf, { name: tName }), clear: () => go({ team: null }) });
+  if (sName) chips.push({ key: "s", label: sName, clear: () => go({ source: null }) });
+
+  const periodPart = (stacked: boolean) => (
     <>
-      <div role="radiogroup" aria-label={f.period} className={stacked ? "grid grid-cols-2 gap-2" : "flex flex-wrap gap-1 rounded-lg bg-surface-sunken p-1"}>
+      <div role="radiogroup" aria-label={f.period} className={stacked ? "grid grid-cols-2 gap-2" : "flex flex-wrap gap-0.5 rounded-md bg-surface-sunken p-0.5"}>
         {[...PRESETS, "custom" as const].map((p) => {
           const on = p === "custom" ? custom : !custom && preset === p;
           return (
@@ -115,15 +125,17 @@ export default function FilterBar({
               role="radio"
               aria-checked={on}
               onClick={() => pickPreset(p)}
-              className={`dash-focus whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+              className={`dash-focus whitespace-nowrap px-3 py-1.5 text-[13px] font-semibold transition ${
                 on
-                  ? "bg-surface text-brand-700 shadow-card ring-1 ring-line"
+                  ? stacked
+                    ? "rounded-md border border-brand-600 bg-brand-50 text-brand-700"
+                    : "rounded-[5px] bg-surface text-brand-700 shadow-[0_1px_2px_rgba(17,36,26,0.08)]"
                   : stacked
-                  ? "border border-line bg-surface text-ink-secondary"
-                  : "text-ink-secondary hover:text-ink"
+                  ? "rounded-md border border-line bg-surface text-ink-secondary"
+                  : "rounded-[5px] text-ink-secondary hover:text-ink"
               }`}
             >
-              {on && <span aria-hidden="true" className="material-symbols-outlined me-1 align-[-3px] text-[14px]">check</span>}
+              {on && stacked && <span aria-hidden="true" className="material-symbols-outlined me-1 align-[-3px] text-[14px]">check</span>}
               {presetLabel(p)}
             </button>
           );
@@ -140,12 +152,17 @@ export default function FilterBar({
             <span className="mb-0.5 block">{f.to}</span>
             <input type="date" value={cTo} min={cFrom || undefined} onChange={(e) => setCTo(e.target.value)} className={`${selectCls} w-full`} />
           </label>
-          <button type="button" onClick={applyCustom} className={`dash-focus h-9 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 ${stacked ? "col-span-2" : ""}`}>
+          <button type="button" onClick={applyCustom} className={`dash-focus h-9 rounded-md bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 ${stacked ? "col-span-2" : ""}`}>
             {f.apply}
           </button>
         </div>
       )}
+    </>
+  );
 
+  const dims = (show.project && projects.length > 0) || (show.team && teams.length > 0) || (show.source && sources.length > 0);
+  const dimPart = (stacked: boolean) => (
+    <>
       {show.project && projects.length > 0 && (
         <label className={stacked ? "block text-xs text-ink-secondary" : "contents"}>
           <span className={stacked ? "mb-0.5 block" : "sr-only"}>{f.project}</span>
@@ -173,21 +190,32 @@ export default function FilterBar({
           </select>
         </label>
       )}
+    </>
+  );
 
-      {activeCount > 0 && (
-        <button
-          type="button"
-          onClick={() => {
-            setCustom(false);
-            setSheet(false);
-            start(() => router.push(pathname, { scroll: false }));
-          }}
-          className="dash-focus inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm font-semibold text-ink-secondary hover:bg-surface-sunken hover:text-ink"
-        >
-          <span aria-hidden="true" className="material-symbols-outlined text-[18px]">restart_alt</span>
-          {f.reset}
-        </button>
-      )}
+  const resetButton = activeCount > 0 && (
+    <button
+      type="button"
+      onClick={() => {
+        setCustom(false);
+        setSheet(false);
+        start(() => router.push(pathname, { scroll: false }));
+      }}
+      className="dash-focus inline-flex h-9 items-center gap-1 rounded-md px-2.5 text-sm font-semibold text-ink-secondary hover:bg-surface-sunken hover:text-ink"
+    >
+      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">restart_alt</span>
+      {f.reset}
+    </button>
+  );
+
+  const periodControls = periodPart(false);
+  const dimControls = dimPart(false);
+  // الورقة السفلية على الجوّال: كل شيء مكدّساً
+  const controls = (stacked: boolean) => (
+    <>
+      {periodPart(stacked)}
+      {dimPart(stacked)}
+      {resetButton}
     </>
   );
 
@@ -197,8 +225,32 @@ export default function FilterBar({
       <div aria-live="polite" className="sr-only">{pending ? f.updating : ""}</div>
       <div className={`fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-brand-500 rtl:origin-right transition-transform duration-500 ${pending ? "scale-x-75" : "scale-x-0"}`} aria-hidden="true" />
 
-      {/* سطح المكتب */}
-      <div className="hidden flex-wrap items-center gap-2 md:flex">{controls(false)}</div>
+      {/* سطح المكتب: شريط واحد بسطرين — الفترة ثم الأبعاد، والفعّال منها
+          شاراتٌ تُزال بنقرة (التصميم المعتمد) */}
+      <div className="hidden rounded-card border border-line bg-surface md:block">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5">
+          {periodControls}
+          {compareLabel && <p className="ms-auto text-xs text-ink-muted">{compareLabel}</p>}
+        </div>
+        {(dims || activeCount > 0) && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-line px-3 py-2.5">
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-ink-muted">filter_list</span>
+            {dimControls}
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 ms-1">
+              {chips.length > 0 && <span className="text-xs font-semibold text-ink-secondary">{fill(f.active, { n: chips.length })}</span>}
+              {chips.map((c) => (
+                <span key={c.key} className="inline-flex items-center gap-1 rounded-full bg-brand-100 py-0.5 pe-1 ps-2.5 text-xs font-semibold text-brand-700">
+                  {c.label}
+                  <button type="button" onClick={c.clear} aria-label={`${f.reset}: ${c.label}`} className="dash-focus flex h-5 w-5 items-center justify-center rounded-full hover:bg-brand-700/10">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">close</span>
+                  </button>
+                </span>
+              ))}
+            </div>
+            {resetButton}
+          </div>
+        )}
+      </div>
 
       {/* الجوّال */}
       <div className="flex items-center gap-2 md:hidden">
@@ -207,7 +259,7 @@ export default function FilterBar({
           onClick={() => setSheet(true)}
           aria-haspopup="dialog"
           aria-expanded={sheet}
-          className="dash-focus inline-flex h-10 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink shadow-card"
+          className="dash-focus inline-flex h-10 flex-1 items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 text-sm font-semibold text-ink"
         >
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-brand-700">tune</span>
@@ -217,11 +269,11 @@ export default function FilterBar({
         </button>
       </div>
 
-      {compareLabel && <p className="mt-2 text-xs text-ink-muted">{compareLabel}</p>}
+      {compareLabel && <p className="mt-2 text-xs text-ink-muted md:hidden">{compareLabel}</p>}
 
       {sheet && (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label={f.title}>
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSheet(false)} />
+          <div className="absolute inset-0 bg-brand-900/45" onClick={() => setSheet(false)} />
           <div ref={sheetRef} className="absolute inset-x-0 bottom-0 max-h-[85vh] space-y-4 overflow-y-auto rounded-t-2xl bg-surface p-4 pb-8 shadow-sheet">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-ink">{f.title}</h2>

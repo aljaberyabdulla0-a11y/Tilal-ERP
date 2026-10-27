@@ -95,11 +95,12 @@ export default function NotificationBell({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="الإشعارات"
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-brand-700"
+        aria-expanded={open}
+        className="dash-focus relative flex h-9 w-9 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-sunken hover:text-ink"
       >
-        <span className="material-symbols-outlined text-[22px]">notifications</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[20px]">notifications</span>
         {unread > 0 && (
-          <span className="absolute -top-0.5 end-0.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white">
+          <span className="absolute end-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-700 px-1 text-[10px] font-bold text-white ring-2 ring-surface">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -107,7 +108,7 @@ export default function NotificationBell({
 
       {open && (
         <div
-          className={`absolute top-12 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl ${
+          className={`anim-pop absolute top-full z-50 mt-1.5 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-line bg-surface shadow-overlay ${
             pin === "start" ? "start-0" : "end-0"
           }`}
         >

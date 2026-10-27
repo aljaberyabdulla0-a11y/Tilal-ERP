@@ -22,7 +22,7 @@ export function RetryButton({ label }: { label?: string }) {
       type="button"
       onClick={() => start(() => router.refresh())}
       disabled={pending}
-      className="dash-focus inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-bold text-ink-secondary transition hover:bg-surface-subtle disabled:opacity-60"
+      className="dash-focus inline-flex h-8 items-center gap-1.5 rounded-md border border-line-strong bg-surface px-3 text-[13px] font-semibold text-ink transition hover:bg-surface-subtle disabled:opacity-60"
     >
       <span aria-hidden="true" className={`material-symbols-outlined text-[16px] ${pending ? "animate-spin" : ""}`}>
         refresh
@@ -37,7 +37,7 @@ export function ErrorState({ compact = false, detail }: { compact?: boolean; det
   return (
     <div
       role="alert"
-      className={`flex flex-col items-center justify-center rounded-card border border-dashed border-danger-100 bg-danger-50/40 text-center ${
+      className={`flex flex-col items-center justify-center rounded-card border border-danger-100 bg-danger-50/60 text-center ${
         compact ? "px-4 py-5" : "px-6 py-8"
       }`}
     >

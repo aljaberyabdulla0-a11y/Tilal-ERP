@@ -119,20 +119,20 @@ export default function CommandPalette({ actions }: { actions: PaletteAction[] }
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="dash-focus flex h-9 items-center gap-2 rounded-lg border border-line bg-surface px-2.5 text-sm text-ink-muted shadow-card transition hover:border-line-strong hover:text-ink sm:min-w-[15rem]"
+        className="dash-focus flex h-9 items-center gap-2 rounded-md border border-line bg-surface-subtle px-2.5 text-[13px] text-ink-muted transition hover:border-line-strong hover:text-ink md:w-64 xl:w-80"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[18px]">search</span>
-        <span className="hidden sm:inline">{s.button}</span>
-        <span className="sr-only sm:hidden">{s.open}</span>
-        <kbd className="ms-auto hidden rounded border border-line bg-surface-subtle px-1.5 text-[10px] font-semibold text-ink-muted sm:inline" dir="ltr">{s.shortcut}</kbd>
+        <span className="hidden flex-1 truncate text-start md:inline">{s.button}</span>
+        <span className="sr-only md:hidden">{s.open}</span>
+        <kbd className="ms-auto hidden rounded border border-line bg-surface px-1.5 text-[10px] font-semibold text-ink-muted md:inline" dir="ltr">{s.shortcut}</kbd>
       </button>
 
       {/* بوّابة إلى body: الشريط العلوي فيه backdrop-blur، وهو يجعل fixed نسبياً
           إليه لا إلى الشاشة — فكانت الخلفية المعتمة لا تغطّي الشريط الجانبي. */}
       {open && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[60] flex items-start justify-center p-3 pt-[10vh]" role="dialog" aria-modal="true" aria-label={s.open} onKeyDown={onKeyDown}>
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-surface shadow-sheet">
+          <div className="absolute inset-0 bg-brand-900/40" onClick={() => setOpen(false)} />
+          <div className="anim-pop relative w-full max-w-xl overflow-hidden rounded-xl border border-line bg-surface shadow-overlay">
             <div className="flex items-center gap-2 border-b border-line px-3">
               <span aria-hidden="true" className="material-symbols-outlined text-ink-muted">search</span>
               <input
@@ -166,7 +166,7 @@ export default function CommandPalette({ actions }: { actions: PaletteAction[] }
                       aria-selected={i === active}
                       onMouseEnter={() => setActive(i)}
                       onClick={() => go(it.href)}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-start text-sm ${i === active ? "bg-brand-50 text-brand-800" : "text-ink hover:bg-surface-subtle"}`}
+                      className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-start text-sm ${i === active ? "bg-brand-50 text-ink" : "text-ink hover:bg-surface-subtle"}`}
                     >
                       <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-ink-secondary">{it.icon}</span>
                       <span className="min-w-0 flex-1">

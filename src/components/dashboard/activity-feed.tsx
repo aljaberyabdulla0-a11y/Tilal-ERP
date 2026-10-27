@@ -85,7 +85,7 @@ export function ActivityFeed({ rows, broker = false }: { rows: ActivityRow[]; br
 
         const body = (
           <div className="flex items-start gap-3">
-            <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${TONE[r.kind] ?? "bg-surface-sunken text-ink-secondary"}`}>
+            <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${TONE[r.kind] ?? "bg-surface-sunken text-ink-secondary"}`}>
               <Icon name={icon} className="text-[17px]" />
             </span>
             <div className="min-w-0 flex-1">
@@ -109,7 +109,7 @@ export function ActivityFeed({ rows, broker = false }: { rows: ActivityRow[]; br
         return (
           <li key={`${r.kind}-${r.entity_id ?? i}-${r.at}`}>
             {href ? (
-              <Link href={href} className="dash-focus block rounded-lg p-2 transition hover:bg-surface-subtle">{body}</Link>
+              <Link href={href} className="dash-focus block rounded-md p-2 transition hover:bg-surface-subtle">{body}</Link>
             ) : (
               <div className="p-2">{body}</div>
             )}

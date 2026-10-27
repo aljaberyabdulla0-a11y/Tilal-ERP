@@ -56,9 +56,9 @@ async function SupervisorKpis({ f }: { f: DashFilters }) {
     makeKpi({ key: "sla", title: k.slaBreaches, value: sla, unit: "count", direction: "negative", icon: "timer_off", href: drillHref("SLA_BREACH_OPEN", f), status: sla ? "danger" : "good" }, p("SLA_BREACH_OPEN")),
   ];
   return (
-    <div className="mb-6 space-y-3">
-      <KpiGrid kpis={row1} size="lg" cols={4} label={t.dash.sections.primary} />
-      <KpiGrid kpis={row2} size="sm" cols={4} label={t.dash.sections.operational} />
+    <div className="mb-8 overflow-hidden rounded-card border border-line bg-surface">
+      <KpiGrid kpis={row1} size="lg" cols={4} label={t.dash.sections.primary} framed={false} />
+      <KpiGrid kpis={row2} size="sm" cols={4} label={t.dash.sections.operational} framed={false} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getI18n } from "@/lib/i18n/server";
 import { dirOf } from "@/lib/i18n/config";
-import { fmtValue, type Unit } from "@/lib/dashboard/format";
+import { fmtCompact, fmtValue, type Unit } from "@/lib/dashboard/format";
 
 // ============================================================
 // الرسوم البيانية — مكوّنات خادم: SVG وHTML بلا مكتبة ولا JavaScript.
@@ -90,95 +90,108 @@ function DataTable({ caption, head, rows }: { caption: string; head: string[]; r
 }
 
 // ============================================================
-// ١) الاتجاه الزمني: الحالية خطّاً بغسلةٍ تحته، والسابقة خطّاً متقطّعاً
+// ١) الاتجاه الزمني — «الأفق» (التصميم المعتمد)
+//
+// أعمدة الفترة الحالية أبراجٌ قائمة كأبراج شعار تلال، والفترة السابقة
+// شَرطةٌ رمادية على ارتفاعها — مقارنةٌ بلا عمود ثانٍ يضاعف الحبر.
+// تسمية الذروة وحدها، والباقي بالتلميح (مرور وتركيز) والجدول.
+// والزمن يجري مع اتجاه الصفحة: من اليمين بالعربية.
 // ============================================================
 export type TrendPoint = { key: string; label: string; current: number; previous: number | null };
 
 export function TrendChart({
   points, unit, title, height = 220,
 }: { points: TrendPoint[]; unit: Unit; title: string; height?: number }) {
-  const { t, rtl, fmt } = useWords();
+  const { t, locale, fmt } = useWords();
   const c = t.dash.common;
   const n = points.length;
   const hasPrev = points.some((p) => p.previous !== null);
   const max = niceMax(Math.max(0, ...points.map((p) => Math.max(p.current, p.previous ?? 0))));
-  const W = 1000;
-  const H = height;
-  const pad = 8;
-  const x = (i: number) => {
-    const v = ((i + 0.5) / n) * W;
-    return rtl ? W - v : v;
-  };
-  const y = (v: number) => H - pad - (v / max) * (H - pad * 2);
-  const path = (vals: (number | null)[]) =>
-    vals
-      .map((v, i) => (v === null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`))
-      .filter(Boolean)
-      .map((p, i) => `${i === 0 ? "M" : "L"}${p}`)
-      .join(" ");
-  const cur = path(points.map((p) => p.current));
-  const area = n > 0 ? `${cur} L${x(n - 1).toFixed(1)},${H - pad} L${x(0).toFixed(1)},${H - pad} Z` : "";
-  const prev = hasPrev ? path(points.map((p) => p.previous)) : "";
+  // المحور والذروة مختصران بلا عملة — العملة في التلميح والجدول
+  const short = (v: number) => (unit === "money" ? fmtCompact(v, locale) : fmt(v, unit));
+  const peak = n > 0 ? points.reduce((b, p, i) => (p.current > points[b].current ? i : b), 0) : -1;
+  // سبع تسميات على الأكثر على المكتب، ونصفها على الجوّال — والأخيرة دائماً
   const every = Math.max(1, Math.ceil(n / 7));
-  const last = points[n - 1];
+  const desk = (i: number) => i === n - 1 || (i % every === 0 && n - 1 - i >= Math.ceil(every / 2));
+  const phone = (i: number) => i === n - 1 || (i % (every * 2) === 0 && n - 1 - i >= every);
 
   return (
     <figure role="group" aria-label={title} className="overflow-x-clip">
-      <div className="mb-2 flex flex-wrap items-center gap-4 text-xs text-ink-secondary">
-        <span className="inline-flex items-center gap-1.5"><LineKey color="var(--viz-1)" />{c.current}</span>
-        {hasPrev && <span className="inline-flex items-center gap-1.5"><LineKey color="var(--viz-prev)" dashed />{c.previous}</span>}
+      <div className="flex flex-wrap items-center gap-4 text-xs text-ink-secondary">
+        <span className="inline-flex items-center gap-1.5"><SwatchKey color="var(--viz-1)" />{c.current}</span>
+        {hasPrev && <span className="inline-flex items-center gap-1.5"><LineKey color="var(--viz-prev-mark)" />{c.previous}</span>}
       </div>
-      <div className="flex gap-2">
+      <div className="mt-6 flex gap-2">
         {/* محور القيم: صفر ونصف وأقصى — يحمل ما لم يُوسَم مباشرة */}
-        <div className="num-tabular flex shrink-0 flex-col justify-between py-1 text-[10px] text-ink-muted" style={{ height }} aria-hidden="true">
-          <span>{fmt(max, unit)}</span>
-          <span>{fmt(max / 2, unit)}</span>
-          <span dir="ltr">0</span>
+        <div className="num-tabular relative w-12 shrink-0 text-[10px] text-ink-muted" style={{ height }} aria-hidden="true">
+          {[1, 0.5, 0].map((f) => (
+            <span key={f} className="absolute end-0 -translate-y-1/2 whitespace-nowrap" style={{ top: `${(1 - f) * 100}%` }}>
+              {f === 0 ? <span dir="ltr">0</span> : short(max * f)}
+            </span>
+          ))}
         </div>
-        <div className="relative min-w-0 flex-1">
-          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="block w-full" style={{ height }} aria-hidden="true">
-            {[0, 0.5, 1].map((f) => (
-              <line key={f} x1={0} x2={W} y1={y(max * f)} y2={y(max * f)} stroke="var(--viz-grid)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-            ))}
-            {n > 0 && <path d={area} fill="var(--viz-1-wash)" />}
-            {prev && <path d={prev} fill="none" stroke="var(--viz-prev)" strokeWidth={2} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />}
-            {n > 0 && <path d={cur} fill="none" stroke="var(--viz-1)" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />}
-          </svg>
-          {/* نقطة النهاية — HTML كي لا تتشوّه بتمدّد الـSVG */}
-          {last && (
-            <span
-              aria-hidden="true"
-              className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface"
-              style={{ background: "var(--viz-1)", left: `${(x(n - 1) / W) * 100}%`, top: `${(y(last.current) / H) * 100}%` }}
-            />
-          )}
-          {/* أعمدة اللمس: كل عمود هدف المرور والتركيز لنقطته */}
-          <div className="absolute inset-0 flex">
-            {points.map((p, i) => (
-              <div key={p.key} tabIndex={0} className="group dash-focus relative flex-1 outline-none" aria-label={`${p.label}: ${fmt(p.current, unit)}`}>
-                <span aria-hidden="true" className="absolute inset-y-0 left-1/2 w-px bg-line-strong opacity-0 group-hover:opacity-100 group-focus:opacity-100" />
-                <div className={tipPos(i, n).cls} style={tipPos(i, n).style}>
-                  <p className="text-[11px] text-ink-muted">{p.label}</p>
-                  <p className="mt-0.5 flex items-center gap-1.5 text-sm font-bold text-ink">
-                    <LineKey color="var(--viz-1)" />{fmt(p.current, unit)}
-                  </p>
-                  {p.previous !== null && (
-                    <p className="flex items-center gap-1.5 text-xs text-ink-secondary">
-                      <LineKey color="var(--viz-prev)" dashed />{fmt(p.previous, unit)}
-                    </p>
+        <div className="relative min-w-0 flex-1" style={{ height }}>
+          {[0, 0.5, 1].map((f) => (
+            <div key={f} aria-hidden="true" className={`absolute inset-x-0 h-px ${f === 1 ? "bg-line-strong" : "bg-line"}`} style={{ top: `${f * 100}%` }} />
+          ))}
+          <div className="absolute inset-0 flex items-end">
+            {points.map((p, i) => {
+              const h = (p.current / max) * 100;
+              const tip = tipPos(i, n);
+              return (
+                <div
+                  key={p.key}
+                  tabIndex={0}
+                  className="group dash-focus relative flex h-full min-w-0 flex-1 items-end justify-center rounded-sm outline-none"
+                  aria-label={`${p.label}: ${fmt(p.current, unit)}${p.previous !== null ? ` — ${c.previous}: ${fmt(p.previous, unit)}` : ""}`}
+                >
+                  <span aria-hidden="true" className="absolute inset-x-[8%] inset-y-0 rounded-sm bg-surface-sunken/70 opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100" />
+                  {p.current > 0 && (
+                    <div
+                      aria-hidden="true"
+                      className="anim-rise relative w-[min(24px,62%)] rounded-t-[4px]"
+                      style={{ height: `${h}%`, background: "var(--viz-1)", animationDelay: `${Math.min(i * 14, 400)}ms` }}
+                    />
                   )}
+                  {p.previous !== null && p.previous > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute h-[2px] w-[min(30px,78%)] rounded-full shadow-[0_0_0_1.5px_white]"
+                      style={{ bottom: `calc(${(p.previous / max) * 100}% - 1px)`, background: "var(--viz-prev-mark)" }}
+                    />
+                  )}
+                  {i === peak && p.current > 0 && (
+                    <span aria-hidden="true" className="num-tabular pointer-events-none absolute whitespace-nowrap text-[11px] font-semibold text-ink group-hover:invisible" style={{ bottom: `calc(${h}% + 5px)` }}>
+                      {short(p.current)}
+                    </span>
+                  )}
+                  <div className={tip.cls} style={tip.style}>
+                    <p className="text-[11px] text-ink-muted">{p.label}</p>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-sm font-bold text-ink">
+                      <SwatchKey color="var(--viz-1)" />{fmt(p.current, unit)}
+                    </p>
+                    {p.previous !== null && (
+                      <p className="flex items-center gap-1.5 text-xs text-ink-secondary">
+                        <LineKey color="var(--viz-prev-mark)" />{fmt(p.previous, unit)}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                {i % every === 0 && (
-                  <span className="pointer-events-none absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] text-ink-muted">
-                    {p.label}
-                  </span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
-      <div className="h-5" />
+      <div aria-hidden="true" className="flex ps-14">
+        {points.map((p, i) => (
+          <div key={p.key} className="relative h-6 min-w-0 flex-1 text-[10px] text-ink-muted">
+            {desk(i) && (
+              // الطرفان يُثبَّتان على حافّتي الرسم (لا توسيط) فلا يُقصّ أولهما وآخرهما
+              <span className={`absolute top-1.5 whitespace-nowrap ${i === n - 1 ? "end-0" : i === 0 ? "start-0" : "left-1/2 -translate-x-1/2"} ${phone(i) ? "" : "hidden sm:inline"}`}>{p.label}</span>
+            )}
+          </div>
+        ))}
+      </div>
       <DataTable
         caption={title}
         head={[c.period, c.current, ...(hasPrev ? [c.previous] : [])]}
@@ -187,7 +200,6 @@ export function TrendChart({
     </figure>
   );
 }
-
 // ============================================================
 // ٢) أعمدة مزدوجة: الدخل مقابل الصرف لكل شهر
 // ============================================================
@@ -209,8 +221,8 @@ export function ColumnPairs({
       <div className="relative flex items-end gap-2 border-b border-line" style={{ height }}>
         {groups.map((g, gi) => (
           <div key={g.key} tabIndex={0} className="group dash-focus relative flex h-full flex-1 items-end justify-center gap-[2px] rounded outline-none" aria-label={`${g.label}: ${aLabel} ${fmt(g.a, unit)}، ${bLabel} ${fmt(g.b, unit)}`}>
-            <div className="w-full max-w-[24px] rounded-t transition group-hover:brightness-110" style={{ height: pct(g.a), background: "var(--viz-1)" }} />
-            <div className="w-full max-w-[24px] rounded-t transition group-hover:brightness-110" style={{ height: pct(g.b), background: "var(--viz-2)" }} />
+            <div className="anim-rise w-full max-w-[24px] rounded-t-[4px] transition group-hover:brightness-110" style={{ height: pct(g.a), background: "var(--viz-1)", animationDelay: `${gi * 40}ms` }} />
+            <div className="anim-rise w-full max-w-[24px] rounded-t-[4px] transition group-hover:brightness-110" style={{ height: pct(g.b), background: "var(--viz-2)", animationDelay: `${gi * 40 + 20}ms` }} />
             <div className={tipPos(gi, groups.length).cls} style={tipPos(gi, groups.length).style}>
               <p className="text-[11px] text-ink-muted">{g.label}</p>
               <p className="mt-0.5 flex items-center gap-1.5 text-sm font-bold text-ink"><SwatchKey color="var(--viz-1)" /><span className="text-xs font-normal text-ink-secondary">{aLabel}</span><span>{fmt(g.a, unit)}</span></p>
@@ -300,7 +312,7 @@ export function Funnel({ steps, title }: { steps: FunnelRow[]; title: string }) 
                 </span>
               </div>
               <div className="h-6 rounded-md bg-surface-sunken">
-                <div className="h-full rounded-md" style={{ width: `${w}%`, background: "var(--viz-1)", opacity: 1 - i * 0.12 }} />
+                <div className="h-full rounded-md" style={{ width: `${w}%`, background: "var(--viz-1)" }} />
               </div>
             </>
           );

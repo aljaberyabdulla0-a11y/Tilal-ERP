@@ -11,6 +11,21 @@ import { useEffect, useRef, useState } from "react";
 // وإن غاب الملف يظهر شعار نصّي أنيق بدلاً منه — فلا تظهر أبداً
 // أيقونة "صورة مكسورة".
 // ============================================================
+// ============================================================
+// علامة البرج وحدها — للشريط الجانبي بجانب اسم النظام، أو وحدها
+// حين يُطوى. قصٌّ بالـCSS من الشعار نفسه (logo-white.png) لا ملفٌّ
+// جديد: العلامة في الصورة أفقياً 23.4%–76.7%، وعمودياً أعلى 53%.
+// ============================================================
+export function BrandMark({ size = 28 }: { size?: number }) {
+  const w = size / 0.533;
+  return (
+    <span dir="ltr" aria-hidden="true" className="relative block shrink-0 overflow-hidden" style={{ width: size, height: size * 1.01 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo-white.png" alt="" className="absolute top-0 max-w-none" style={{ width: w, left: -0.234 * w }} />
+    </span>
+  );
+}
+
 export default function Logo({
   width = 180,
   className = "",

@@ -31,7 +31,7 @@ export function ViewTabs({
   const labels = t.dash.views;
   return (
     <nav aria-label={t.dash.persona.tabsLabel} className="scrollbar-hide relative -mx-4 mb-1 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      <ul className="flex w-max gap-1 rounded-xl border border-line bg-surface p-1 shadow-card">
+      <ul className="flex w-max gap-0.5 rounded-md bg-surface-sunken p-0.5">
         {info.views.map((v) => {
           const on = v === current;
           const portal = !!PORTAL_VIEWS[v];
@@ -40,8 +40,8 @@ export function ViewTabs({
               <Link
                 href={viewHref(v, keep)}
                 aria-current={on ? "page" : undefined}
-                className={`dash-focus flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                  on ? "bg-brand-600 text-white" : "text-ink-secondary hover:bg-surface-subtle hover:text-ink"
+                className={`dash-focus flex items-center gap-1.5 whitespace-nowrap rounded-[5px] px-3 py-1.5 text-[13px] font-semibold transition ${
+                  on ? "bg-surface text-brand-700 shadow-[0_1px_2px_rgba(17,36,26,0.08)]" : "text-ink-secondary hover:text-ink"
                 }`}
               >
                 <Icon name={ICON[v]} className="text-[18px]" />

@@ -11,36 +11,39 @@ html:not([dir]) {
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-surface-subtle text-ink antialiased;
 }
 
-/* بطاقة زجاجية (Glassmorphism) — من نظام تصميم Stitch */
+/* ============================================================
+   «البطاقة الزجاجية» صارت لوحةً صلبة بحدٍّ شعري (التصميم المعتمد:
+   لا زجاجية ولا ظلال على اللوحات). الاسم باقٍ لأن مئة شاشة تستعمله —
+   فتنتقل كلّها بتغيير هذه القاعدة وحدها.
+   ============================================================ */
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 16px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  background: #ffffff;
+  border: 1px solid #e1e4df;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(17, 36, 26, 0.04);
 }
 
 /* ============================================================
    رموز الرسوم البيانية (viz) — مُتحقَّق منها بمدقّق عمى الألوان:
-   الدخل/السلسلة الأولى #047857 والصرف/الثانية #c2410c، والفترة
-   السابقة رمادي خافت (تقليل تأكيد لا لون هوية).
+   الأولى/الدخل #2B8058 والثانية/الصرف #D9A23F (أوكر) — protan ΔE 17،
+   العادي ΔE 25.8. والفترة السابقة رمادي (تقليل تأكيد لا لون هوية).
    ============================================================ */
 :root {
-  --viz-1: #047857;
-  --viz-1-wash: rgba(4, 120, 87, 0.1);
-  --viz-2: #c2410c;
-  --viz-prev: #a3b1ac;
-  --viz-grid: #e4ebe8;
+  --viz-1: #2b8058;
+  --viz-1-wash: rgba(43, 128, 88, 0.1);
+  --viz-2: #d9a23f;
+  --viz-prev: #b9c1bb;
+  --viz-prev-mark: #525c56;
+  --viz-grid: #e1e4df;
 }
 
 @layer components {
-  /* البطاقة الموحّدة للّوحات: سطح أبيض وحدٌّ شعري وظلّ ناعم */
+  /* اللوحة الموحّدة: سطح أبيض وحدٌّ شعري — لا ظلّ */
   .dash-card {
-    @apply relative rounded-card border border-line bg-surface shadow-card;
+    @apply relative rounded-card border border-line bg-surface;
   }
   /* بطاقة قابلة للنقر: تستجيب للمرور والضغط والتركيز بلوحة المفاتيح */
   .dash-card-link {
@@ -55,6 +58,51 @@ body {
   .num-tabular {
     font-variant-numeric: tabular-nums;
   }
+  /* هيكل التحميل: وميضٌ هادئ لا موجة لامعة */
+  .skeleton {
+    @apply rounded-md bg-surface-sunken;
+    animation: tilal-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+/* ============================================================
+   الحركة — لحظة واحدة غير مطلوبة (أبراج الرسم تنهض عند التحميل)،
+   والباقي يجيب فعلَ المستخدم (قائمة تنفتح، ورقة تصعد، درج ينزلق).
+   ============================================================ */
+@keyframes tilal-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@keyframes tilal-rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.anim-rise {
+  transform-origin: bottom;
+  animation: tilal-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes tilal-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.anim-pop {
+  animation: tilal-pop 140ms ease-out both;
+}
+@keyframes tilal-drawer-rtl {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes tilal-drawer-ltr {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+[dir="rtl"] .anim-drawer { animation: tilal-drawer-rtl 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+[dir="ltr"] .anim-drawer { animation: tilal-drawer-ltr 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* شريط تمرير رفيع خافت داخل القائمة الداكنة */
+.scroll-quiet {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
 }
 
 /* نصّ لقارئ الشاشة وحده */

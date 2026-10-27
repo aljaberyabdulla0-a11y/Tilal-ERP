@@ -16,7 +16,8 @@ export async function readFilters(sp: RawParams, defaultPreset: DashPreset = "th
 
 export function rangeText(f: DashFilters): string {
   const { locale, t } = getI18n();
-  if (f.preset !== "custom") return t.dash.filters.presets[f.preset];
+  // في جملة إنجليزية: «for this month» لا «for This month»
+  if (f.preset !== "custom") return locale === "en" ? t.dash.filters.presets[f.preset].toLowerCase() : t.dash.filters.presets[f.preset];
   return f.range.from === f.range.to
     ? fmtShortDate(f.range.from, locale)
     : `${fmtShortDate(f.range.from, locale)} – ${fmtShortDate(f.range.to, locale)}`;

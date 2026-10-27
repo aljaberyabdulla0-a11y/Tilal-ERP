@@ -42,11 +42,11 @@ export function DashboardSection({
 }) {
   const headingId = id ? `${id}-title` : undefined;
   return (
-    <section id={id} aria-labelledby={headingId} className={`mb-6 scroll-mt-20 ${className}`}>
+    <section id={id} aria-labelledby={headingId} className={`mb-8 scroll-mt-20 ${className}`}>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
         <div className="min-w-0">
-          <h2 id={headingId} className="text-base font-bold text-ink sm:text-lg">{title}</h2>
-          {hint && <p className="text-xs text-ink-muted sm:text-sm">{hint}</p>}
+          <h2 id={headingId} className="text-base font-bold text-ink">{title}</h2>
+          {hint && <p className="mt-0.5 text-[13px] text-ink-muted">{hint}</p>}
         </div>
         <div className="flex items-center gap-3">
           {actions}
@@ -81,10 +81,12 @@ export function CardTitle({ children, href, linkLabel }: { children: React.React
 
 // ===== الاتجاه =====
 
+// السهم يتبع إشارة الرقم، واللون يتبع الحكم (جيد/سيئ) — نصٌّ ملوّن لا حبّة:
+// ارتفاع دورة البيع سهمٌ للأعلى بلون التراجع، ولا أخضر حيث لا حكم.
 const TONE_TEXT: Record<Delta["tone"], string> = {
-  good: "text-success-700 bg-success-50",
-  bad: "text-danger-700 bg-danger-50",
-  neutral: "text-ink-secondary bg-surface-sunken",
+  good: "text-success-700",
+  bad: "text-danger-700",
+  neutral: "text-ink-secondary",
 };
 
 export function TrendIndicator({ delta, unit }: { delta: Delta | null; unit: Unit }) {
@@ -94,12 +96,7 @@ export function TrendIndicator({ delta, unit }: { delta: Delta | null; unit: Uni
     return <span className="text-xs text-ink-muted">{d.noPrevious}</span>;
   }
   if (delta.change === 0) {
-    return (
-      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_TEXT.neutral}`}>
-        <Icon name="remove" className="text-sm" />
-        {d.noChange}
-      </span>
-    );
+    return <span className="text-xs font-medium text-ink-muted">{d.noChange}</span>;
   }
   const upArrow = delta.change > 0;
   // النسبة؛ أو «جديد» من صفر؛ أو فرق النقاط للنسب المئوية
@@ -111,8 +108,8 @@ export function TrendIndicator({ delta, unit }: { delta: Delta | null; unit: Uni
       : `${upArrow ? "+" : "−"}${fmtNumber(Math.abs(delta.pct), locale, 1)}%`;
   const verdict = delta.tone === "good" ? d.better : delta.tone === "bad" ? d.worse : upArrow ? d.up : d.down;
   return (
-    <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_TEXT[delta.tone]}`}>
-      <Icon name={upArrow ? "arrow_upward" : "arrow_downward"} className="text-sm" />
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${TONE_TEXT[delta.tone]}`}>
+      <Icon name={upArrow ? "arrow_upward" : "arrow_downward"} className="text-[15px]" />
       <span dir="ltr">{label}</span>
       <span className="sr-only">{verdict}</span>
     </span>
@@ -121,6 +118,16 @@ export function TrendIndicator({ delta, unit }: { delta: Delta | null; unit: Uni
 
 // ===== بطاقة المؤشّر =====
 
+// ============================================================
+// المؤشّرات — «لوحة قياس» واحدة لا بطاقاتٌ متشابهة (التصميم المعتمد):
+// الخلايا تفصلها خطوط شعرية داخل إطارٍ واحد، وثلاث مقاسات تصنع
+// الهرمية — والرقم البطل (hero) واحدٌ في اللوحة.
+//
+// الحدود: كل خليّة تحمل حدّها السفلي وحدّها النهائي، والشبكة مزاحةٌ
+// بكسلاً تحت حافّة الإطار فتختفي الحدود الطرفية — فلا خانة رمادية
+// إن قلّ عدد المؤشّرات عن الأعمدة (مشرفٌ بلا مؤشّرات المال).
+// ============================================================
+
 const STATUS_RING: Record<NonNullable<Kpi["status"]>, string> = {
   good: "bg-success-50 text-success-700",
   warning: "bg-warning-50 text-warning-700",
@@ -128,77 +135,112 @@ const STATUS_RING: Record<NonNullable<Kpi["status"]>, string> = {
   neutral: "bg-brand-50 text-brand-700",
 };
 
-export function KpiCard({ kpi, size = "md" }: { kpi: Kpi; size?: "lg" | "md" | "sm" }) {
+type KpiSize = "xl" | "lg" | "md" | "sm";
+
+export function KpiCard({ kpi, size = "md" }: { kpi: Kpi; size?: KpiSize }) {
   const { locale, t } = getI18n();
   const d = t.dash.common;
   const words = { currency: d.currency, days: d.days };
-  // المبلغ: الرقم كبيراً والعملة صغيرةً بجانبه — فلا يُقصّ «245.8 مليون د.ع» في البطاقة
+  // المبلغ: الرقم كبيراً والعملة صغيرةً بجانبه — فلا يُقصّ «245.8 مليون د.ع»
   const money = kpi.unit === "money" && kpi.value !== null;
   const value = money ? fmtCompact(kpi.value, locale) : fmtValue(kpi.value, kpi.unit, locale, words);
   const prev = kpi.delta?.previous ?? null;
-  const valueClass = size === "lg" ? "text-kpi-lg" : size === "md" ? "text-kpi-md" : "text-kpi-sm";
+  const valueClass = { xl: "text-kpi-xl", lg: "text-kpi-lg", md: "text-xl font-bold", sm: "text-[15px] font-bold" }[size];
   const iconTone = STATUS_RING[kpi.status ?? "neutral"];
+  const tiny = size === "sm";
 
   const body = (
     <>
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold text-ink-secondary sm:text-[13px]">{kpi.title}</p>
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconTone}`}>
-          <Icon name={kpi.icon} className="text-[18px]" />
-        </span>
+      <div className="flex min-w-0 items-center gap-2">
+        {!tiny && (
+          <span className={`flex shrink-0 items-center justify-center rounded-md ${size === "md" ? "h-6 w-6" : "h-7 w-7"} ${iconTone}`}>
+            <Icon name={kpi.icon} className={size === "md" ? "text-[16px]" : "text-[18px]"} />
+          </span>
+        )}
+        <p className={`line-clamp-2 min-w-0 font-semibold leading-snug ${tiny ? "text-xs font-medium text-ink-muted" : size === "md" ? "text-[13px] text-ink-secondary" : "text-sm text-ink-secondary"}`}>
+          {kpi.title}
+        </p>
       </div>
-      <p className={`mt-1 flex min-w-0 flex-wrap items-baseline gap-x-1 text-ink ${valueClass}`}>
+      <p className={`${tiny ? "mt-1" : size === "md" ? "mt-2" : "mt-3"} flex min-w-0 flex-wrap items-baseline gap-x-1.5 ${kpi.status === "danger" ? "text-danger-700" : "text-ink"} ${valueClass}`}>
+        {money && locale !== "ar" && <span className={`${size === "xl" ? "text-base" : "text-xs"} font-semibold text-ink-muted`}>{d.currency}</span>}
         <span className="min-w-0 truncate">{value}</span>
-        {money && <span className="text-xs font-semibold text-ink-muted">{d.currency}</span>}
+        {money && locale === "ar" && <span className={`${size === "xl" ? "text-base" : "text-xs"} font-semibold text-ink-muted`}>{d.currency}</span>}
       </p>
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <div className={`${tiny ? "mt-0.5" : "mt-2"} flex flex-wrap items-center gap-x-2 gap-y-0.5`}>
         {kpi.delta !== null && <TrendIndicator delta={kpi.delta} unit={kpi.unit} />}
-        {kpi.delta !== null && prev !== null && size !== "sm" && (
-          <span className="text-[11px] text-ink-muted">
+        {kpi.delta !== null && prev !== null && (size === "xl" || size === "lg") && (
+          <span className="num-tabular text-xs text-ink-muted">
             {fill(d.vsPrevious, { value: fmtValue(prev, kpi.unit, locale, words) })}
           </span>
         )}
-        {kpi.subtitle && <span className="text-[11px] text-ink-muted">{kpi.subtitle}</span>}
+        {kpi.subtitle && <span className="text-xs text-ink-muted">{kpi.subtitle}</span>}
       </div>
       {kpi.definition && <span className="sr-only">{`${d.definition}: ${kpi.definition}`}</span>}
     </>
   );
 
-  const cls = `block min-w-[13.5rem] snap-start p-4 sm:min-w-0 ${size === "lg" ? "sm:p-5" : ""}`;
+  const pad = tiny ? "px-4 py-3 sm:px-5" : size === "md" ? "px-4 py-4 sm:px-5" : "p-4 sm:p-5";
+  const cls = `block h-full min-w-0 border-b border-e border-line ${tiny ? "bg-surface-subtle/70" : "bg-surface"} ${pad}`;
   return kpi.href ? (
-    <Link href={kpi.href} title={kpi.definition} className={`dash-card-link ${cls}`}>
+    <Link
+      href={kpi.href}
+      title={kpi.definition}
+      className={`${cls} transition-colors hover:bg-brand-50/60 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500`}
+    >
       {body}
     </Link>
   ) : (
-    <div title={kpi.definition} className={`dash-card ${cls}`}>
+    <div title={kpi.definition} className={cls}>
       {body}
     </div>
   );
 }
 
-// على الجوّال: صفٌّ أفقي يُمرَّر بالإصبع (snap)؛ وعلى الأكبر: شبكة
+// عدد الأعمدة لا يتجاوز عدد المؤشّرات — فلا خانات فارغة في الصفّ
+const GRID_COLS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-1 sm:grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+  5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5",
+  6: "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6",
+};
+const GRID_COLS_SMALL: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-2 sm:grid-cols-3",
+  4: "grid-cols-2 lg:grid-cols-4",
+  5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5",
+  6: "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6",
+};
+
 export function KpiGrid({
-  kpis, size = "md", cols = 4, label,
-}: { kpis: Kpi[]; size?: "lg" | "md" | "sm"; cols?: 3 | 4 | 5 | 6; label?: string }) {
-  const grid = {
-    3: "sm:grid-cols-3",
-    4: "sm:grid-cols-2 lg:grid-cols-4",
-    5: "sm:grid-cols-3 lg:grid-cols-5",
-    6: "sm:grid-cols-3 lg:grid-cols-6",
-  }[cols];
-  return (
-    <div
-      role="list"
-      aria-label={label}
-      className={`scrollbar-hide relative -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:overflow-visible sm:px-0 sm:pb-0 ${grid}`}
-    >
-      {kpis.map((k) => (
-        <div role="listitem" key={k.key} className="contents">
-          <KpiCard kpi={k} size={size} />
+  kpis, size = "md", cols = 4, label, hero = false, framed = true,
+}: {
+  kpis: Kpi[];
+  size?: "lg" | "md" | "sm";
+  cols?: 3 | 4 | 5 | 6;
+  label?: string;
+  /** المؤشّر الأول رقمٌ بطل (أكبر من غيره) — مرّة واحدة في اللوحة */
+  hero?: boolean;
+  /** false: بلا إطار — حين تجمع لوحةٌ واحدة عدّة طبقات (kpis.tsx) */
+  framed?: boolean;
+}) {
+  const n = Math.max(1, Math.min(cols, kpis.length));
+  const grid = (size === "lg" ? GRID_COLS : GRID_COLS_SMALL)[n];
+  const inner = (
+    <div role="list" aria-label={label} className={`-mb-px -me-px grid ${grid}`}>
+      {kpis.map((k, i) => (
+        <div role="listitem" key={k.key} className="min-w-0">
+          <KpiCard kpi={k} size={hero && i === 0 ? "xl" : size} />
         </div>
       ))}
     </div>
   );
+  // بلا إطار: طبقةٌ داخل لوحةٍ واحدة — خطٌّ شعري يفصلها عمّا تحتها إلا الأخيرة
+  return framed
+    ? <div className="overflow-hidden rounded-card border border-line bg-surface">{inner}</div>
+    : <div className="overflow-hidden border-b border-line last:border-b-0">{inner}</div>;
 }
 
 // ===== رقم مضغوط =====
@@ -216,17 +258,18 @@ export function StatTile({
   const { locale, t } = getI18n();
   const words = { currency: t.dash.common.currency, days: t.dash.common.days };
   const color = { neutral: "text-ink", good: "text-success-700", warning: "text-warning-700", danger: "text-danger-700" }[tone];
+  // التسمية أولاً ثم الرقم — يُقرأ السؤال قبل جوابه (التصميم المعتمد)
   const inner = (
     <>
-      <p className={`truncate text-kpi-sm ${color}`}>
+      <p className="truncate text-xs text-ink-muted">{label}</p>
+      <p className={`num-tabular mt-1 truncate text-[15px] font-bold ${color}`}>
         {fmtValue(value, unit, locale, words)}
       </p>
-      <p className="mt-0.5 text-xs text-ink-secondary">{label}</p>
     </>
   );
-  const cls = "block rounded-xl border border-line bg-surface px-3 py-2.5";
+  const cls = "block rounded-lg border border-line bg-surface px-3.5 py-3";
   return href ? (
-    <Link href={href} title={hint} className={`${cls} dash-focus transition hover:border-brand-200 hover:bg-surface-subtle`}>
+    <Link href={href} title={hint} className={`${cls} dash-focus transition hover:border-brand-200 hover:bg-brand-50/50`}>
       {inner}
     </Link>
   ) : (
@@ -252,7 +295,7 @@ const BADGE: Record<string, { cls: string; icon: string }> = {
 export function StatusBadge({ tone, label }: { tone: keyof typeof BADGE | string; label: string }) {
   const b = BADGE[tone] ?? BADGE.neutral;
   return (
-    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${b.cls}`}>
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${b.cls}`}>
       <Icon name={b.icon} className="text-[14px]" />
       {label}
     </span>
@@ -264,11 +307,11 @@ export function StatusBadge({ tone, label }: { tone: keyof typeof BADGE | string
 export function EmptyState({ title, hint, icon = "inbox", compact = false }: { title: string; hint?: string; icon?: string; compact?: boolean }) {
   return (
     <div className={`flex flex-col items-center justify-center text-center ${compact ? "py-6" : "py-10"}`}>
-      <span className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-surface-sunken text-ink-muted">
-        <Icon name={icon} />
+      <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+        <Icon name={icon} className="text-[22px]" />
       </span>
-      <p className="text-sm font-semibold text-ink-secondary">{title}</p>
-      {hint && <p className="mt-0.5 max-w-sm text-xs text-ink-muted">{hint}</p>}
+      <p className="text-sm font-semibold text-ink">{title}</p>
+      {hint && <p className="mt-1 max-w-sm text-[13px] text-ink-secondary">{hint}</p>}
     </div>
   );
 }

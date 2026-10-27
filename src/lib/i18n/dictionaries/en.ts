@@ -82,6 +82,12 @@ const en: Dictionary = {
     ourRequests: "Reservation requests",
     ourLeads: "Our leads",
     ourCommissions: "Our commissions",
+    groupDaily: "Daily work",
+    groupManage: "Management",
+    collapse: "Collapse menu",
+    expand: "Expand menu",
+    closeMenu: "Close menu",
+    breadcrumbHome: "Tilal",
   },
 
   auth: {

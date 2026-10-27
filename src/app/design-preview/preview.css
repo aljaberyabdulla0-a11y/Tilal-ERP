@@ -1,0 +1,130 @@
+/* ============================================================
+   معاينة التصميم الجديد — الرموز والأنماط **محصورة** في .tp-root.
+
+   لا قاعدة هنا تمسّ عنصراً خارج .tp-root: الملفّ يبقى محمّلاً بعد
+   مغادرة المعاينة (Next يُبقي CSS التخطيطات)، فأي محدِّد عامّ كان
+   سيتسرّب إلى شاشات النظام القائمة.
+
+   القيم قنوات RGB كي تعمل معها شفافية Tailwind (bg-tp-forest-900/80).
+   الأخضر من الشعار نفسه (#2E5A40) لا الزمرّدي #064E3B الذي يستعمله
+   النظام اليوم — ذاك أبرد وأزرق من هوية تلال المطبوعة.
+   ============================================================ */
+
+.tp-root {
+  --tp-forest-950: 15 33 23;    /* #0F2117 */
+  --tp-forest-900: 23 49 35;    /* #173123 الشريط الجانبي */
+  --tp-forest-800: 32 64 46;    /* #20402E مرور على الشريط */
+  --tp-forest-700: 46 90 64;    /* #2E5A40 أخضر الشعار: الإجراء الأساسي */
+  --tp-forest-600: 37 75 53;    /* #254B35 مرور على الإجراء الأساسي */
+  --tp-mint-300: 166 222 192;   /* #A6DEC0 البند النشط على الداكن */
+  --tp-mint-100: 220 241 229;   /* #DCF1E5 */
+  --tp-mint-50: 238 247 241;    /* #EEF7F1 */
+
+  --tp-paper: 244 245 242;      /* #F4F5F2 خلفية الصفحة */
+  --tp-surface: 255 255 255;
+  --tp-sunken: 236 239 234;     /* #ECEFEA */
+  --tp-line: 225 228 223;       /* #E1E4DF */
+  --tp-line-strong: 203 208 201;/* #CBD0C9 */
+
+  --tp-ink: 28 35 32;           /* #1C2320 */
+  --tp-ink-2: 82 92 86;         /* #525C56 */
+  --tp-ink-3: 104 114 108;      /* #68726C ≥ 4.5:1 على الأبيض */
+
+  /* الحالة — محجوزة للحالة وحدها، ولا تُلبَس سلسلةً في رسم */
+  --tp-pos: 27 110 69;          /* #1B6E45 */
+  --tp-pos-bg: 232 244 236;
+  --tp-neg: 179 38 30;          /* #B3261E */
+  --tp-neg-bg: 251 237 235;
+  --tp-warn: 146 84 8;          /* #925408 */
+  --tp-warn-bg: 252 243 227;
+  --tp-info: 44 93 138;         /* #2C5D8A */
+  --tp-info-bg: 234 241 248;
+
+  /* الرسوم — مُتحقَّق منها بمدقّق عمى الألوان (dataviz):
+     #2B8058 ↔ #D9A23F: protan ΔE 17، العادي ΔE 25.8 — كل الفحوص ناجحة */
+  --tp-viz-1: 43 128 88;
+  --tp-viz-2: 217 162 63;
+  --tp-viz-prev: 185 193 187;   /* الفترة السابقة: تقليل تأكيد لا هوية */
+
+  background: rgb(var(--tp-paper));
+  color: rgb(var(--tp-ink));
+  font-feature-settings: "kern";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* الأرقام في الأعمدة تصطفّ؛ والرقم الكبير المنفرد يبقى نسبياً */
+.tp-root .tp-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* حلقة التركيز الموحّدة — مرئية بلوحة المفاتيح وحدها */
+.tp-root .tp-focus:focus-visible {
+  outline: 2px solid rgb(var(--tp-forest-700));
+  outline-offset: 2px;
+}
+.tp-root .tp-focus-dark:focus-visible {
+  outline: 2px solid rgb(var(--tp-mint-300));
+  outline-offset: 2px;
+}
+
+/* هيكل التحميل: وميضٌ هادئ لا موجة لامعة */
+@keyframes tp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.tp-root .tp-skeleton {
+  background: rgb(var(--tp-sunken));
+  border-radius: 6px;
+  animation: tp-pulse 1.4s ease-in-out infinite;
+}
+
+/* لحظة الحركة الوحيدة غير المطلوبة: أبراج الرسم تنهض عند التحميل */
+@keyframes tp-rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.tp-root .tp-rise {
+  transform-origin: bottom;
+  animation: tp-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* الطبقات العائمة: تظهر بانزلاقٍ قصير يقول من أين جاءت */
+@keyframes tp-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tp-root .tp-pop {
+  animation: tp-pop 140ms ease-out both;
+}
+@keyframes tp-sheet {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tp-root .tp-sheet {
+  animation: tp-sheet 180ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes tp-drawer-rtl {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes tp-drawer-ltr {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+[dir="rtl"] .tp-root .tp-drawer { animation: tp-drawer-rtl 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+[dir="ltr"] .tp-root .tp-drawer { animation: tp-drawer-ltr 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+.tp-root .tp-scroll-quiet {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-root .tp-rise,
+  .tp-root .tp-pop,
+  .tp-root .tp-sheet,
+  .tp-root .tp-drawer,
+  .tp-root .tp-skeleton {
+    animation: none !important;
+  }
+}

@@ -16,7 +16,7 @@ const appFont = IBM_Plex_Sans_Arabic({
 
 // البيانات الوصفية للنظام — تظهر بعنوان المتصفح
 export const metadata: Metadata = {
-  title: "تلال ERP · Tilal ERP",
+  title: "TILAL ERP",
   description: "نظام إدارة شركة تلال للتسويق العقاري — Tilal Real Estate ERP",
 };
 

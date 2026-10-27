@@ -155,3 +155,27 @@ and triggers, RLS policies, authentication and authorization logic
 commission, payroll, CRM and reservation logic, production data, every
 existing route and component, `globals.css`, `package.json` (no new
 dependencies), and the production i18n dictionaries.
+
+## Where it is published (2026-10-27)
+
+| Destination | Location | Status |
+|---|---|---|
+| Git | branch `feat/tilal-design-preview`, design commit `69789dc` (2026-10-27 15:08 +03:00), based on `9092aa9` (= `main` at that time) | Pushed and verified: the remote head matches the local head |
+| GitHub | https://github.com/aljaberyabdulla0-a11y/Tilal-ERP/tree/feat/tilal-design-preview | Off-machine copy of the full source |
+| Vercel (preview only) | project `tilal-erp`, team "Tilal". Stable branch URL: `https://tilal-erp-git-feat-tilal-design-preview-jannat-crm-s-projects.vercel.app/design-preview` | Built by the existing Git integration (`main` deploys to production; other branches deploy as previews). Production was not touched |
+| Additional backup | none | No backup destination for source code is configured for this project. None was created |
+
+**Access:** Vercel Authentication (team SSO) protects every preview. Behind it,
+the app requires sign-in, and `/design-preview` is admin-only. Both layers
+were left as they are.
+
+**Recovery:**
+
+```bash
+git fetch origin
+git switch feat/tilal-design-preview   # or: git checkout 69789dc
+```
+
+To redeploy, push to the branch. Vercel rebuilds the preview at the same
+branch URL. Never merge this branch into `main` without a decision to ship:
+`main` deploys to production.

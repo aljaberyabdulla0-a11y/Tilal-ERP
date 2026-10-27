@@ -47,7 +47,7 @@ export default function ClientTabs({
   return (
     <div>
       <div className="border-b bg-white">
-        <nav className="flex gap-1 overflow-x-auto px-2" aria-label="أقسام ملفّ العميل">
+        <nav className="flex gap-1 overflow-x-auto overflow-y-hidden px-2" aria-label="أقسام ملفّ العميل">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -56,7 +56,7 @@ export default function ClientTabs({
               aria-current={t.key === active ? "page" : undefined}
               className={
                 t.key === active
-                  ? "-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 border-brand-600 px-3 py-2.5 text-sm font-semibold text-brand-600"
+                  ? "flex items-center gap-1.5 whitespace-nowrap border-b-2 border-brand-600 px-3 py-2.5 text-sm font-semibold text-brand-600"
                   : "flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm text-gray-500 transition hover:text-brand-600"
               }
             >

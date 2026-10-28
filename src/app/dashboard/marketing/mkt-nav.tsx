@@ -52,6 +52,8 @@ const GROUPS: Group[] = [
   ] },
   { key: "analytics", label: "التحليل", icon: "monitoring", items: [
     { href: `${B}/analytics`, label: "التقارير والإسناد" },
+    { href: "/dashboard/crm/leads", label: "مركز الليدات" },
+    { href: "/dashboard/crm/leads/capture", label: "تسجيل ليد من رسالة" },
     { href: `${B}/followup`, label: "متابعة الليدات" },
     { href: `${B}/quality`, label: "جودة البيانات" },
   ] },

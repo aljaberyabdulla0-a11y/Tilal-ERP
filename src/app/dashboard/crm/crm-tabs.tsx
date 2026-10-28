@@ -35,6 +35,8 @@ export default async function CrmTabs({ active }: { active: string }) {
   const tabs = readOnly
     ? [
         { key: "overview", label: "نظرة", href: "/dashboard/crm/overview" },
+        // مركز الليدات (218): مجاميع بلا أسماء — يقرؤه التسويق والمُطالِع
+        { key: "leads", label: "الليدات", href: "/dashboard/crm/leads" },
         ...(marketing
           ? []
           : [
@@ -48,6 +50,8 @@ export default async function CrmTabs({ active }: { active: string }) {
     : [
     { key: "today", label: "يومي", href: "/dashboard/crm/today" },
     ...(manages ? [{ key: "overview", label: "نظرة", href: "/dashboard/crm/overview" }] : []),
+    // مركز الليدات (218): المدير ومدير المتابعة (can_view_lead_hub) — المشرف يعمل من «التوزيع»
+    ...(admin || followup ? [{ key: "leads", label: "الليدات", href: "/dashboard/crm/leads" }] : []),
     { key: "clients", label: "العملاء", href: "/dashboard/clients" },
     { key: "activities", label: "سجلّ التواصل", href: "/dashboard/clients/activities" },
     // التقارير للجميع منذ محرّك التقارير (099): الموظف يرى «تقاريري» —

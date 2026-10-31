@@ -56,6 +56,9 @@ export type Client = {
   lead_temperature?: string | null;
   // الحذف الناعم (sql/077)
   deleted_at?: string | null;
+  // تصحيح الموظف الوحيد للاسم والرقم (sql/220) — يختمه الحارس في القاعدة
+  contact_corrected_at?: string | null;
+  contact_before?: { name: string | null; phone: string | null } | null;
   // مرتبط
   broker_companies?: { name: string } | null;
   projects?: { name: string } | null;

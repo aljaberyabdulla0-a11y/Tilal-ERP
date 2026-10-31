@@ -15,6 +15,7 @@ import {
 } from "@/lib/types";
 import DeleteClientButton from "../delete-client-button";
 import AltContact from "./alt-contact";
+import ContactCorrection from "./contact-correction";
 import LogActivity from "./log-activity";
 import ActivityTimeline from "@/components/activity-timeline";
 import StageSelect from "@/components/stage-select";
@@ -166,6 +167,15 @@ export default async function ClientDetailsPage({
               <span className="material-symbols-outlined text-[18px]">merge</span>
               دمج مع بطاقة أخرى
             </Link>
+          )}
+          {/* موظف المبيعات: تصحيح الاسم والرقم مرة واحدة (220) — الحدّ في القاعدة */}
+          {canWrite && !canEditCard && role !== "broker" && (
+            <ContactCorrection
+              clientId={c.id}
+              name={c.name}
+              phone={c.phone}
+              correctedAt={c.contact_corrected_at ?? null}
+            />
           )}
           {/* التعديل للمدير ومدير التسويق (212) ومشرف المبيعات على فريقه، والحذف للمدير وحده */}
           {canEditCard && (

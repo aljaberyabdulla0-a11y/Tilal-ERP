@@ -85,7 +85,8 @@ export default function TaskCard({
   // القاعدة ترفض «تمّت» قبلها، فلا نعرضه ونقود إلى الاستمارة نفسها.
   const lostForm =
     task.analysis_lost_sale_id && task.opportunity_id
-      ? journeyHref(task.client_id, task.opportunity_id, task.analysis_lost_sale_id)
+      // عبر صفحة الفرصة (222): تحوّل لملفّ العميل إن كان يراه، وإلا الاستمارة وحدها
+      ? journeyHref(null, task.opportunity_id, task.analysis_lost_sale_id)
       : null;
   const formPending = lostForm !== null && isOpenTask(task.status);
 

@@ -47,7 +47,8 @@ export default function TaskRowCard({
   // مهمة الاستمارة (175): إنجازها بملء الاستمارة لا بالزرّ
   const lostForm =
     task.analysis_lost_sale_id && task.opportunity_id
-      ? journeyHref(task.client_id, task.opportunity_id, task.analysis_lost_sale_id)
+      // عبر صفحة الفرصة (222): تحوّل لملفّ العميل إن كان يراه، وإلا الاستمارة وحدها
+      ? journeyHref(null, task.opportunity_id, task.analysis_lost_sale_id)
       : null;
   const formPending = lostForm !== null && open;
   const pendingApproval = task.approval_status === "بانتظار الموافقة";

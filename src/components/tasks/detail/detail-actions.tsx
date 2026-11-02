@@ -28,7 +28,8 @@ export default function DetailActions({ detail, people }: { detail: TaskDetail; 
 
   const open = isOpenTask(t.status);
   const lostForm = t.analysis_lost_sale_id && t.opportunity_id && open
-    ? journeyHref(t.client_id, t.opportunity_id, t.analysis_lost_sale_id) : null;
+    // عبر صفحة الفرصة (222): تحوّل لملفّ العميل إن كان يراه، وإلا الاستمارة وحدها
+    ? journeyHref(null, t.opportunity_id, t.analysis_lost_sale_id) : null;
   const pending = t.approval_status === "بانتظار الموافقة";
   const needsApproval = t.requires_approval && t.approval_status !== "معتمدة";
 

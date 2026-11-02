@@ -103,6 +103,7 @@ begin
     join public.clients c on c.id = t.client_id
     join public.employees e on e.id = c.owner_id and e.user_id = t.assigned_to
    where t.status in ('جديدة', 'قيد التنفيذ') and c.deleted_at is null and c.broker_company_id is null
+     and t.analysis_lost_sale_id is null   -- استمارة فشل البيع تبقى عند صاحب خسارتها (222)
    limit 1;
   select e.id, e.user_id into v_to, v_to_user
     from public.employees e join public.profiles pr on pr.id = e.user_id and pr.role = 'employee'

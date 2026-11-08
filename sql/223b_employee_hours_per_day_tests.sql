@@ -77,5 +77,10 @@ begin
   if not v_ok then raise exception 'T6 team_members بلا work_day_hours'; end if;
   v_log := v_log || 'T6 ';
 
+  -- T7) القيد يعمل بدور authenticated — كما يحفظ HR من النموذج (224)
+  v_ok := has_function_privilege('authenticated', 'public.valid_work_day_hours(jsonb)', 'execute');
+  if not v_ok then raise exception 'T7 authenticated لا ينفّذ valid_work_day_hours'; end if;
+  v_log := v_log || 'T7 ';
+
   raise exception 'ROLLBACK_OK | %', v_log;
 end $t$;

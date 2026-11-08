@@ -44,6 +44,9 @@ begin
   return true;
 end $$;
 
+-- القيد يستدعيها بدور من يحفظ (224)
+grant execute on function public.valid_work_day_hours(jsonb) to authenticated;
+
 alter table public.employees drop constraint if exists employees_day_hours_chk;
 alter table public.employees add constraint employees_day_hours_chk
   check (public.valid_work_day_hours(work_day_hours));

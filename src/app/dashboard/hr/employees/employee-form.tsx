@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { CompanySettings, Employee, Project } from "@/lib/types";
+import { CompanySettings, Employee, Project, WorkDayHours } from "@/lib/types";
 import { WEEKDAYS } from "@/lib/attendance";
 import { Branch, Department, EmploymentType, Position, departmentLabel } from "@/lib/org-types";
 
@@ -93,6 +93,24 @@ export default function EmployeeForm({
   const [days, setDays] = useState<number[]>(
     initial?.work_days ?? settings?.work_days ?? [0, 1, 2, 3, 4]
   );
+  // وقت مختلف لكل يوم (sql/223) — اليوم بلا وقت محفوظ يبدأ بالوقت العام أعلاه
+  const [perDay, setPerDay] = useState(
+    Boolean(initial?.work_day_hours && Object.keys(initial.work_day_hours).length > 0)
+  );
+  const [dayHours, setDayHours] = useState<WorkDayHours>(() => {
+    const saved = initial?.work_day_hours ?? {};
+    return Object.fromEntries(
+      Object.entries(saved).map(([d, h]) => [d, { start: h.start.slice(0, 5), end: h.end.slice(0, 5) }])
+    );
+  });
+  // أيام الدوام الفعلية: الخاصة إن فُعّلت، وإلا أيام الشركة
+  const activeDays = [...(customDays ? days : settings?.work_days ?? [0, 1, 2, 3, 4])].sort(
+    (a, b) => a - b
+  );
+  const hoursOf = (d: number) => dayHours[String(d)] ?? { start: startTime, end: endTime };
+  function setDayHour(d: number, field: "start" | "end", value: string) {
+    setDayHours((prev) => ({ ...prev, [String(d)]: { ...hoursOf(d), [field]: value } }));
+  }
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -125,7 +143,8 @@ export default function EmployeeForm({
     e.preventDefault();
     setError(null);
 
-    if (customHours && endTime <= startTime) {
+    const usePerDay = customHours && perDay && activeDays.length > 0;
+    if (customHours && !usePerDay && endTime <= startTime) {
       setError("وقت نهاية الدوام يجب أن يكون بعد وقت البداية.");
       return;
     }
@@ -133,6 +152,18 @@ export default function EmployeeForm({
       setError("اختر يوم دوام واحد على الأقل، أو ارجع لأيام دوام الشركة.");
       return;
     }
+    // يُحفظ وقت أيام الدوام وحدها، وأوّلها يصير الوقت العام لما سواها
+    const workDayHours: WorkDayHours | null = usePerDay
+      ? Object.fromEntries(activeDays.map((d) => [String(d), hoursOf(d)]))
+      : null;
+    if (workDayHours) {
+      const bad = activeDays.find((d) => !hoursOf(d).start || !hoursOf(d).end || hoursOf(d).end <= hoursOf(d).start);
+      if (bad !== undefined) {
+        setError(`وقت نهاية دوام يوم ${WEEKDAYS[bad].label} يجب أن يكون بعد وقت بدايته.`);
+        return;
+      }
+    }
+    const baseHours = workDayHours ? hoursOf(activeDays[0]) : { start: startTime, end: endTime };
 
     const payload = {
       full_name: form.full_name.trim(),
@@ -171,9 +202,10 @@ export default function EmployeeForm({
       notes: form.notes.trim() || null,
       exempt_from_attendance: exempt,
       // فارغ = يتبع دوام الشركة العام
-      work_start_time: customHours ? startTime : null,
-      work_end_time: customHours ? endTime : null,
+      work_start_time: customHours ? baseHours.start : null,
+      work_end_time: customHours ? baseHours.end : null,
       work_days: customDays ? days : null,
+      work_day_hours: customHours ? workDayHours : null,
     };
 
     setSaving(true);
@@ -562,6 +594,66 @@ export default function EmployeeForm({
             </label>
 
             {customHours && (
+              <div className="mt-3 flex flex-wrap gap-2 rounded-lg bg-white p-4">
+                {[
+                  { value: false, label: "نفس الوقت كل الأيام" },
+                  { value: true, label: "وقت مختلف لكل يوم" },
+                ].map((o) => (
+                  <button
+                    key={o.label}
+                    type="button"
+                    onClick={() => setPerDay(o.value)}
+                    className={
+                      perDay === o.value
+                        ? "rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white"
+                        : "rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-500 transition hover:bg-gray-50"
+                    }
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {customHours && perDay && (
+              <div className="mt-3 space-y-2 rounded-lg bg-white p-4">
+                {activeDays.length === 0 ? (
+                  <p className="text-xs text-gray-500">اختر أيام الدوام أولاً.</p>
+                ) : (
+                  <div className="grid grid-cols-[5rem_1fr_1fr] gap-3 text-xs text-gray-500">
+                    <span>اليوم</span>
+                    <span>بداية الدوام</span>
+                    <span>نهاية الدوام</span>
+                  </div>
+                )}
+                {activeDays.map((d) => (
+                  <div key={d} className="grid grid-cols-[5rem_1fr_1fr] items-center gap-3">
+                    <span className="text-sm font-medium text-gray-800">{WEEKDAYS[d].label}</span>
+                    <input
+                      type="time"
+                      dir="ltr"
+                      aria-label={`بداية دوام ${WEEKDAYS[d].label}`}
+                      value={hoursOf(d).start}
+                      onChange={(e) => setDayHour(d, "start", e.target.value)}
+                      className={inputClass + " text-start"}
+                    />
+                    <input
+                      type="time"
+                      dir="ltr"
+                      aria-label={`نهاية دوام ${WEEKDAYS[d].label}`}
+                      value={hoursOf(d).end}
+                      onChange={(e) => setDayHour(d, "end", e.target.value)}
+                      className={inputClass + " text-start"}
+                    />
+                  </div>
+                ))}
+                <p className="text-xs text-gray-500">
+                  الأيام تُختار من «أيام دوام خاصة» أدناه، وإلا فهي أيام دوام الشركة.
+                </p>
+              </div>
+            )}
+
+            {customHours && !perDay && (
               <div className="mt-3 grid grid-cols-1 gap-4 rounded-lg bg-white p-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>بداية الدوام</label>

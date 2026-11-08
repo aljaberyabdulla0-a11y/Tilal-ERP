@@ -18,6 +18,7 @@ import {
   evaluateDay,
   formatDurationShort,
   formatDuration,
+  hoursLabel,
   isWorkDay,
   serviceOf,
   todayISO,
@@ -249,7 +250,7 @@ export default async function AttendanceTodayPage({
                           {e.job_title || "—"}
                           {schedule.custom && !e.exempt_from_attendance && (
                             <span className="ms-1 text-brand-600" dir="ltr">
-                              ({schedule.start}–{schedule.end})
+                              ({hoursLabel(schedule, date)})
                             </span>
                           )}
                         </span>

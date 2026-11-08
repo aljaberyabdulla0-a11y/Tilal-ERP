@@ -16,10 +16,12 @@ import {
   effectiveSchedule,
   formatDuration,
   formatDurationShort,
+  hoursLabel,
   monthRange,
   serviceOf,
   todayISO,
   weekdayName,
+  weeklyHoursText,
 } from "@/lib/attendance";
 import ManualStamp from "@/components/manual-stamp";
 
@@ -103,9 +105,10 @@ export default async function EmployeeAttendancePage({
                   ? "bg-brand-50 text-brand-700"
                   : "bg-gray-100 text-gray-600"
               }`}
-              dir="ltr"
+              dir={schedule.byDay ? "rtl" : "ltr"}
+              title={weeklyHoursText(schedule)}
             >
-              {schedule.start}–{schedule.end}
+              {schedule.byDay ? weeklyHoursText(schedule) : hoursLabel(schedule)}
             </span>
           )}
           <span className="text-sm text-gray-400">{employee.job_title || "—"}</span>

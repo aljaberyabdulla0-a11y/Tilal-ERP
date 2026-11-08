@@ -9,8 +9,10 @@ import {
   effectiveSchedule,
   formatDuration,
   formatDurationShort,
+  hoursLabel,
   monthRange,
   serviceOf,
+  weeklyHoursText,
 } from "@/lib/attendance";
 import AttendanceTabs from "../attendance-tabs";
 
@@ -188,9 +190,10 @@ export default async function MonthlyAttendancePage({
                         schedule.custom && (
                           <span
                             className="mt-0.5 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[11px] text-brand-700"
-                            dir="ltr"
+                            dir={schedule.byDay ? "rtl" : "ltr"}
+                            title={weeklyHoursText(schedule)}
                           >
-                            {schedule.start}–{schedule.end}
+                            {hoursLabel(schedule)}
                           </span>
                         )
                       )}

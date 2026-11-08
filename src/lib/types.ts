@@ -570,6 +570,9 @@ export const ENTRY_TEMPLATES: EntryTemplate[] = [
 
 // ===== الموارد البشرية (HR) =====
 
+// وقت دوام كل يوم: المفتاح رقم اليوم ("0"=الأحد ... "6"=السبت) — sql/223
+export type WorkDayHours = Record<string, { start: string; end: string }>;
+
 export type Employee = {
   id: string;
   user_id: string | null;
@@ -596,6 +599,8 @@ export type Employee = {
   work_start_time: string | null;
   work_end_time: string | null;
   work_days: number[] | null;
+  // وقت خاص لكل يوم (sql/223) — فارغ = نفس الوقت لكل الأيام
+  work_day_hours: WorkDayHours | null;
   // الهيكل التنظيمي (sql/145). department و job_title أعلاه صارا مشتقّين
   // من هذين المرجعين — يملؤهما محفّز في القاعدة.
   employee_code: string;
@@ -1478,6 +1483,7 @@ export type TeamMember = {
   work_end_time: string | null;
   work_days: number[] | null;
   project_ids: string[];     // كل مشاريعه (sql/216) — الأساسي ضمنها
+  work_day_hours: WorkDayHours | null; // sql/223
 };
 
 export const USER_ROLES = [

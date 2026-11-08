@@ -4,7 +4,7 @@
 // والتقرير الشهري وسجل الموظف.
 // ============================================================
 
-import type { Attendance, CompanySettings, Employee, Leave } from "@/lib/types";
+import type { Attendance, CompanySettings, Employee, Leave, WorkDayHours } from "@/lib/types";
 import {
   baghdadDate,
   baghdadMinutesOfDay,
@@ -68,22 +68,57 @@ export type Schedule = {
   grace: number;      // دقائق السماح
   days: number[];     // 0=الأحد ... 6=السبت
   custom: boolean;    // هل هو دوام خاص بهذا الموظف؟
+  byDay: WorkDayHours | null; // وقت خاص لبعض الأيام يسبق start/end (sql/223)
 };
 
 export function effectiveSchedule(
-  employee: Pick<Employee, "work_start_time" | "work_end_time" | "work_days"> | null,
+  employee: Pick<Employee, "work_start_time" | "work_end_time" | "work_days"> &
+    Partial<Pick<Employee, "work_day_hours">> | null,
   settings: CompanySettings | null
 ): Schedule {
   const hasCustomHours = !!(employee?.work_start_time && employee?.work_end_time);
   const hasCustomDays = !!(employee?.work_days && employee.work_days.length > 0);
+  const byDay =
+    employee?.work_day_hours && Object.keys(employee.work_day_hours).length > 0
+      ? employee.work_day_hours
+      : null;
 
   return {
     start: (hasCustomHours ? employee!.work_start_time! : settings?.work_start_time ?? "09:00:00").slice(0, 5),
     end: (hasCustomHours ? employee!.work_end_time! : settings?.work_end_time ?? "17:00:00").slice(0, 5),
     grace: settings?.late_grace_minutes ?? 15,
     days: hasCustomDays ? employee!.work_days! : settings?.work_days ?? [0, 1, 2, 3, 4],
-    custom: hasCustomHours || hasCustomDays,
+    custom: hasCustomHours || hasCustomDays || !!byDay,
+    byDay,
   };
+}
+
+// وقت الدوام في يومٍ بعينه — كما تحسبه work_schedule_on في القاعدة
+export function hoursOn(schedule: Schedule, dateISO: string): { start: string; end: string } {
+  const d = schedule.byDay?.[String(baghdadWeekday(dateISO))];
+  return d ? { start: d.start.slice(0, 5), end: d.end.slice(0, 5) } : { start: schedule.start, end: schedule.end };
+}
+
+// نصّ الدوام للعرض: وقت اليوم لو عُرف اليوم، وإلا «حسب اليوم» لمن تختلف أوقاته
+export function hoursLabel(schedule: Schedule, dateISO?: string): string {
+  if (dateISO) {
+    const h = hoursOn(schedule, dateISO);
+    return `${h.start}–${h.end}`;
+  }
+  return schedule.byDay ? "حسب اليوم" : `${schedule.start}–${schedule.end}`;
+}
+
+// «الأحد 10:00–18:00 · الاثنين 11:00–19:00 …» لأيام الدوام
+export function weeklyHoursText(schedule: Schedule): string {
+  return [...schedule.days]
+    .sort((a, b) => a - b)
+    .map((d) => {
+      const h = schedule.byDay?.[String(d)];
+      const start = h ? h.start.slice(0, 5) : schedule.start;
+      const end = h ? h.end.slice(0, 5) : schedule.end;
+      return `${WEEKDAY_NAMES[d]} ${start}–${end}`;
+    })
+    .join(" · ");
 }
 
 // دوام الشركة العام (لمن لا نعرف موظفه)
@@ -203,8 +238,9 @@ export function evaluateDay(
   exempt = false,
   service?: Service
 ): DayResult {
-  const startM = timeToMinutes(schedule.start) ?? 9 * 60;
-  const endM = timeToMinutes(schedule.end) ?? 17 * 60;
+  const hours = hoursOn(schedule, date);
+  const startM = timeToMinutes(hours.start) ?? 9 * 60;
+  const endM = timeToMinutes(hours.end) ?? 17 * 60;
   const grace = schedule.grace;
 
   const inM = stampToMinutes(record?.check_in ?? null);

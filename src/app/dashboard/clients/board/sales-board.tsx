@@ -18,6 +18,7 @@ import { TEMPERATURE_STYLE } from "@/lib/crm-style";
 import { daysInStage, needsAction } from "@/lib/crm-journey";
 import { useStageMove } from "@/components/journey/use-stage-move";
 import { baghdadDate } from "@/lib/time";
+import { FOLLOWUP_DAY_OFF_MSG, isFollowupDayOff } from "@/lib/followup-rules";
 
 // الافتراض القديم — حين لا تمرّر الصفحة مراحل من القاعدة
 const FALLBACK_STAGES: StageLite[] = PIPELINE_STAGES.map((name) => ({
@@ -182,6 +183,12 @@ export default function SalesBoard({
 
   // تحديث تاريخ المتابعة
   async function setDate(id: string, date: string) {
+    // الجمعة عطلة (sql/225) — السقف اليومي ترفضه القاعدة برسالتها
+    if (isFollowupDayOff(date)) {
+      setEditDateId(null);
+      alert(FOLLOWUP_DAY_OFF_MSG);
+      return;
+    }
     const before = items.find((c) => c.id === id)?.follow_up_date ?? null;
     setItems((prev) =>
       prev.map((c) => (c.id === id ? { ...c, follow_up_date: date || null } : c))

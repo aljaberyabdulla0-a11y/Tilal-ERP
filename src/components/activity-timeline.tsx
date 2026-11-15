@@ -60,7 +60,7 @@ export default function ActivityTimeline({
     if (!form) return;
     setError(null);
 
-    const result = buildActivityPayload(form, stageOf(a));
+    const result = buildActivityPayload(form, stageOf(a), a.next_action_date);
     if ("error" in result) {
       setError(result.error);
       return;
@@ -133,6 +133,8 @@ export default function ActivityTimeline({
                   onChange={setForm}
                   showTypePicker
                   stage={stageOf(a)}
+                  clientId={a.client_id}
+                  originalNextDate={a.next_action_date}
                 />
 
                 {error && (

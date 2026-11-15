@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n/client";
 import { lostDict, type Lang } from "@/lib/lost-sales-i18n";
+import { FOLLOWUP_DAY_OFF_MSG, isFollowupDayOff } from "@/lib/followup-rules";
 
 // ============================================================
 // إعادة تنشيط فرصة خاسرة (reactivate_lost_opportunity — 140).
@@ -70,7 +71,8 @@ export default function ReactivateDialog({
   }
 
   const input = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none";
-  const ok = stageId && note.trim() && date && date >= today;
+  const dayOff = isFollowupDayOff(date); // الجمعة عطلة (sql/225)
+  const ok = stageId && note.trim() && date && date >= today && !dayOff;
 
   return (
     <div dir={dir} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
@@ -105,6 +107,7 @@ export default function ReactivateDialog({
               <input id="ra-date" type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} className={input} dir="ltr" />
             </div>
           </div>
+          {dayOff && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{FOLLOWUP_DAY_OFF_MSG}</p>}
           {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>}
         </div>
         <footer className="flex justify-end gap-2 border-t bg-gray-50 px-5 py-3">

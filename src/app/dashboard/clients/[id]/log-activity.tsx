@@ -117,7 +117,7 @@ export default function LogActivity({
             <span className="font-semibold text-gray-800">{form.activity_type}</span>
           </div>
 
-          <ActivityFields value={form} onChange={setForm} stage={stage} />
+          <ActivityFields value={form} onChange={setForm} stage={stage} clientId={clientId} />
 
           {opportunities.length > 1 && (
             <label className="block">

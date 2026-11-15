@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   ACTIVITY_DIRECTIONS,
   ACTIVITY_OUTCOMES,
@@ -8,6 +10,11 @@ import {
   isClosedStage,
 } from "@/lib/types";
 import type { ActivityFormState } from "@/lib/activity-form";
+import {
+  type FollowupDayStatus,
+  arDayName,
+  followupDayHint,
+} from "@/lib/followup-rules";
 
 // ============================================================
 // حقول تسجيل التواصل — مشتركة بين نموذج التسجيل ونموذج التعديل.
@@ -19,6 +26,8 @@ export default function ActivityFields({
   onChange,
   showTypePicker = false,
   stage,
+  clientId,
+  originalNextDate,
 }: {
   value: ActivityFormState;
   onChange: (next: ActivityFormState) => void;
@@ -26,9 +35,37 @@ export default function ActivityFields({
   showTypePicker?: boolean;
   // مرحلة العميل — تُخفي المتابعة إذا كان الملف مغلقاً (بيع/فشل البيع)
   stage?: string | null;
+  // العميل — لعرض حِمل يوم المتابعة عند مالكه (sql/225). بلا عميل: فحص الجمعة فقط
+  clientId?: string | null;
+  // موعد السجلّ قبل التعديل — موعد لم يتغيّر لا يُفحص
+  originalNextDate?: string | null;
 }) {
   const meta = activityMeta(value.activity_type);
   const closed = isClosedStage(stage);
+  // حالة يوم المتابعة المختار: كم متابعة فيه للموظف، وهل امتلأ
+  const nextDate = closed ? "" : value.next_date;
+  const unchanged = !!originalNextDate && nextDate === originalNextDate;
+  const [dayStatus, setDayStatus] = useState<{ date: string; status: FollowupDayStatus } | null>(null);
+
+  useEffect(() => {
+    if (!clientId || !nextDate || unchanged) return;
+    let cancelled = false;
+    createClient()
+      .rpc("followup_day_status", { p_client: clientId, p_date: nextDate })
+      .then(({ data, error }) => {
+        // خطأ (القاعدة لم تُحدَّث بعد) أو لا صلاحية: بلا عدّاد — الحفظ يفحص
+        if (cancelled || error || !data) return;
+        setDayStatus({ date: nextDate, status: data as FollowupDayStatus });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, nextDate, unchanged]);
+
+  const hint = unchanged
+    ? null
+    : followupDayHint(nextDate, dayStatus?.date === nextDate ? dayStatus.status : null);
+
   const set = <K extends keyof ActivityFormState>(key: K, v: ActivityFormState[K]) =>
     onChange({ ...value, [key]: v });
 
@@ -177,14 +214,44 @@ export default function ActivityFields({
               className={
                 input +
                 " text-start " +
-                (value.next_date ? "" : "border-amber-400 bg-white")
+                (hint?.tone === "block"
+                  ? "border-red-400 bg-red-50"
+                  : value.next_date
+                    ? ""
+                    : "border-amber-400 bg-white")
               }
             />
+            {hint && (
+              <p
+                role={hint.tone === "block" ? "alert" : undefined}
+                className={
+                  "mt-1 text-[11px] " +
+                  (hint.tone === "block"
+                    ? "font-semibold text-red-700"
+                    : hint.tone === "warn"
+                      ? "text-amber-800"
+                      : "text-gray-500")
+                }
+              >
+                {hint.text}
+                {hint.suggest && (
+                  <button
+                    type="button"
+                    onClick={() => set("next_date", hint.suggest as string)}
+                    className="ms-1 rounded border border-red-300 bg-white px-1.5 py-0.5 font-semibold text-red-700 hover:bg-red-50"
+                  >
+                    أقرب يوم متاح: {arDayName(hint.suggest)}{" "}
+                    <span dir="ltr">{hint.suggest}</span>
+                  </button>
+                )}
+              </p>
+            )}
           </div>
         </div>
         <p className="mt-2 text-[11px] text-amber-800">
           إلزامي — لا يُحفظ التواصل بدون موعد متابعة، ويُحدَّث به تاريخ متابعة
-          العميل تلقائياً فيصلك تذكير عند حلوله.
+          العميل تلقائياً فيصلك تذكير عند حلوله. لا متابعة يوم الجمعة، ولكل
+          يوم حدّ أعلى من المتابعات.
         </p>
       </div>
       )}

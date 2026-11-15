@@ -7,6 +7,7 @@
 import type { ClientActivity } from "@/lib/types";
 import { activityMeta, isClosedStage } from "@/lib/types";
 import { baghdadDate, baghdadStamp, baghdadTime } from "@/lib/time";
+import { FOLLOWUP_DAY_OFF_MSG, isFollowupDayOff } from "@/lib/followup-rules";
 
 export type ActivityFormState = {
   activity_type: string;
@@ -66,9 +67,12 @@ export const FOLLOWUP_REQUIRED_MSG =
 
 // التحقّق وبناء ما يُحفظ.
 // stage = مرحلة العميل: إن كانت مغلقة (بيع/فشل البيع) فلا متابعة أصلاً.
+// originalNextDate = موعد السجلّ قبل التعديل: موعد قديم لم يتغيّر لا
+// يُفحص بقواعد 225 (القاعدة كذلك لا تفحص إلا تغيير الموعد).
 export function buildActivityPayload(
   f: ActivityFormState,
-  stage?: string | null
+  stage?: string | null,
+  originalNextDate?: string | null
 ): { error: string } | { payload: ActivityPayload } {
   const occurredAt = baghdadStamp(f.date, f.time);
   if (!occurredAt) return { error: "تاريخ أو وقت التواصل غير صحيح." };
@@ -83,6 +87,10 @@ export function buildActivityPayload(
     if (!f.next_date) return { error: FOLLOWUP_REQUIRED_MSG };
     if (f.next_date < f.date) {
       return { error: "موعد المتابعة يجب أن يكون في نفس يوم التواصل أو بعده." };
+    }
+    // الجمعة عطلة (sql/225) — السقف اليومي تفحصه القاعدة عند الحفظ
+    if (f.next_date !== originalNextDate && isFollowupDayOff(f.next_date)) {
+      return { error: FOLLOWUP_DAY_OFF_MSG };
     }
   }
 

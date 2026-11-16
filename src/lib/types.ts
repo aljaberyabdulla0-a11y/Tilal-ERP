@@ -3640,6 +3640,59 @@ export type DeveloperInvoice = {
   cancel_reason: string | null;
 };
 
+// سند قبض عمولة تلال من المطوّر (sql/226) — كل تحصيل سندٌ بقيده،
+// وإلغاؤه قيدٌ عكسي والسند يبقى ملغى. يُكتب بالدوالّ وحدها.
+export type CommissionReceipt = {
+  id: string;
+  created_at: string;
+  receipt_number: string;
+  reservation_id: string;
+  sale_commission_id: string;
+  developer_invoice_id: string | null;
+  amount: number;
+  method: "نقد" | "بنك";
+  receipt_date: string;
+  notes: string | null;
+  journal_entry_id: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  cancel_date: string | null;
+  cancel_entry_id: string | null;
+};
+
+// صفّ في دفتر الصندوق (cash_book — sql/226): حركة يدوية من cash_moves
+// أو قيد آلي مسّ الصندوق أو البنك (تحصيل عمولة، دفعة راتب، سلفة، دين…)
+export type CashBookRow = {
+  kind: "move" | "auto";
+  id: string; // معرّف الحركة اليدوية، أو معرّف القيد للآلي
+  entry_id: string | null;
+  move_date: string;
+  created_at: string;
+  direction: MoneyDirection;
+  amount: number;
+  category: string;
+  account_code: string | null;
+  arm: string;
+  method: string | null;
+  partner_id: string | null;
+  description: string;
+  notes: string | null;
+  project_id: string | null;
+  reference: string | null;
+  source: string | null;
+  cash_effect: number; // أثر الصفّ على الصندوق + البنك (موجب = دخل)
+  link: string | null;
+};
+
+export type CashBook = {
+  count: number;
+  total_in: number;
+  total_out: number;
+  cash: number; // رصيد الصندوق 1100 في الدفتر
+  bank: number; // رصيد البنك 1200 في الدفتر
+  rows: CashBookRow[];
+};
+
 /** وصف القاعدة بعبارة يفهمها من يقرؤها بلا شرح */
 export function ruleLabel(r: EmployeeCommissionRule): string {
   const v = isRateKind(r.kind)

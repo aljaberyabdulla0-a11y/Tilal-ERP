@@ -66,6 +66,7 @@ export const JOURNAL_SOURCE_LABELS: Record<string, string> = {
   debt_repayments: "استحصال دين",
   inventory_moves: "شراء مخزون",
   broker_payments: "دفعة شركة وسيطة",
+  employee_expenses: "مصروف موظف",
 };
 
 export function journalSourceLabel(source: string | null): string {

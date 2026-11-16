@@ -31,11 +31,19 @@ async function sourceHref(supabase: Supabase, source: string, id: string): Promi
       return "/dashboard/inventory/moves";
     case "broker_payments":
       return "/dashboard/brokers/commissions";
+    case "employee_expenses":
+      return "/dashboard/hr/expenses";
     case "reservations":
       return `/dashboard/reservations/${id}`;
     case "sale_commissions": {
-      const { data } = await supabase.from("sale_commissions").select("reservation_id").eq("id", id).maybeSingle();
-      return data ? `/dashboard/reservations/${data.reservation_id}` : null;
+      // التحصيل وإلغاؤه يُداران من صفحة الوحدة («تسجيل التحصيل» / «إلغاء التحصيل» — sql/226)
+      const { data } = await supabase
+        .from("sale_commissions")
+        .select("reservation_id, unit_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (!data) return null;
+      return data.unit_id ? `/dashboard/units/${data.unit_id}` : `/dashboard/reservations/${data.reservation_id}`;
     }
     default:
       return null;

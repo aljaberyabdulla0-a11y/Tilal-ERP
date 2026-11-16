@@ -2,12 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canManageFinance } from "@/lib/auth";
-import { ARMS, ARM_COLORS, CashMove, Partner, formatPrice } from "@/lib/types";
+import { ARMS, ARM_COLORS, CashBook, CashBookRow, Partner, formatPrice } from "@/lib/types";
 import AccTabs from "../acc-tabs";
 import DeleteMoveButton from "./delete-move-button";
 import ProjectSelect from "@/components/project-select";
 
-// قائمة كل الحركات المالية (صرف/قبض) مع فلاتر بسيطة
+// كل ما دخل الصندوق والبنك أو خرج منهما (cash_book — sql/226):
+// الحركات اليدوية (cash_moves) ومعها القيود الآلية التي مسّت النقد —
+// تحصيل عمولة من المطوّر، دفعة راتب، سلفة، دين، شراء لوازم، دفعة وسيط.
+// قبلها كانت الشاشة تقرأ cash_moves وحدها، فيدخل تحصيل العمولة الصندوق
+// ولا يظهر هنا قبضاً. والحركة الآلية تُدار من مصدرها لا من هنا.
 export default async function MovesPage({
   searchParams,
 }: {
@@ -17,39 +21,32 @@ export default async function MovesPage({
 
   const supabase = await createClient();
 
-  let query = supabase
-    .from("cash_moves")
-    .select("*")
-    .order("move_date", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (searchParams.dir === "صرف" || searchParams.dir === "قبض") {
-    query = query.eq("direction", searchParams.dir);
-  }
-  if (searchParams.arm) query = query.eq("arm", searchParams.arm);
-  if (searchParams.q) query = query.ilike("description", `%${searchParams.q}%`);
-  // المشروع (sql/116): "general" = الحركات التي لا مشروع لها
-  if (searchParams.project === "general") query = query.is("project_id", null);
-  else if (searchParams.project) query = query.eq("project_id", searchParams.project);
-
-  const [{ data: mData }, { data: pData }, { data: pjData }] = await Promise.all([
-    query,
+  const [{ data: book, error: bookError }, { data: pData }, { data: pjData }] = await Promise.all([
+    supabase.rpc("cash_book", {
+      p_dir: searchParams.dir === "صرف" || searchParams.dir === "قبض" ? searchParams.dir : null,
+      p_arm: searchParams.arm ?? null,
+      // المشروع (sql/116): "general" = الحركات التي لا مشروع لها
+      p_project: searchParams.project ?? null,
+      p_q: searchParams.q ?? null,
+      p_limit: 500,
+    }),
     supabase.from("partners").select("*"),
     supabase.from("projects").select("id, name").order("name"),
   ]);
   const projects = (pjData ?? []) as { id: string; name: string }[];
 
-  const moves = (mData ?? []) as CashMove[];
+  const cashBook = (book as CashBook | null) ?? null;
+  const moves: CashBookRow[] = cashBook?.rows ?? [];
   const partners = (pData ?? []) as Partner[];
   const partnerName = (id: string | null) =>
     id ? partners.find((p) => p.id === id)?.name ?? "شريك" : null;
+  const projectName = (id: string | null) =>
+    id ? projects.find((p) => p.id === id)?.name ?? "—" : "عام";
 
-  const totalIn = moves
-    .filter((m) => m.direction === "قبض")
-    .reduce((s, m) => s + Number(m.amount), 0);
-  const totalOut = moves
-    .filter((m) => m.direction === "صرف")
-    .reduce((s, m) => s + Number(m.amount), 0);
+  // المجاميع تُحسب في القاعدة على كل المطابق للفلتر — لا على المعروض وحده
+  const totalIn = Number(cashBook?.total_in ?? 0);
+  const totalOut = Number(cashBook?.total_out ?? 0);
+  const totalCount = Number(cashBook?.count ?? 0);
 
   // روابط الفلترة تحافظ على بقية الفلاتر
   const linkWith = (patch: Record<string, string | undefined>) => {
@@ -148,7 +145,41 @@ export default async function MovesPage({
           </form>
         </div>
 
-        {/* مجموع المعروض */}
+        {bookError && (
+          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            تعذّر تحميل الحركات: {bookError.message}
+          </p>
+        )}
+
+        {/* رصيد الصندوق والبنك من الدفتر — كل حركة أدناه تفسّر جزءاً منه */}
+        {cashBook && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Link
+              href="/dashboard/accounting/ledger/1100"
+              className="glass-card flex items-baseline justify-between gap-3 p-4 transition hover:border-brand-300"
+            >
+              <span className="text-sm text-gray-500">
+                رصيد الصندوق الآن <span className="text-xs text-gray-400">(كشف الحساب ←)</span>
+              </span>
+              <b className={`text-lg ${Number(cashBook.cash) < 0 ? "text-red-700" : "text-gray-800"}`} dir="ltr">
+                {formatPrice(Number(cashBook.cash))}
+              </b>
+            </Link>
+            <Link
+              href="/dashboard/accounting/ledger/1200"
+              className="glass-card flex items-baseline justify-between gap-3 p-4 transition hover:border-brand-300"
+            >
+              <span className="text-sm text-gray-500">
+                رصيد البنك الآن <span className="text-xs text-gray-400">(كشف الحساب ←)</span>
+              </span>
+              <b className={`text-lg ${Number(cashBook.bank) < 0 ? "text-red-700" : "text-gray-800"}`} dir="ltr">
+                {formatPrice(Number(cashBook.bank))}
+              </b>
+            </Link>
+          </div>
+        )}
+
+        {/* مجموع المطابق للفلتر */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="glass-card p-4">
             <span className="text-sm text-gray-500">إجمالي المقبوض</span>
@@ -205,10 +236,11 @@ export default async function MovesPage({
                 <tbody>
                   {moves.map((m) => {
                     const who = partnerName(m.partner_id);
+                    const isAuto = m.kind === "auto";
                     const fromPocket =
                       m.direction === "صرف" && who && m.account_code !== "2500";
                     return (
-                      <tr key={m.id} className="border-b last:border-0">
+                      <tr key={`${m.kind}-${m.id}`} className="border-b last:border-0">
                         <td className="py-3 text-gray-600" dir="ltr">
                           {m.move_date}
                         </td>
@@ -218,7 +250,17 @@ export default async function MovesPage({
                             <span className="block text-xs text-gray-400">{m.notes}</span>
                           )}
                         </td>
-                        <td className="py-3 text-gray-600">{m.category}</td>
+                        <td className="py-3 text-gray-600">
+                          {m.category}
+                          {isAuto && (
+                            <span
+                              className="ms-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+                              title="قيد آلي كتبه النظام من مصدره — يُدار من هناك"
+                            >
+                              آلي
+                            </span>
+                          )}
+                        </td>
                         <td className="py-3">
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs ${
@@ -230,7 +272,10 @@ export default async function MovesPage({
                         </td>
                         <td className="py-3">
                           {/* حركات الشريك (2500) ليست إيراداً ولا مصروفاً — لا مشروع لها */}
-                          {m.account_code === "2500" ? (
+                          {isAuto ? (
+                            // مشروع القيد الآلي يُشتقّ من مصدره (sql/116) — لا يُغيَّر من هنا
+                            <span className="text-xs text-gray-600">{projectName(m.project_id)}</span>
+                          ) : m.account_code === "2500" ? (
                             <span className="text-xs text-gray-300">—</span>
                           ) : (
                             <ProjectSelect table="cash_moves" rowId={m.id} value={m.project_id ?? null} projects={projects} />
@@ -245,7 +290,7 @@ export default async function MovesPage({
                               )}
                             </>
                           ) : (
-                            <span className="text-gray-400">الشركة ({m.method})</span>
+                            <span className="text-gray-400">الشركة ({m.method ?? "—"})</span>
                           )}
                         </td>
                         <td
@@ -258,7 +303,15 @@ export default async function MovesPage({
                           {formatPrice(Number(m.amount))}
                         </td>
                         <td className="py-3 text-end">
-                          <DeleteMoveButton id={m.id} />
+                          {isAuto ? (
+                            m.link && (
+                              <Link href={m.link} className="text-xs font-medium text-brand-700 hover:underline">
+                                المصدر ←
+                              </Link>
+                            )
+                          ) : (
+                            <DeleteMoveButton id={m.id} />
+                          )}
                         </td>
                       </tr>
                     );
@@ -269,9 +322,16 @@ export default async function MovesPage({
           )}
         </div>
 
+        {totalCount > moves.length && (
+          <p className="text-xs text-amber-700">
+            المعروض أحدث {moves.length} من {totalCount} حركة — المجاميع أعلاه على الكل. ضيّق الفلتر لترى الأقدم.
+          </p>
+        )}
+
         <p className="text-xs text-gray-400">
-          كل حركة هنا تُرحَّل تلقائياً إلى دفتر القيود المحاسبي. لمعاينة القيود، افتح تبويب
-          «المحاسبة المتقدمة».
+          كل حركة هنا مُرحَّلة في دفتر القيود. الحركات المعلَّمة «آلي» كتبها النظام من مصدرها
+          (تحصيل عمولة من صفحة الوحدة، دفعة راتب من الكشف، دين، سلفة…) وتُدار من هناك. لمعاينة
+          القيود، افتح تبويب «المحاسبة المتقدمة».
         </p>
       </section>
     </main>

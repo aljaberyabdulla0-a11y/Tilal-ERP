@@ -248,7 +248,8 @@
 | 6 | **تأكيد المقدمة** — عمولة تلال | `confirm_down_payment(res, amount, price)` | 1250 | 4200 | 056, 069 |
 | 7 | ↳ عمولة الموظف (صفّ في `commissions`) | `trg_commission_ledger` → `post_commission_to_ledger` | 5500 | 2300 | 046 |
 | 8 | فاتورة المطوّر | `issue_developer_invoice` | — | — | 103 |
-| 9 | **تحصيل عمولة تلال** | `collect_company_commission` | 1100 | 1250 | 056, 103 |
+| 9 | **تحصيل عمولة تلال** — بسند قبض `commission_receipts` | `collect_company_commission` | 1100 (نقد) أو 1200 (بنك) | 1250 | 056, 103, 226 |
+| 9ب | إلغاء التحصيل (قيد عكسي COMMINREV، السند يبقى ملغى) | `cancel_commission_collection` | 1250 | 1100/1200 | 226 |
 | 10 | فسخ بيع لم تُحصَّل عمولته | `reverse_sale` | 4200 | 1250 | 065 |
 | 11 | اعتماد كشف الراتب | `approve_payroll` → `repost_payroll` | 5100 = E | 2300 = E − قسط − ضريبة − ضمان؛ 1360 = القسط؛ 2310؛ 2320 | 019, 051, 062, 064 |
 | 12 | دفعة راتب | `trg_payroll_payment_ledger` → `repost_payroll_payment` | 2300 | 1100/1200 | 019 |

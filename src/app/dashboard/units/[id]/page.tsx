@@ -20,6 +20,7 @@ import {
   UNIT_FIELD_LABELS,
   UNIT_STATUS_COLORS,
   UNIT_STATUS_DOTS,
+  CommissionReceipt,
   DeveloperInvoice,
   SaleCommission,
   UnitField,
@@ -119,8 +120,10 @@ export default async function UnitDetailsPage({
   const canFinance = await canManageFinance();
   let developerInvoice: DeveloperInvoice | null = null;
   let suggestedDeveloper = "";
+  // سند القبض الساري (sql/226): طريقة القبض ورقمه وقيده — وبه يُلغى التحصيل
+  let receipt: CommissionReceipt | null = null;
   if (sold && saleCommission && canFinance) {
-    const [{ data: inv }, { data: prev }] = await Promise.all([
+    const [{ data: inv }, { data: prev }, { data: rcpt }] = await Promise.all([
       supabase
         .from("developer_invoices")
         .select("*")
@@ -136,7 +139,14 @@ export default async function UnitDetailsPage({
             .limit(1)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      supabase
+        .from("commission_receipts")
+        .select("*")
+        .eq("reservation_id", sold.id)
+        .is("cancelled_at", null)
+        .maybeSingle(),
     ]);
+    receipt = (rcpt as CommissionReceipt) ?? null;
     developerInvoice = (inv as DeveloperInvoice) ?? null;
     suggestedDeveloper =
       (prev as { developer_name: string } | null)?.developer_name ?? "";
@@ -277,6 +287,7 @@ export default async function UnitDetailsPage({
             salesEmployees={salesEmployees}
             developerInvoice={developerInvoice}
             suggestedDeveloper={suggestedDeveloper}
+            receipt={receipt}
           />
         )}
 

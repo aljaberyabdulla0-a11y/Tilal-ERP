@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import {
+  CommissionReceipt,
   DeveloperInvoice,
   Reservation,
   SaleCommission,
   formatPrice,
 } from "@/lib/types";
+import { baghdadDate } from "@/lib/time";
 
 // ============================================================
 // المقدمة وعمولة الصفقة — مسار المال الحقيقي في نموذج الوساطة.
@@ -22,7 +24,11 @@ import {
 //   ١) تأكيد المقدمة  → تُستحقّ عمولة تلال (مدين 1250 / دائن 4200)
 //                        وعمولة الموظف   (مدين 5500 / دائن 2300)
 //   ٢) فاتورة العمولة للمطوّر → ورقةٌ يحوّل عليها، بلا قيد (sql/103)
-//   ٣) تحصيلها من المطوّر → مدين 1100 / دائن 1250، وعلى الفاتورة وحدها
+//   ٣) تحصيلها من المطوّر → سند قبض + قيد: مدين 1100 (نقد) أو 1200 (بنك)
+//                        / دائن 1250، وعلى الفاتورة وحدها (sql/226).
+//                        ويظهر قبضاً في «الحركات المالية». وإلغاؤه — للمدير —
+//                        قيدٌ عكسي والسند يبقى ملغى؛ بعده تُحصَّل من جديد
+//                        أو تُفسخ الصفقة (ردّ العمولة للمطوّر).
 //
 // وعمولة الموظف مستحقّة الدفع من يوم تأكيد المقدمة — تدخل كشف راتبه
 // تلقائياً ولا تنتظر التحصيل (sql/120). وموظف البيع يعيّنه المدير من
@@ -45,6 +51,7 @@ export default function DealCommission({
   salesEmployees,
   developerInvoice,
   suggestedDeveloper,
+  receipt,
 }: {
   reservation: Reservation;
   saleCommission: SaleCommission | null;
@@ -55,6 +62,7 @@ export default function DealCommission({
   salesEmployees: { id: string; full_name: string }[]; // للمدير وحده
   developerInvoice: DeveloperInvoice | null; // الفاتورة السارية إن وُجدت
   suggestedDeveloper: string; // آخر مطوّر فُوتر في المشروع نفسه
+  receipt: CommissionReceipt | null; // سند القبض الساري إن حُصّلت (sql/226)
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -71,6 +79,10 @@ export default function DealCommission({
   const [assigning, setAssigning] = useState(false);
   const [empPick, setEmpPick] = useState("");
   const [assignNote, setAssignNote] = useState<string | null>(null);
+  const [collecting, setCollecting] = useState(false);
+  const [collectDate, setCollectDate] = useState(baghdadDate());
+  const [collectMethod, setCollectMethod] = useState<"نقد" | "بنك">("نقد");
+  const [collectNotes, setCollectNotes] = useState("");
 
   const r = reservation;
   const sc = saleCommission;
@@ -205,16 +217,43 @@ export default function DealCommission({
   }
 
   async function collect() {
-    if (
-      !window.confirm(
-        `تسجيل تحصيل الفاتورة ${inv?.invoice_number ?? ""} من المطوّر؟ سيدخل المبلغ الصندوق.`
-      )
-    )
+    if (busy) return; // ضغطة ثانية أثناء الإرسال لا تُرسل شيئاً — والقاعدة ترفض التكرار أيضاً
+    if (!collectDate) {
+      setErr("اختر تاريخ القبض.");
       return;
+    }
     setBusy(true);
     setErr(null);
     const { error } = await supabase.rpc("collect_company_commission", {
       p_res: r.id,
+      p_date: collectDate,
+      p_method: collectMethod,
+      p_notes: collectNotes.trim() || null,
+    });
+    setBusy(false);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    setCollecting(false);
+    setCollectNotes("");
+    router.refresh();
+  }
+
+  // إلغاء التحصيل (للمدير): قيد عكسي يُخرج المبلغ من حيث دخل، والسند يبقى ملغى
+  async function cancelCollection() {
+    const where = receipt?.method === "بنك" ? "البنك" : "الصندوق";
+    const reason = window.prompt(
+      `سبب إلغاء تحصيل ${receipt?.receipt_number ?? "العمولة"}؟\n` +
+        `يُكتب قيد عكسي يُخرج ${formatPrice(sc?.company_amount ?? null)} من ${where} ويعيد الذمّة على المطوّر. ` +
+        `بعده تُحصَّل من جديد أو تُفسخ الصفقة.`
+    );
+    if (!reason?.trim()) return;
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("cancel_commission_collection", {
+      p_res: r.id,
+      p_reason: reason.trim(),
       p_date: null,
     });
     setBusy(false);
@@ -639,10 +678,50 @@ export default function DealCommission({
               <b dir="ltr" className="text-green-700">
                 {formatPrice(sc?.company_amount ?? null)}
               </b>{" "}
-              دخلت الصندوق{" "}
+              دخلت {receipt?.method === "بنك" ? "البنك" : "الصندوق"}{" "}
               <span className="text-xs text-gray-400" dir="ltr">
                 {sc?.collected_at}
               </span>
+              {receipt && (
+                <p className="mt-1 text-xs text-gray-500">
+                  سند قبض{" "}
+                  <b dir="ltr" className="text-gray-700">
+                    {receipt.receipt_number}
+                  </b>{" "}
+                  · {receipt.method}
+                  {receipt.notes && <span className="text-gray-400"> · {receipt.notes}</span>}
+                  {canFinance && receipt.journal_entry_id && (
+                    <>
+                      {" "}
+                      ·{" "}
+                      <Link
+                        href={`/dashboard/accounting/entries/${receipt.journal_entry_id}`}
+                        className="text-brand-700 hover:underline"
+                      >
+                        القيد
+                      </Link>{" "}
+                      ·{" "}
+                      <Link
+                        href="/dashboard/accounting/moves?dir=قبض"
+                        className="text-brand-700 hover:underline"
+                      >
+                        الحركات المالية
+                      </Link>
+                    </>
+                  )}
+                </p>
+              )}
+              {canAssign && receipt && (
+                <div className="mt-2">
+                  <button
+                    onClick={cancelCollection}
+                    disabled={busy}
+                    className="rounded-lg px-3 py-1.5 text-xs text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  >
+                    إلغاء التحصيل
+                  </button>
+                </div>
+              )}
             </>
           ) : !confirmed ? (
             <span className="text-xs text-gray-400">
@@ -654,9 +733,71 @@ export default function DealCommission({
             <span className="text-xs text-gray-400">
               أصدِر الفاتورة للمطوّر أولاً — التحصيل يُسجَّل عليها.
             </span>
+          ) : collecting ? (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">
+                قبض <b dir="ltr">{formatPrice(sc?.company_amount ?? null)}</b> عن الفاتورة{" "}
+                <b dir="ltr">{inv.invoice_number}</b> — يصدر به سند قبض، ويُقيَّد مدين{" "}
+                {collectMethod === "بنك" ? "البنك" : "الصندوق"} / دائن ذمّة المطوّر.
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">دخل المبلغ</span>
+                  <select
+                    value={collectMethod}
+                    onChange={(e) => setCollectMethod(e.target.value as "نقد" | "بنك")}
+                    className={input + " w-36"}
+                  >
+                    <option value="نقد">الصندوق (نقد)</option>
+                    <option value="بنك">البنك (تحويل)</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">تاريخ القبض</span>
+                  <input
+                    value={collectDate}
+                    onChange={(e) => setCollectDate(e.target.value)}
+                    type="date"
+                    max={baghdadDate()}
+                    dir="ltr"
+                    className={input + " w-40"}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-gray-600">
+                    ملاحظة <span className="text-gray-400">(اختياري — رقم الحوالة مثلاً)</span>
+                  </span>
+                  <input
+                    value={collectNotes}
+                    onChange={(e) => setCollectNotes(e.target.value)}
+                    className={input + " w-56"}
+                  />
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={collect}
+                  disabled={busy}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
+                >
+                  {busy ? "جارٍ…" : "تأكيد القبض"}
+                </button>
+                <button
+                  onClick={() => setCollecting(false)}
+                  disabled={busy}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 transition hover:bg-gray-100"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
           ) : (
             <button
-              onClick={collect}
+              onClick={() => {
+                setCollecting(true);
+                setCollectDate(baghdadDate());
+                setErr(null);
+              }}
               disabled={busy}
               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
             >

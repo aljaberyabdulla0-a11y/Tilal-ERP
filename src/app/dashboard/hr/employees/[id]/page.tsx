@@ -33,6 +33,7 @@ import EmploymentStatus from "./employment-status";
 import OnboardingPanel from "./onboarding-panel";
 import CompensationPanel from "./compensation-panel";
 import AssetsPanel from "./assets-panel";
+import RolesPanel, { type PositionRow, type AssignmentRow } from "./roles-panel";
 import type { OnboardingTask } from "@/lib/recruitment";
 import EmployeeDocumentsPanel from "@/components/employee-documents-panel";
 import EmployeeTimeline from "@/components/employee-timeline";
@@ -121,6 +122,24 @@ export default async function EmployeeDetailsPage({
     supabase.from("employee_project_allocations").select("*").eq("employee_id", id).order("start_date", { ascending: false }),
     supabase.from("projects").select("id, name").order("name"),
     supabase.from("employee_assets").select("*").eq("employee_id", id).order("assigned_date", { ascending: false }),
+  ]);
+  // الوظائف المتعددة والمسؤوليات (sql/228–229) — رحلة واحدة متوازية
+  const [
+    { data: posRows },
+    { data: raRows },
+    { data: posOpts },
+    { data: raOpts },
+    { data: plannedLoad },
+  ] = await Promise.all([
+    supabase.from("employee_positions")
+      .select("id, position_id, department_id, kind, reports_to, start_date, end_date, status, workload_pct, grants_role_permissions, permissions_expire_on, ended_reason, positions(title_ar), departments(name_ar)")
+      .eq("employee_id", id).order("start_date", { ascending: false }),
+    supabase.from("responsibility_assignments")
+      .select("id, responsibility_id, assignee_role, supervisor_id, start_date, end_date, is_permanent, status, workload_pct, ended_reason, responsibility_catalog(name_ar)")
+      .eq("employee_id", id).order("start_date", { ascending: false }),
+    supabase.from("positions").select("id, title_ar").eq("status", "نشط").order("title_ar"),
+    supabase.from("responsibility_catalog").select("id, name_ar").eq("is_active", true).is("archived_at", null).order("name_ar"),
+    supabase.rpc("employee_planned_workload", { p_employee: id }),
   ]);
   const exitStates = ["غير نشط", "مستقيل", "منتهية خدمته"];
   const transitions = ((trans ?? []) as { to_status: string }[])
@@ -296,6 +315,18 @@ export default async function EmployeeDetailsPage({
           employeeId={emp.id}
           tasks={(onboarding ?? []) as OnboardingTask[]}
           canEdit={hrCan && emp.status === "active"}
+        />
+
+        <RolesPanel
+          employeeId={emp.id}
+          positions={(posRows ?? []) as unknown as PositionRow[]}
+          assignments={(raRows ?? []) as unknown as AssignmentRow[]}
+          positionOptions={(posOpts ?? []).map((p: { id: string; title_ar: string }) => ({ id: p.id, label: p.title_ar }))}
+          responsibilityOptions={(raOpts ?? []).map((r: { id: string; name_ar: string }) => ({ id: r.id, label: r.name_ar }))}
+          peopleOptions={((peers ?? []) as Employee[]).map((p) => ({ id: p.id, label: p.full_name }))}
+          planned={Number(plannedLoad ?? 0)}
+          canEdit={hrCan && emp.status === "active"}
+          isAdmin={admin}
         />
 
         <CompensationPanel

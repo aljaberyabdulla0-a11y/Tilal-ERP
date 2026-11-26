@@ -138,8 +138,9 @@ begin
   -- T10 إنهاء الإضافية: يبقى السجلّ
   perform public.end_position_assignment(v_id, current_date, 'اختبار 228: إنهاء');
   if (select status from public.employee_positions where id = v_id) <> 'ended'
-     or (select end_date from public.employee_positions where id = v_id) is null then
-    raise exception 'T10 end failed';
+     or (select end_date from public.employee_positions where id = v_id) is null
+     or (select permissions_expire_on > end_date from public.employee_positions where id = v_id) then
+    raise exception 'T10 end failed or permissions outlive the position';
   end if;
   v_log := v_log || 'T10 ';
 

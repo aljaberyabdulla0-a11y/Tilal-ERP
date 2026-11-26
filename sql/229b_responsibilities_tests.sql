@@ -13,7 +13,7 @@ begin
   -- R1 المكتبة الأولية: 38 معطّلة بلا صلاحيات، و Customer QC ليست بينها
   if (select count(*) from public.responsibility_catalog where is_seed) <> 38
      or exists (select 1 from public.responsibility_catalog where is_seed and is_active)
-     or exists (select 1 from public.responsibility_permissions rp join public.responsibility_catalog c on c.id = rp.responsibility_id where c.is_seed)
+     or exists (select 1 from public.responsibility_permissions rp join public.responsibility_catalog cat on cat.id = rp.responsibility_id where cat.is_seed)
      or exists (select 1 from public.responsibility_catalog where code ilike '%customer_q%') then
     raise exception 'R1 seed wrong';
   end if;

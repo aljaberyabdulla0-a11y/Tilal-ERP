@@ -1,0 +1,18 @@
+[
+  { "key": "gm",          "role_code": "general_manager",   "dept": "EXEC",         "position": "GM",           "project": null, "name": "مدير عام اختبار" },
+  { "key": "hr_mgr",      "role_code": "hr_manager",        "dept": "HR",           "position": "HR-MGR",       "project": null, "name": "مدير HR اختبار" },
+  { "key": "hr_off",      "role_code": "hr_officer",        "dept": "HR",           "position": "HR-OFF",       "project": null, "name": "موظف HR اختبار" },
+  { "key": "mkt_mgr",     "role_code": "marketing_manager", "dept": "MKT-MGMT",     "position": "MKT-MGR",      "project": null, "name": "مدير تسويق اختبار" },
+  { "key": "mkt_emp",     "role_code": "marketing_employee","dept": "MKT-CONTENT",  "position": "MKT-WRITER",   "project": null, "name": "موظف تسويق اختبار" },
+  { "key": "ops_mgr",     "role_code": "operations_manager","dept": "OPS",          "position": "OPS-MGR",      "project": null, "name": "مدير عمليات اختبار" },
+  { "key": "admin_off",   "role_code": "employee",          "dept": "ADMIN",        "position": "ADMIN-OFF",    "project": null, "name": "موظف إدارة اختبار" },
+  { "key": "fin_mgr",     "role_code": "finance_manager",   "dept": "FIN",          "position": "FIN-MGR",      "project": null, "name": "مدير مالي اختبار" },
+  { "key": "sales_mgr",   "role_code": "sales_manager",     "dept": "SALES-MGMT",   "position": "SALES-MGR",    "project": null, "name": "مدير مبيعات اختبار" },
+  { "key": "sup_a",       "role_code": "supervisor",        "dept": "SALES-MGMT",   "position": "SALES-SUP",    "project": "A",  "name": "مشرف مبيعات أ" },
+  { "key": "sup_b",       "role_code": "supervisor",        "dept": "SALES-MGMT",   "position": "SALES-SUP",    "project": "B",  "name": "مشرف مبيعات ب" },
+  { "key": "sales_a1",    "role_code": "sales_employee",    "dept": "SALES-AGENTS", "position": "SALES-AGENT",  "project": "A",  "name": "بائع أ1" },
+  { "key": "sales_a2",    "role_code": "sales_employee",    "dept": "SALES-AGENTS", "position": "SALES-AGENT",  "project": "A",  "name": "بائع أ2" },
+  { "key": "sales_b1",    "role_code": "sales_employee",    "dept": "SALES-AGENTS", "position": "SALES-AGENT",  "project": "B",  "name": "بائع ب1" },
+  { "key": "sales_b2",    "role_code": "sales_employee",    "dept": "SALES-AGENTS", "position": "SALES-AGENT",  "project": "B",  "name": "بائع ب2" },
+  { "key": "crm_emp",     "role_code": "crm_employee",      "dept": "CRM",          "position": "CRM-SPEC",     "project": null, "name": "موظف CRM اختبار" }
+]

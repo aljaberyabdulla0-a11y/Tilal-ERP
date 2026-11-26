@@ -17,7 +17,8 @@ const out = outArg ?? join(root, "sql", `${name}.sql`);
 if (existsSync(out)) { console.error(`exists: ${out}`); process.exit(1); }
 if (!outArg) {
   const num = name.slice(0, 3);
-  const taken = readdirSync(join(root, "sql")).filter((f) => f.startsWith(num));
+  // ملف الاختبار المرافق (NNNb_*) لا يعدّ تعارضاً
+  const taken = readdirSync(join(root, "sql")).filter((f) => f.startsWith(num) && !f.startsWith(`${num}b_`));
   if (taken.length) { console.error(`number ${num} already used: ${taken.join(", ")}`); process.exit(1); }
 }
 const frame = readFileSync(join(root, "sql", "templates", "migration_frame.sql"), "utf8").replace(/\r/g, "");

@@ -1,4 +1,4 @@
-import { canSeeBrokers, getCurrentUser, getMyMktRole, getUserRole, isAccountActive } from "@/lib/auth";
+import { canSeeBrokers, getCurrentUser, getMyMktRole, getUserRole, isAccountActive, seesQualityControl } from "@/lib/auth";
 import { getT } from "@/lib/i18n/server";
 import AppShell, { NavItem } from "./app-shell";
 import type { PaletteAction } from "@/components/dashboard/command-palette";
@@ -74,12 +74,13 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // الثلاثة مخزّنة لكل طلب، فلا تكلّف رحلات شبكة إضافية
-  const [user, role, active, mktRole, seesBrokers] = await Promise.all([
+  const [user, role, active, mktRole, seesBrokers, seesQuality] = await Promise.all([
     getCurrentUser(),
     getUserRole(),
     isAccountActive(),
     getMyMktRole(),
     canSeeBrokers(),
+    seesQualityControl(),
   ]);
   const t = getT();
 
@@ -280,6 +281,11 @@ export default async function DashboardLayout({
 
     // التسويق: للمدير ولمن ضُمّ إلى فريق التسويق
     ...(seesMarketing ? [marketingNav] : []),
+
+    // ضبط الجودة (sql/230): للمدير العام ولأعضاء فريق المراجعة — العضوية علاقة لا دور
+    ...(seesQuality
+      ? [{ href: "/dashboard/quality", label: "ضبط الجودة", icon: "fact_check", prefixes: ["/dashboard/quality"] }]
+      : []),
 
     // فريقي — للمشرف وحده (المدير عنده شاشات الإدارة الكاملة)
     ...(supervisor

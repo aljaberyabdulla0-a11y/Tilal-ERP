@@ -214,6 +214,17 @@ export const canManageInventory = cache(async (): Promise<boolean> => {
 // ⚠️ الأربع تطابق can_read_marketing() و can_write_marketing() و
 //    is_marketing_manager() و can_read_marketing_money() حرفياً.
 // ============================================================
+// ضبط الجودة (sql/230): البند يظهر للمدير العام ولعضو فعّال في فريق مراجعة
+export const seesQualityControl = cache(async (): Promise<boolean> => {
+  const role = await getUserRole();
+  if (role === "admin") return true;
+  if (role === "broker") return false;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_review_team_ids");
+  if (error) return false;
+  return Array.isArray(data) && data.length > 0;
+});
+
 export const getMyMktRole = cache(async (): Promise<string | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("my_mkt_role");
